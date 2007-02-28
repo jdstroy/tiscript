@@ -1,0 +1,62 @@
+<HTML>
+  <HEAD>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="GENERATOR" content="BLOCKNOTE.NET">
+    <META name="source">
+    <META name="source">
+    <BASEFONT face="Verdana" size="2">
+    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+</STYLE>
+  </HEAD>
+<BODY>
+<H1>System object</H1>
+<P><FONT color=#ff3300>ATTN</FONT>: methods of this object are not always available to the script - they depend on feature parameters of VM creation.</P><DIV align="left">
+<TABLE border="0" cellpadding="4" cellspacing="0" width="100%">
+  <TR>
+    <TD colspan="2"><STRONG><FONT size="4">Constants</FONT></STRONG></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>IS_READONLY</EM></STRONG></TD>
+    <TD valign="middle">- int, scanFiles callback/attributes, file/dir is readonly.</TD>
+  </TR>
+  <TR>
+    <TD width="117" bgcolor=#ffffff valign="top" align="right"><STRONG><EM>IS_DIR</EM></STRONG></TD>
+    <TD valign="middle">- int, scanFiles callback/attributes, file is directory(folder).</TD>
+  </TR>
+  <TR>
+    <TD width="117" bgcolor=#ffffff valign="top" align="right"><STRONG><EM>IS_HIDDEN</EM></STRONG></TD>
+    <TD valign="middle">- int, scanFiles callback/attributes, file/dir is marked as hidden.</TD>
+  </TR>
+  <TR>
+    <TD width="117" bgcolor=#ffffff valign="top" align="right"><STRONG><EM>IS_SYSTEM</EM></STRONG></TD>
+    <TD valign="middle">- int, scanFiles callback/attributes, file/dir is marked as internal for the system.</TD>
+  </TR>
+  <TR>
+    <TD colspan="2" valign="top"><STRONG><FONT size="4">Methods</FONT></STRONG></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>scanFiles</EM></STRONG></TD>
+    <TD valign="middle">
+<P><STRONG>( </STRONG><EM>path</EM>:string [,<EM> callback</EM>:function]<STRONG> )</STRONG> :integer</P>
+<P>Function calls <EM>callback</EM> function for each entry found in directory defined by the <EM>path. Path</EM> can contain wildcards like ? or *. Function returns number of entries scanned.</P>
+<P>If callback is ommited then function just returns number of items satisfying path condition. In this form the scan can be used for testing of some file existence as an example.</P>
+<P>Callback function shall accept two parameters:</P>
+<BLOCKQUOTE>
+<P>function <EM>callback</EM>( <EM>filename</EM>: string, <EM>attributes</EM>: integer ): bool</P></BLOCKQUOTE>
+
+<P>where <EM>filename</EM> is an name of the file and <EM>attributes</EM> is an integer - OR-ed combination of IS_*** flags. Callback function shall return <EM>true</EM> if further scanning needed and <EM>false</EM> to stop enumeration.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>home</EM></STRONG></TD>
+    <TD valign="middle">
+<DIV><STRONG>(</STRONG>[<EM>relpath</EM>:string]<STRONG>)</STRONG> returns: <EM>string</EM></DIV>
+<P>Returns home folder of the application - folder where sciter started from. If <EM>relpath</EM> is some string then it will be appended to the return value. Use this if you need to find fully qualified file name residing in sciter folder or subfolder.</P></TD>
+  </TR>
+</TABLE>
+</DIV>
+<DIV>&nbsp;</DIV>
+</BODY>
+</HTML>
