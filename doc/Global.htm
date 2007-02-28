@@ -1,0 +1,141 @@
+<HTML>
+  <HEAD>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="GENERATOR" content="BLOCKNOTE.NET">
+    <META name="source">
+    <META name="source">
+    <BASEFONT face="Verdana" size="2">
+    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+</STYLE>
+  </HEAD>
+<BODY>
+<H1>Global namespace</H1>
+<P>Following functions and variables &quot;live&quot; in global namespace so they accessible in script without any namespace designator, e.g.</P>
+<BLOCKQUOTE>
+<P>var r = <EM>eval</EM>( <FONT color=#990099>&quot; 348.0 / 23.7 &quot;</FONT> );<BR><EM>stdout</EM>.printf( <FONT color=#990099>&quot;%f&quot;</FONT> , r );</P></BLOCKQUOTE>
+<DIV align="left">
+<TABLE border="0" cellpadding="4" cellspacing="0" width="100%">
+  <TR>
+    <TD colspan="2" valign="middle"><STRONG><FONT size="4">Global variables</FONT></STRONG></TD>
+    <TD width="140">&nbsp;</TD>
+  </TR>
+  <TR>
+    <TD width="117" bgcolor=#ffffff align="right"><STRONG><EM>stdin</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle"><EM>stream</EM>, standard input stream. Read-only.</TD>
+    <TD rowspan="3" width="140" bgcolor=#ffffff valign="middle">
+      <TABLE align="left" border="0" cellpadding="0" cellspacing="4">
+        <TR>
+          <TD><FONT size="6" color=#cc0000>!</FONT></TD>
+        </TR>
+      </TABLE>
+<DIV>These streams are created and managed by host application of the script engine</DIV></TD>
+  </TR>
+  <TR>
+    <TD width="117" bgcolor=#ffffff align="right"><STRONG><EM>stdout</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle"><EM>stream</EM>, standard output stream. Write-only.</TD>
+  </TR>
+  <TR>
+    <TD width="117" bgcolor=#ffffff align="right"><STRONG><EM>stderr</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle"><EM>stream</EM>, standard error stream. Engine reports here about all uncought exceptions.</TD>
+  </TR>
+  <TR>
+    <TD colspan="2" valign="top"><STRONG><FONT size="4">Global functions</FONT></STRONG></TD>
+    <TD width="140">&nbsp;</TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>eval</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>input</EM><STRONG> : </STRONG>string|stream <STRONG>&nbsp;</STRONG>[, <EM>env</EM> :object ]<STRONG> ) </STRONG>: <EM>value</EM></DIV>
+<P>Evaluates (interprets) <EM>input</EM> and returns its value. If <EM>input </EM>is a string than function interprets it as it is contain script source code. If <EM>input </EM>is a <EM>stream object</EM> then it compiles and executes source code from it.</P>
+<P>Example: after execution of the following:</P>
+<BLOCKQUOTE>
+<P>var obj = eval( <FONT color=#990099>&quot; { one:1, two:2 } &quot;</FONT> );</P></BLOCKQUOTE>
+
+<P>variable <EM>obj</EM> will contain object having two fields: <EM>one</EM> and <EM>two.</EM></P>
+<P><EM>env</EM> is an environment object - if provided then script execution takes place in namespace of that object. </P>
+<BLOCKQUOTE>
+<DIV>var env = { one:1, two:2 };<BR>var res = eval( <FONT color=#990099>&quot;one + two&quot;, </FONT>env);</DIV></BLOCKQUOTE>
+
+<DIV>After execution of two lines above variable <EM>res</EM> will contain integer 3.</DIV></TD>
+    <TD rowspan="7" width="140" bgcolor=#ffffff valign="top">
+      <TABLE align="left" border="0" cellpadding="0" cellspacing="4">
+        <TR>
+          <TD><FONT size="6" color=#cc0000>!</FONT></TD>
+        </TR>
+      </TABLE>
+<DIV>These functions available only if host application configured the engine to use them.</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&nbsp;</DIV></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>emit</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>input</EM> :string|stream,<STRONG> </STRONG><EM>output </EM>:stream<STRONG> </STRONG>[, <EM>env</EM> :object ] <STRONG>)</STRONG> :value</DIV>
+<P>Evaluates <EM>input</EM> stream in serverScript mode (see below) and emits result to <EM>output</EM> stream. Function assumes that executable script at the <EM>input</EM> text is contained in &lt;% %&gt; brackets. Function returns result of first standalone <EM>return</EM> statement in the input stream.</P>
+<P><EM>env</EM> is an environment object - see explanation above. </P>
+<P><EM>env</EM> allows to pass parameters to the input script from caller.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>load</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>source</EM> [, <EM>asServerScript</EM>]<STRONG> )</STRONG> :true|false</DIV>
+<P>Loads (compiles and executes) <EM>source</EM>. Source here either string - <STRONG>file name</STRONG> or <STRONG>stream object</STRONG>. If <EM>asServerScript</EM> provided and equals to <EM>true </EM>then source is interpreted as text with imbedded script like PHP or ASP web page source:</P>
+<P>&lt;html&gt; ... <FONT color=#990099>&lt;%</FONT> =some_script_function(); <FONT color=#990099>%&gt;</FONT>... &lt;/html&gt;</P>
+<P>These two fragments are equivalent:</P>
+<BLOCKQUOTE>
+<P><STRONG>load</STRONG>( <FONT color=#990099>&quot;c:/myscripts/test.js&quot;</FONT> );<BR>-and-<BR>var s = Stream.openFile(<FONT color=#990099>&quot;c:/myscripts/test.js&quot;</FONT>,<FONT color=#990099>&quot;r&quot;</FONT>); <STRONG>load</STRONG>( s );</P></BLOCKQUOTE>
+
+<P>Script execution takes place in namespace of caller of the function.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>loadbc</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>source</EM> <STRONG>)</STRONG> : <EM>true</EM> | <EM>false</EM></DIV>
+<P>Loads compiled bytecodes defined by <EM>source</EM>. Source here either string - <STRONG>file name</STRONG> or <STRONG>stream object</STRONG>.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>compile</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG>filename_in, filename_out<STRONG> ) </STRONG>or<STRONG><BR>( </STRONG>stream_in, stream_out<STRONG> ) </STRONG>:<STRONG> </STRONG><EM>true</EM> | <EM>false</EM></DIV>
+<P>Calls builtin compiler to compile <EM>in. </EM>Writes output bytecodes into<EM> out </EM>stream or file. Bytecodes can be loaded (executed) later by <EM>loadbc</EM> function.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>store</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>filename</EM> | <EM>stream</EM>, <EM>value</EM><STRONG> ) </STRONG>:<STRONG> </STRONG><EM>true</EM> | <EM>false</EM></DIV>
+<P>Stores the <EM>value</EM> into file <EM>filename </EM>or <EM>stream </EM>in binary form<EM>. </EM>Returns <EM>true</EM> if data was stored successfully.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>fetch</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>filename</EM> | <EM>stream</EM><STRONG> ) </STRONG>:<STRONG> </STRONG><EM>value</EM> | <EM>null</EM></DIV>
+<P>Restores value previously written into file <EM>filename</EM> or <EM>stream</EM> by function <EM>store.</EM> Returns the value or <EM>null</EM> if operation failed.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>hash</EM></STRONG></TD>
+    <TD colspan="2" bgcolor=#fffff0 valign="middle">
+<P><STRONG>( </STRONG><EM>value</EM><STRONG> ) </STRONG>: <EM>integer</EM></P>
+<P>Returns hash value of its argument.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>rand</EM></STRONG></TD>
+    <TD colspan="2" bgcolor=#fffff0 valign="middle">
+<P><STRONG>( </STRONG><EM>maxNumber</EM><STRONG> )</STRONG> : <EM>integer</EM></P>
+<P>Returns a random number between 0 and maxNumber-1.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>gc</EM></STRONG></TD>
+    <TD colspan="2" bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( )</STRONG> : <EM>undefined</EM></DIV>
+<P>Invokes garbage collector.</P></TD>
+  </TR>
+</TABLE>
+</DIV>
+<DIV>&nbsp;</DIV>
+</BODY>
+</HTML>

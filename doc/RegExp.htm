@@ -1,0 +1,68 @@
+<HTML>
+  <HEAD>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="GENERATOR" content="BLOCKNOTE.NET">
+    <META name="source">
+    <META name="source">
+    <BASEFONT face="Verdana" size=2>
+    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+</STYLE>
+  </HEAD>
+<BODY>
+<DIV><STRONG><FONT size=6>RegExp object</FONT></STRONG></DIV><DIV align=left>
+<TABLE border=0 cellpadding=4 cellspacing=0 width=100%>
+  <TR>
+    <TD colspan=2 valign=middle><STRONG><FONT size=4>Properties</FONT></STRONG></TD>
+  </TR>
+  <TR>
+    <TD width=117 bgcolor=#ffffff align=right><STRONG><EM>length</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>- <EM>integer</EM>, number of matches after last <EM>exec</EM> or <EM>match</EM> methods calls.</TD>
+  </TR>
+  <TR>
+    <TD width=117 bgcolor=#ffffff align=right><STRONG><EM>input</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>- <EM>string</EM>, last inspected string.</TD>
+  </TR>
+  <TR>
+    <TD width=117 bgcolor=#ffffff align=right><STRONG><EM>source</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>- <EM>string</EM>, source code of the regular expression - string this RegExp was build from.</TD>
+  </TR>
+  <TR>
+    <TD width=117 bgcolor=#ffffff align=right><STRONG><EM>index</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>- <EM>integer</EM>, character position where the first successful match begins in a searched string, read-only.</TD>
+  </TR>
+  <TR>
+    <TD width=117 bgcolor=#ffffff align=right><STRONG><EM>lastIndex</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>- <EM>integer</EM>, character position where the next match begins in a searched string.</TD>
+  </TR>
+  <TR>
+    <TD width=117 bgcolor=#ffffff align=right><STRONG><EM>[index]</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>- <EM>string</EM> | <EM>undefined</EM>, read-only, returns n-th matched fragment. <EM>Index</EM> is a zero based index, integer.</TD>
+  </TR>
+  <TR>
+    <TD colspan=2 valign=middle><STRONG><FONT size=4>Methods</FONT></STRONG></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>RegExp</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<P><STRONG>(regular-expresion [,flags])</STRONG></P>
+<P>Used for intitalization of new instance of RegExp object. <EM>regular-expresion</EM> is a string - source of the regular expression. &nbsp;<EM>flags</EM> is an optional string and if provided may contain characters <EM>'i' </EM>for case insensitive search<EM> </EM>and/or <EM>'g' -</EM> for global search - to find all occurences of source in the input string. <BR>Use this constructor as: <FONT face="monospace">var re = new RegExp(...);</FONT></P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>test</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<P><STRONG>(input)</STRONG> → &nbsp;<EM>true</EM> | <EM>false</EM></P>
+<P>Checks <EM>input</EM> string to see if a pattern exists within a string and returns <STRONG>true</STRONG> if so, and <STRONG>false</STRONG> otherwise.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>exec</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<P><STRONG>(input)</STRONG> → <EM>null</EM> | <EM>RegExp</EM> object</P>
+<P>Returns this RegExp object with length and list of matches set if pattern exists in <EM>input</EM> string or <EM>null</EM> otherwise.</P></TD>
+  </TR>
+</TABLE>
+</DIV>
+</BODY>
+</HTML>

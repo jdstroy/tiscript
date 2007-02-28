@@ -1,0 +1,204 @@
+# Project: tiscript
+# Makefile created by Dev-C++ 4.9.9.2
+
+CPP  = g++.exe
+CC   = gcc.exe
+WINDRES = windres.exe
+RES  = 
+OBJ  = main.o regexp/frontend.o regexp/memory.o regexp/regerror.o regexp/regexp.o regexp/widechar.o regexp/wregexp.o dybase/src/btree.o dybase/src/database.o dybase/src/dybase.o dybase/src/file.o dybase/src/pagepool.o int/json_cvt.o int/cs_bytevector.o int/cs_cobject.o int/cs_datetime.o int/cs_debug.o int/cs_enter.o int/cs_env.o int/cs_error.o int/cs_fcn.o int/cs_file.o int/cs_float.o int/cs_hash.o int/cs_heap.o int/cs_instanceof.o int/cs_int.o int/cs_integer.o int/cs_math.o int/cs_method.o int/cs_object.o int/cs_parse.o int/cs_persistent.o int/cs_printf.o int/cs_rcode.o int/cs_regexp.o int/cs_storage.o int/cs_stream.o int/cs_string.o int/cs_symbol.o int/cs_system.o int/cs_type.o int/cs_vector.o int/cs_xml_parser.o int/sockio/sockio.o com/cs_com.o com/cs_eval.o com/cs_scn.o com/cs_wcode.o tool/tl_base64.o tool/tl_basic.o tool/tl_datetime.o tool/tl_markup.o tool/tl_mm_file.o tool/tl_string.o tool/tl_url.o tool/tl_ustring.o tool/tl_util.o regexp/regsub.o $(RES)
+LINKOBJ  = main.o regexp/frontend.o regexp/memory.o regexp/regerror.o regexp/regexp.o regexp/widechar.o regexp/wregexp.o dybase/src/btree.o dybase/src/database.o dybase/src/dybase.o dybase/src/file.o dybase/src/pagepool.o int/json_cvt.o int/cs_bytevector.o int/cs_cobject.o int/cs_datetime.o int/cs_debug.o int/cs_enter.o int/cs_env.o int/cs_error.o int/cs_fcn.o int/cs_file.o int/cs_float.o int/cs_hash.o int/cs_heap.o int/cs_instanceof.o int/cs_int.o int/cs_integer.o int/cs_math.o int/cs_method.o int/cs_object.o int/cs_parse.o int/cs_persistent.o int/cs_printf.o int/cs_rcode.o int/cs_regexp.o int/cs_storage.o int/cs_stream.o int/cs_string.o int/cs_symbol.o int/cs_system.o int/cs_type.o int/cs_vector.o int/cs_xml_parser.o int/sockio/sockio.o com/cs_com.o com/cs_eval.o com/cs_scn.o com/cs_wcode.o tool/tl_base64.o tool/tl_basic.o tool/tl_datetime.o tool/tl_markup.o tool/tl_mm_file.o tool/tl_string.o tool/tl_url.o tool/tl_ustring.o tool/tl_util.o regexp/regsub.o $(RES)
+LIBS =  -L"C:/Dev-Cpp/lib" ../../Dev-Cpp/lib/libws2_32.a ../../Dev-Cpp/lib/librpcrt4.a  
+INCS =  -I"C:/Dev-Cpp/include"  -I"C:/tiscript/trunk/tool"  -I"C:/tiscript/trunk/include"  -I"C:/tiscript/trunk/dybase/inc"  -I"C:/tiscript/trunk/regexp" 
+CXXINCS =  -I"C:/Dev-Cpp/lib/gcc/mingw32/3.4.2/include"  -I"C:/Dev-Cpp/include/c++/3.4.2/backward"  -I"C:/Dev-Cpp/include/c++/3.4.2/mingw32"  -I"C:/Dev-Cpp/include/c++/3.4.2"  -I"C:/Dev-Cpp/include"  -I"C:/tiscript/trunk/tool"  -I"C:/tiscript/trunk/include"  -I"C:/tiscript/trunk/dybase/inc"  -I"C:/tiscript/trunk/regexp" 
+BIN  = tiscript.exe
+CXXFLAGS = $(CXXINCS)  
+CFLAGS = $(INCS)  
+RM = rm -f
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before tiscript.exe all-after
+
+
+clean: clean-custom
+	${RM} $(OBJ) $(BIN)
+
+$(BIN): $(OBJ)
+	$(CPP) $(LINKOBJ) -o "tiscript.exe" $(LIBS)
+
+main.o: main.cpp
+	$(CPP) -c main.cpp -o main.o $(CXXFLAGS)
+
+regexp/frontend.o: regexp/frontend.c
+	$(CPP) -c regexp/frontend.c -o regexp/frontend.o $(CXXFLAGS)
+
+regexp/memory.o: regexp/memory.c
+	$(CPP) -c regexp/memory.c -o regexp/memory.o $(CXXFLAGS)
+
+regexp/regerror.o: regexp/regerror.c
+	$(CPP) -c regexp/regerror.c -o regexp/regerror.o $(CXXFLAGS)
+
+regexp/regexp.o: regexp/regexp.c
+	$(CPP) -c regexp/regexp.c -o regexp/regexp.o $(CXXFLAGS)
+
+regexp/widechar.o: regexp/widechar.c
+	$(CPP) -c regexp/widechar.c -o regexp/widechar.o $(CXXFLAGS)
+
+regexp/wregexp.o: regexp/wregexp.cpp
+	$(CPP) -c regexp/wregexp.cpp -o regexp/wregexp.o $(CXXFLAGS)
+
+dybase/src/btree.o: dybase/src/btree.cpp
+	$(CPP) -c dybase/src/btree.cpp -o dybase/src/btree.o $(CXXFLAGS)
+
+dybase/src/database.o: dybase/src/database.cpp
+	$(CPP) -c dybase/src/database.cpp -o dybase/src/database.o $(CXXFLAGS)
+
+dybase/src/dybase.o: dybase/src/dybase.cpp
+	$(CPP) -c dybase/src/dybase.cpp -o dybase/src/dybase.o $(CXXFLAGS)
+
+dybase/src/file.o: dybase/src/file.cpp
+	$(CPP) -c dybase/src/file.cpp -o dybase/src/file.o $(CXXFLAGS)
+
+dybase/src/pagepool.o: dybase/src/pagepool.cpp
+	$(CPP) -c dybase/src/pagepool.cpp -o dybase/src/pagepool.o $(CXXFLAGS)
+
+int/json_cvt.o: int/json_cvt.cpp
+	$(CPP) -c int/json_cvt.cpp -o int/json_cvt.o $(CXXFLAGS)
+
+int/cs_bytevector.o: int/cs_bytevector.cpp
+	$(CPP) -c int/cs_bytevector.cpp -o int/cs_bytevector.o $(CXXFLAGS)
+
+int/cs_cobject.o: int/cs_cobject.cpp
+	$(CPP) -c int/cs_cobject.cpp -o int/cs_cobject.o $(CXXFLAGS)
+
+int/cs_datetime.o: int/cs_datetime.cpp
+	$(CPP) -c int/cs_datetime.cpp -o int/cs_datetime.o $(CXXFLAGS)
+
+int/cs_debug.o: int/cs_debug.cpp
+	$(CPP) -c int/cs_debug.cpp -o int/cs_debug.o $(CXXFLAGS)
+
+int/cs_enter.o: int/cs_enter.cpp
+	$(CPP) -c int/cs_enter.cpp -o int/cs_enter.o $(CXXFLAGS)
+
+int/cs_env.o: int/cs_env.cpp
+	$(CPP) -c int/cs_env.cpp -o int/cs_env.o $(CXXFLAGS)
+
+int/cs_error.o: int/cs_error.cpp
+	$(CPP) -c int/cs_error.cpp -o int/cs_error.o $(CXXFLAGS)
+
+int/cs_fcn.o: int/cs_fcn.cpp
+	$(CPP) -c int/cs_fcn.cpp -o int/cs_fcn.o $(CXXFLAGS)
+
+int/cs_file.o: int/cs_file.cpp
+	$(CPP) -c int/cs_file.cpp -o int/cs_file.o $(CXXFLAGS)
+
+int/cs_float.o: int/cs_float.cpp
+	$(CPP) -c int/cs_float.cpp -o int/cs_float.o $(CXXFLAGS)
+
+int/cs_hash.o: int/cs_hash.cpp
+	$(CPP) -c int/cs_hash.cpp -o int/cs_hash.o $(CXXFLAGS)
+
+int/cs_heap.o: int/cs_heap.cpp
+	$(CPP) -c int/cs_heap.cpp -o int/cs_heap.o $(CXXFLAGS)
+
+int/cs_instanceof.o: int/cs_instanceof.cpp
+	$(CPP) -c int/cs_instanceof.cpp -o int/cs_instanceof.o $(CXXFLAGS)
+
+int/cs_int.o: int/cs_int.cpp
+	$(CPP) -c int/cs_int.cpp -o int/cs_int.o $(CXXFLAGS)
+
+int/cs_integer.o: int/cs_integer.cpp
+	$(CPP) -c int/cs_integer.cpp -o int/cs_integer.o $(CXXFLAGS)
+
+int/cs_math.o: int/cs_math.cpp
+	$(CPP) -c int/cs_math.cpp -o int/cs_math.o $(CXXFLAGS)
+
+int/cs_method.o: int/cs_method.cpp
+	$(CPP) -c int/cs_method.cpp -o int/cs_method.o $(CXXFLAGS)
+
+int/cs_object.o: int/cs_object.cpp
+	$(CPP) -c int/cs_object.cpp -o int/cs_object.o $(CXXFLAGS)
+
+int/cs_parse.o: int/cs_parse.cpp
+	$(CPP) -c int/cs_parse.cpp -o int/cs_parse.o $(CXXFLAGS)
+
+int/cs_persistent.o: int/cs_persistent.cpp
+	$(CPP) -c int/cs_persistent.cpp -o int/cs_persistent.o $(CXXFLAGS)
+
+int/cs_printf.o: int/cs_printf.cpp
+	$(CPP) -c int/cs_printf.cpp -o int/cs_printf.o $(CXXFLAGS)
+
+int/cs_rcode.o: int/cs_rcode.cpp
+	$(CPP) -c int/cs_rcode.cpp -o int/cs_rcode.o $(CXXFLAGS)
+
+int/cs_regexp.o: int/cs_regexp.cpp
+	$(CPP) -c int/cs_regexp.cpp -o int/cs_regexp.o $(CXXFLAGS)
+
+int/cs_storage.o: int/cs_storage.cpp
+	$(CPP) -c int/cs_storage.cpp -o int/cs_storage.o $(CXXFLAGS)
+
+int/cs_stream.o: int/cs_stream.cpp
+	$(CPP) -c int/cs_stream.cpp -o int/cs_stream.o $(CXXFLAGS)
+
+int/cs_string.o: int/cs_string.cpp
+	$(CPP) -c int/cs_string.cpp -o int/cs_string.o $(CXXFLAGS)
+
+int/cs_symbol.o: int/cs_symbol.cpp
+	$(CPP) -c int/cs_symbol.cpp -o int/cs_symbol.o $(CXXFLAGS)
+
+int/cs_system.o: int/cs_system.cpp
+	$(CPP) -c int/cs_system.cpp -o int/cs_system.o $(CXXFLAGS)
+
+int/cs_type.o: int/cs_type.cpp
+	$(CPP) -c int/cs_type.cpp -o int/cs_type.o $(CXXFLAGS)
+
+int/cs_vector.o: int/cs_vector.cpp
+	$(CPP) -c int/cs_vector.cpp -o int/cs_vector.o $(CXXFLAGS)
+
+int/cs_xml_parser.o: int/cs_xml_parser.cpp
+	$(CPP) -c int/cs_xml_parser.cpp -o int/cs_xml_parser.o $(CXXFLAGS)
+
+int/sockio/sockio.o: int/sockio/sockio.cpp
+	$(CPP) -c int/sockio/sockio.cpp -o int/sockio/sockio.o $(CXXFLAGS)
+
+com/cs_com.o: com/cs_com.cpp
+	$(CPP) -c com/cs_com.cpp -o com/cs_com.o $(CXXFLAGS)
+
+com/cs_eval.o: com/cs_eval.cpp
+	$(CPP) -c com/cs_eval.cpp -o com/cs_eval.o $(CXXFLAGS)
+
+com/cs_scn.o: com/cs_scn.cpp
+	$(CPP) -c com/cs_scn.cpp -o com/cs_scn.o $(CXXFLAGS)
+
+com/cs_wcode.o: com/cs_wcode.cpp
+	$(CPP) -c com/cs_wcode.cpp -o com/cs_wcode.o $(CXXFLAGS)
+
+tool/tl_base64.o: tool/tl_base64.cpp
+	$(CPP) -c tool/tl_base64.cpp -o tool/tl_base64.o $(CXXFLAGS)
+
+tool/tl_basic.o: tool/tl_basic.cpp
+	$(CPP) -c tool/tl_basic.cpp -o tool/tl_basic.o $(CXXFLAGS)
+
+tool/tl_datetime.o: tool/tl_datetime.cpp
+	$(CPP) -c tool/tl_datetime.cpp -o tool/tl_datetime.o $(CXXFLAGS)
+
+tool/tl_markup.o: tool/tl_markup.cpp
+	$(CPP) -c tool/tl_markup.cpp -o tool/tl_markup.o $(CXXFLAGS)
+
+tool/tl_mm_file.o: tool/tl_mm_file.cpp
+	$(CPP) -c tool/tl_mm_file.cpp -o tool/tl_mm_file.o $(CXXFLAGS)
+
+tool/tl_string.o: tool/tl_string.cpp
+	$(CPP) -c tool/tl_string.cpp -o tool/tl_string.o $(CXXFLAGS)
+
+tool/tl_url.o: tool/tl_url.cpp
+	$(CPP) -c tool/tl_url.cpp -o tool/tl_url.o $(CXXFLAGS)
+
+tool/tl_ustring.o: tool/tl_ustring.cpp
+	$(CPP) -c tool/tl_ustring.cpp -o tool/tl_ustring.o $(CXXFLAGS)
+
+tool/tl_util.o: tool/tl_util.cpp
+	$(CPP) -c tool/tl_util.cpp -o tool/tl_util.o $(CXXFLAGS)
+
+regexp/regsub.o: regexp/regsub.c
+	$(CPP) -c regexp/regsub.c -o regexp/regsub.o $(CXXFLAGS)

@@ -1,0 +1,1 @@
+gperf.exe -t -L C++ -H htmlentities -N find_def -Z html_entities -D html_entities.txt > html_entities_ph.h
