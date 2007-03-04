@@ -326,9 +326,9 @@ static value CSF_putc(VM *c)
     return true;
   }
 
-  static bool PrintData( VM *c, value val, stream* s, int* tabs );
+  static bool PrintData( VM *c, value val, stream* s, int* tabs, tool::pool<value>& emited );
 
-  static bool PrintVectorData(VM *c,value val,stream *s, int *tabs)
+  static bool PrintVectorData(VM *c,value val,stream *s, int *tabs, tool::pool<value>& emited)
   {
       if( _CsIsPersistent(val) ) val = CsFetchVectorData(c, val);
 
@@ -340,7 +340,7 @@ static value CSF_putc(VM *c)
       for (i = 0; i < size; )
       {
           CsPush(c,val);
-          if( !PrintData(c,CsVectorElement(c,val,i),s,tabs))
+          if( !PrintData(c,CsVectorElement(c,val,i),s,tabs,emited))
             return false;
           if (++i < size)
               s->put(',');
@@ -351,7 +351,7 @@ static value CSF_putc(VM *c)
       return true;
   }
 
-  static bool PrintObjectData(VM *c,value val,stream *s, int *tabs)
+  static bool PrintObjectData(VM *c,value val,stream *s, int *tabs, tool::pool<value>& emited)
   {
       if(val == c->nullValue)
       {
@@ -381,9 +381,10 @@ static value CSF_putc(VM *c)
       {
         stream *s;
         int *tabs;
+        tool::pool<value>& emited;
         int  n;
 
-        scanner(): s(0), tabs(0), n(0){}
+        scanner(tool::pool<value>& guard): s(0), tabs(0), n(0), emited(guard) {}
 
         bool item( VM *c, value key, value val )
         {
@@ -394,12 +395,12 @@ static value CSF_putc(VM *c)
           //CsCheck(c,2);
           //CsPush(c,key);
           //CsPush(c,val);
-          if (!PrintData(c,key,s,tabs)) return false;
+          if (!PrintData(c,key,s,tabs,emited)) return false;
           if (!s->put_str(":")) return false;
-          if (!PrintData(c,val,s,tabs)) return false;
+          if (!PrintData(c,val,s,tabs,emited)) return false;
           return true;
         }
-      } osc;
+      } osc(emited);
 
       osc.s = s;
       osc.tabs = tabs;
@@ -416,7 +417,7 @@ static value CSF_putc(VM *c)
       return true;
   }
 
-  static bool PrintData( VM *c, value val, stream* s, int* tabs )
+  static bool PrintData( VM *c, value val, stream* s, int* tabs, tool::pool<value>& emited )
   {
      if( CsIntegerP(val) || CsFloatP(val) )
        return PrintNumericData(c,val,s,tabs);
@@ -425,9 +426,25 @@ static value CSF_putc(VM *c)
      else if(CsStringP(val))
        return PrintStringData(c,val,s,tabs);
      else if(CsVectorP(val))
-       return PrintVectorData(c,val,s,tabs);
+     {
+       if(emited.exists(val))
+        s->put_str("<recursive reference!>");
+       else
+       {
+        (void) emited[val];
+        return PrintVectorData(c,val,s,tabs,emited);
+       }
+     }
      else if(CsObjectP(val))
-       return PrintObjectData(c,val,s,tabs);
+     {
+       if(emited.exists(val))
+        s->put_str("<recursive reference!>");
+       else
+       {
+         (void) emited[val];
+         return PrintObjectData(c,val,s,tabs,emited);
+       }
+     }
      else if(CsDateP(c,val))
      {
        s->put_str("new Date(\"");
@@ -445,12 +462,13 @@ static value CSF_putc(VM *c)
 
   bool CsPrintData( VM *c, value val, stream* s, bool verbose )
   {
+     tool::pool<value> guard;
      if( verbose )
      {
         int tabs = 0;
-        return PrintData( c, val, s, &tabs );
+        return PrintData( c, val, s, &tabs, guard );
      }
-     return PrintData(c,val,s, 0);
+     return PrintData(c,val,s, 0, guard);
   }
 
 

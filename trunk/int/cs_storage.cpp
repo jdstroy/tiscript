@@ -1001,10 +1001,30 @@ void CsStoreObjectData( VM *c, value obj )
 	assert(h);
   if(!h) { CsThrowKnownError(c, CsErrPersistError, strErrCantSaveObj); }
 
+  struct oscanner_counter: object_scanner
+  {
+    int counter;
+    dybase_handle_t h;
+    value vs;
+    bool item( VM *c, value key, value val )
+    {
+      if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' ) 
+        return true; // this is not persistable member.
+      ++counter;
+      return true; // continue scan
+    }
+  } oscounter;
+
+  oscounter.counter = 0;
+  oscounter.h = h;
+  oscounter.vs = vs;
+  CsScanObjectNoLoad(c,obj,oscounter);
+
 		// -- store all properties --
-	int countProperties = CsObjectPropertyCount(obj);
+	//int countProperties = CsObjectPropertyCount(obj);
 	// saving pairs: tag + value
-	dybase_store_object_field(h, ".", dybase_map_type, 0, countProperties);
+	
+  dybase_store_object_field(h, ".", dybase_map_type, 0, oscounter.counter);
 
   // scan all obj properties and store every (key val) pair
   struct oscanner: object_scanner
@@ -1013,9 +1033,11 @@ void CsStoreObjectData( VM *c, value obj )
     value vs;
     bool item( VM *c, value key, value val )
     {
+      if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' ) 
+        return true; // this is not persistable member.
       StoreValue(c, vs, h,key);
       StoreValue(c, vs, h,val);
-      return true; // continuue scan
+      return true; // continue scan
     }
   } osc;
 
@@ -1125,7 +1147,8 @@ void Transform(VM* c, value vs, value val, db_triplet& db_v)
 	}
 	else if( CsStringP( val ) )
 	{
-#pragma TODO("Alex, consider use of UTF8 here!")
+// #pragma TODO("Alex, consider use of UTF8 here!"), 
+// too late, databases already in the wild.
 		db_v.len = 1 + CsStringSize(val) * sizeof(wchar); // length in bytes + 1 byte for the type
     db_v.data.s = new byte[db_v.len];
     byte strType = db_wchar;
