@@ -92,6 +92,20 @@ namespace tool
     return key;*/
   }
 
+  template<>
+  inline unsigned int
+    hash<uint64> (uint64 const& v )
+  {
+    return (unsigned int) v;
+  }
+
+  template<>
+  inline unsigned int
+    hash<int64> (int64 const& v )
+  {
+    return (unsigned int) v;
+  }
+
 
   #define mix(a,b,c) \
   { \

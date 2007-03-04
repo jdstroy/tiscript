@@ -367,19 +367,19 @@ json::value CsSendMessageByNameJSON(VM *c,value obj, const char *sname,int argc,
 
     tool::ustring funcname(sname);
 
-    //value tag = CsInternCString(c,sname);
-    //value method;
-    //if(!CsGetProperty(c,obj,tag,&method))
-    //{
-    //  if( optional ) return json::value();
-    //}
-    auto_scope as( c,obj );
+    value tag = CsInternCString(c,sname);
+    value method;
+    if(!CsGetProperty(c,obj,tag,&method))
+    {
+      if( optional ) return json::value();
+    }
+    //auto_scope as( c,obj );
 
     c->val = c->undefinedValue;
 
     TRY
     {
-      value method = CsEvalString( CsCurrentScope(c),funcname, funcname.length());
+      //value method = CsEvalString( CsCurrentScope(c),funcname, funcname.length());
 
       if( !CsMethodP(method))
       {

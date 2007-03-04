@@ -795,7 +795,7 @@ void CsDefaultScan(VM *c,value obj)
 /* CsDefaultHash - default obj hash routine */
 int_t CsDefaultHash(value obj)
 {
-    return 0;
+    return (int_t)obj;
 }
 
 /* BROKEN HEART */
