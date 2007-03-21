@@ -459,6 +459,56 @@ bool CsSetObjectPropertyNoLoad(VM *c,value obj,value tag,value val)
     return true;
 }
 
+bool CsSetObjectPersistentProperty(VM *c,value obj,value tag,value val)
+{
+    int_t hashValue,i;
+    value p;
+
+    if( tag == c->prototypeSym )
+    {
+      if( !CsObjectP(val) )
+        CsUnexpectedTypeError(c,val, "instance of Object class");
+      CsSetObjectClass(obj, val);
+      return true;
+    }
+
+    if( p = CsFindProperty(c,obj,tag,&hashValue,&i))
+    {
+      value propValue = CsPropertyValue(p);
+      CsSetPropertyValue(p,val);
+      return true;
+    }
+
+    value self = obj;
+
+    while ( ((obj = CsObjectClass(obj)) != 0) && CsObjectOrMethodP(obj))
+    {
+      if( p = CsFindProperty(c,obj,tag,0,0))
+      {
+        value propValue = CsPropertyValue(p);
+        if(CsPropertyMethodP(propValue))
+        {
+          //CsSendMessage(c,self,propValue,1, val );
+          return true;
+        }
+		    else if (CsVPMethodP(propValue))
+        {
+			    //vp_method *method = ptr<vp_method>(propValue);
+          //if (method->set(c,obj,val))
+          return true;
+			    //else
+				  //  CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
+		    }
+        else if( CsPropertyIsConst(p) )
+          //CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
+          return true;
+        break;
+      }
+    }
+    CsAddProperty(c,self,tag,val,hashValue,i);
+    return true;
+}
+
 /* CsSetObjectProperty - Object set property handler */
 bool CsSetObjectProperty(VM *c,value obj,value tag,value val)
 {
@@ -1021,23 +1071,6 @@ value CsMakeNamespace(VM *c,value globals,value next)
     CsSetNamespaceGlobals(newo,CsPop(c));
     return newo;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 }

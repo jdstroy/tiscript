@@ -457,6 +457,9 @@ static bool Execute(VM *c)
             Send(c,&CsCallCDispatch,*c->pc++);
             break;
         case BC_RETURN:
+            if((*c->fp->pdispatch->restore)(c))
+              return true;
+            break;
         case BC_UNFRAME:
             if((*c->fp->pdispatch->restore)(c))
               return true;
@@ -575,9 +578,20 @@ static bool Execute(VM *c)
             UnaryOp(c,'-');
             break;
         case BC_ADD:
-            if (CsStringP(c->val)) {
+            if (CsStringP(c->val)) 
+            {
                 p1 = CsPop(c);
-                if (!CsStringP(p1)) CsTypeError(c,p1);
+                if (!CsStringP(p1)) 
+                  c->val = ConcatenateStrings(c,CsToString(c,p1),c->val);
+                else
+                  c->val = ConcatenateStrings(c,p1,c->val);
+            }
+            else if (CsStringP(CsTop(c))) 
+            {
+                p1 = CsPop(c);
+                if (!CsStringP(c->val)) 
+                  c->val = ConcatenateStrings(c,p1,CsToString(c,c->val));
+                else
                 c->val = ConcatenateStrings(c,p1,c->val);
             }
             else
@@ -751,10 +765,6 @@ static bool Execute(VM *c)
             CsPush(c,c->scopes->globals);
             break;
         case BC_PUSH_NS:
-            //{
-            //  auto_scope as(c,c->val);
-            //  Execute(c); // trik-trak
-            //}
             CsCheck(c,1);
             CsPush(c,c->currentScope.globals);
             c->currentScope.globals = c->val;
@@ -833,10 +843,7 @@ static bool Execute(VM *c)
             break;
         case BC_EH_POP:
 /* } try end successfully reached */
-            off = *c->pc++;
-            off |= *c->pc++ << 8;
-            c->pc = c->cbase + off; // setup prg counter for 'finally' block
-            return false; // !!!!!
+            return false;  // return false to indicate that we've exited try block
         case BC_NEXT:
             c->val = GetNextMember(c,&c->sp[0],c->sp[1]);
             break;
@@ -858,6 +865,21 @@ static bool Execute(VM *c)
         case BC_INCLUDE:
             assert(CsStringP(c->val));
             c->val = CsInclude( CsCurrentScope(c), value_to_string(c->val));
+            break;
+
+        case BC_S_CALL:
+            CsCheck(c,1);
+            off = c->pc - c->cbase + 2;
+            CsPush(c,int_value(  off  ));
+            off = c->pc[0];
+            off |= c->pc[1] << 8;
+            c->pc = c->cbase + off;
+            break;
+
+        case BC_S_RETURN:
+            assert( CsIntegerP(CsTop(c)) );
+            off = to_int(CsPop(c));
+            c->pc = c->cbase + off;
             break;
 
         default:

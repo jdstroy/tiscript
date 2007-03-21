@@ -9,6 +9,7 @@
 #define __CSINT_H__
 
 /* opcodes */
+#define BC_NOP        0x00    /* NOP */
 #define BC_BRT        0x01    /* branch on true */
 #define BC_BRF        0x02    /* branch on false */
 #define BC_BR         0x03    /* branch unconditionally */
@@ -69,24 +70,26 @@
 #define BC_TYPEOF     0x3a    /* val <- typeof (symbol) */
 #define BC_EH_PUSH    0x3b    /* push error handler */
 #define BC_EH_POP     0x3c    /* pop error handler */
-#define BC_IN         0x3d    /* val <- true/false */
-#define BC_NEXT       0x3e    /* val <- next(top,val) */
-#define BC_NOTHING    0x3f    /* load val with inernal 'nothing' value*/
-#define BC_BRDEF      0x40    /* branch on c->val != nothingValue */
-#define BC_OUTPUT     0x41    /* output value */
-#define BC_EQ_STRONG  0x42    /* identical */
-#define BC_NE_STRONG  0x43    /* not identical */
-#define BC_GETRANGE   0x44    /* make a range */
-#define BC_F          0x45    /* load val with false */
-#define BC_SETPM      0x46    /* set method */
-#define BC_GSETC      0x47    /* set the value of a global constatn */
-#define BC_PUSH_NS    0x48    /* push currentScope.globals on stack */
-#define BC_POP_NS     0x49    /* pops currentScope.globals from stack */
-#define BC_PROTO      0x50    /* c-val = CsObjectClass(c->val) */
-#define BC_BRUNDEF    0x51    /* branch on c->val == nothingValue */
-#define BC_INCLUDE    0x52    /* include instruction */
-#define BC_LIKE       0x53    /* val <- true/false if left matches right */
-#define BC_DEBUG      0x54
-
+//#define BC_EH_RETURN  0x3d    /* return in try block */
+#define BC_IN         0x3e    /* val <- true/false */
+#define BC_NEXT       0x3f    /* val <- next(top,val) */
+#define BC_NOTHING    0x40    /* load val with inernal 'nothing' value*/
+#define BC_BRDEF      0x41    /* branch on c->val != nothingValue */
+#define BC_OUTPUT     0x42    /* output value */
+#define BC_EQ_STRONG  0x43    /* identical */
+#define BC_NE_STRONG  0x44    /* not identical */
+#define BC_GETRANGE   0x45    /* make a range */
+#define BC_F          0x46    /* load val with false */
+#define BC_SETPM      0x47    /* set method */
+#define BC_GSETC      0x48    /* set the value of a global constatn */
+#define BC_PUSH_NS    0x49    /* push currentScope.globals on stack */
+#define BC_POP_NS     0x50    /* pops currentScope.globals from stack */
+#define BC_PROTO      0x51    /* c-val = CsObjectClass(c->val) */
+#define BC_BRUNDEF    0x52    /* branch on c->val == nothingValue */
+#define BC_INCLUDE    0x53    /* include instruction */
+#define BC_LIKE       0x54    /* val <- true/false if left matches right */
+#define BC_DEBUG      0x55
+#define BC_S_CALL     0x56    /* push current PC of next instruction on top of the stack and jump to instruction given by arg.  */
+#define BC_S_RETURN   0x57    /* pop value of PC from top of the stack. */
 
 #endif
