@@ -143,7 +143,6 @@ void storage::CommitHash(VM* c)
         CsStoreVectorData(c,obj);
       else if( CsMovedVectorP(obj) )
         CsStoreVectorData(c,obj);
-
       //else if(  )
       //  CsStoreVectorData(c,CsVectorForwardingAddr(obj));
       else if( CsDbIndexP(c, obj) )
@@ -186,6 +185,7 @@ void storage::InsertInHash( oid_t oid, value obj )
 {
 	//Why you need this?
   //       this->hashS.get_index ( oid, true );
+  assert(!CsBrokenHeartP(obj));
   this->hashS[oid] = obj;
   //printf("st=%x value=%I64x oid=%x size=%d\n", this, obj, oid, this->hashS.size());
  
@@ -247,41 +247,53 @@ void StoragePreGC(VM* c, value vs )
 /* gc completed =>
   cleanup storage hash
 */
-void StoragePostGC(VM* c, value& vs)
+void StoragePostGC(VM* c, value vs)
 {
   storage* s = (storage*)CsCObjectValue(vs);
   assert(s && s->dbS);
 
   trace(L"Original Total number of objects in hash: %ld\n", s->hashS.size() );
 
-  oid_t oid = 0;
-  int i = 0;
-	for(i = s->hashS.size() - 1; i >= 0 ; i--)
-	{
-		if( CsBrokenHeartP(s->hashS(i)) )
-		{
-			oid = ptr<persistent_header>(s->hashS(i))->oid;
-			s->hashS[oid] = CsBrokenHeartForwardingAddr(s->hashS(i));
-//trace(L"Broken heart: oid 0x%x\n", oid);
-		}
-		else
-		{
-			oid = ptr<persistent_header>(s->hashS(i))->oid;
-			s->hashS.remove(oid);
-//trace(L"Removing from hash: oid 0x%x\n", oid);
-		}
-	}
+	//if( !s->hashS.size() )
+  //   return; 
 
-  trace(L"Total number of objects in storage hash: %ld\n", s->hashS.size() );
+  int i = 0; 
 
   // maintenance of hashNameProto
 	for(i = s->hashNameProto.size() - 1; i >= 0 ; i--)
     s->hashNameProto(i) = CsCopyValue(c, s->hashNameProto(i) );
 
+  storageHash newHashT;
 
-	/* restore storage object */
-	if( s->hashS.size() && CsBrokenHeartP(vs))
-	{ vs = CsBrokenHeartForwardingAddr(vs); }
+  oid_t oid = 0;
+  int n_toremove = 0;
+	for(i = s->hashS.size() - 1; i >= 0 ; i--)
+	{
+    value obj = s->hashS(i);
+		if( CsBrokenHeartP(obj) ) // if it copied into new half - so it is needed. 
+		{
+      value nobj = CsBrokenHeartForwardingAddr(obj);
+      assert(!CsBrokenHeartP(nobj));
+
+      persistent_header* oph = ptr<persistent_header>( obj );
+      persistent_header* nph = ptr<persistent_header>( nobj );
+
+			nph->oid = oph->oid;
+      nph->vstorage = vs;
+
+      assert(oph->oid);
+
+			newHashT[oid] = nobj;
+//trace(L"Broken heart: oid 0x%x\n", oid);
+		}
+	}
+
+  tool::swap(newHashT, s->hashS);
+
+  trace(L"Total number of objects in storage hash: %ld\n", s->hashS.size() );
+
+
+
 }
 
 bool IsEmptyStorage(value vs)
@@ -668,7 +680,7 @@ value CsFetchVector( VM *c, value vs, dybase_oid_t oid )
     dybase_end_load_object(h);
 
     value vec = CsMakeVector(c, value_length);
-
+    assert(oid);
     ptr<persistent_header>(vec)->oid = oid;
     ptr<persistent_header>(vec)->vstorage = vs;
     ptr<persistent_header>(vec)->loaded(false); // clear loaded flag
@@ -678,6 +690,8 @@ value CsFetchVector( VM *c, value vs, dybase_oid_t oid )
 
     return vec;
 }
+
+extern bool CsSetObjectPersistentProperty(VM *c,value obj,value tag,value val);
 
 // fetch object data
 value  CsFetchObjectData( VM *c, value obj )
@@ -734,7 +748,7 @@ value  CsFetchObjectData( VM *c, value obj )
         value val = FetchValue( c, vs, h );
       key = CsPop(c);
       obj = CsTop(c);
-		  CsSetObjectPropertyNoLoad( c, obj, key, val );
+		  CsSetObjectPersistentProperty( c, obj, key, val );
 	}
   obj = CsPop(c);
 
@@ -755,6 +769,8 @@ value  CsFetchVectorData( VM *c, value obj )
   dybase_oid_t  oid = ptr<persistent_header>(obj)->oid;
   value         vs = ptr<persistent_header>(obj)->vstorage;
   storage*      s = (storage*)CsCObjectValue(vs);
+
+  assert(oid);
 
 	dybase_handle_t h = dybase_begin_load_object(s->dbS, oid);
 	assert(h);

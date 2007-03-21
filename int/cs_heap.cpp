@@ -767,12 +767,14 @@ value CsDefaultCopy(VM *c,value obj)
 */
     if( CsIsPersistent(c,obj) )
     {
-      CsPersistStorage(newObj) = CsCopyValue(c, CsPersistStorage(obj));
+      CsStorageOfPersistent(newObj) = CsCopyValue(c, CsStorageOfPersistent(obj));
+      assert(ptr<persistent_header>(newObj)->oid);
+
 /*
 #ifdef _DEBUG
         c->standardOutput->printf( L"\npersit obj '0x%x' was copied from old to new space\t", ptr<persistent_header>(obj)->oid );
-        c->standardOutput->printf( L"old storage: '0x%x' -> new: ", CsPersistStorage(obj)  );
-        c->standardOutput->printf( L"'0x%x'\n", CsPersistStorage(newObj) );
+        c->standardOutput->printf( L"old storage: '0x%x' -> new: ", CsStorageOfPersistent(obj)  );
+        c->standardOutput->printf( L"'0x%x'\n", CsStorageOfPersistent(newObj) );
 #endif // _DEBUG
 */
     }

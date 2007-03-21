@@ -1770,10 +1770,10 @@ void CsInitStorage(VM* c);
 /* restore persistent obj from an assosiated storage */
 value CsRestoreObj( VM *c, value obj );
 
-inline value& CsPersistStorage(value obj) { return ptr<persistent_header>(obj)->vstorage; }
+inline value& CsStorageOfPersistent(value obj) { return ptr<persistent_header>(obj)->vstorage; }
 
 void StoragePreGC(VM* c, value vs );
-void StoragePostGC(VM* c, value& s);
+void StoragePostGC(VM* c, value vs);
 bool IsEmptyStorage(value s);
 void DestroyStorage(VM *c, value obj);
 

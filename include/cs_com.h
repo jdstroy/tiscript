@@ -185,6 +185,16 @@ struct CsCompiler {
     const char* qualifiedName;          /* scanner - full name of object being parsed: class and function */
     bool  JSONonly;                     /* parse only data declarations - JSON data literals */
 
+    struct TryCatchDef
+    {
+      int  finallyAddr;                 /* current finally block addr */
+      bool inTry;                       /* is in try block parsing */  
+      TryCatchDef* prev;
+      TryCatchDef(): finallyAddr(0), inTry(true), prev(0) {}
+    };
+
+    TryCatchDef *tcStack;               /* current try/catch stack */    
+
     const wchar* get_wtoken_string()
     {
       if( t_wtoken.size() == 0 )

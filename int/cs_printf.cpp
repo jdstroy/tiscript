@@ -35,19 +35,15 @@ tool::ustring htmlEscape( const wchar* wc )
 
   void stream::printf_args(VM *c, int argi)
   {
-    wchar *pc, *fmtend;
-    int   fmtlen;
-    wchar *fmt;
+    const wchar *pc, *fmtend;
 
-    tool::ustring cfmt;
     value fmtstr = CsGetArgSafe(c,argi);
     if(!CsStringP(fmtstr))
       return;
 
-    fmt = CsStringAddress(fmtstr);
-    fmtlen = CsStringSize(fmtstr);
-
-    fmtend = fmt + fmtlen;
+    tool::ustring cfmt; // current format run
+    tool::ustring fmt = value_to_string(fmtstr);
+    fmtend = fmt.end();
 
     ++argi;
 
@@ -158,15 +154,12 @@ tool::ustring htmlEscape( const wchar* wc )
                 ++argi;
                 break;
               }
-
-              //snprintf( cout, 2048, cfmt, n );
-              //CsStreamPutS(cout,s);
               printf(cfmt, n);
 
               ++argi;
               break;
             }
-            // print data suitable for parsing later
+            // print data as JSON literal - suitable for parsing later by parseData().
             else if ( *pc == 'v' || *pc == 'V' )
             {
               cfmt += *pc;
@@ -178,7 +171,11 @@ tool::ustring htmlEscape( const wchar* wc )
             else if ( *pc == 0 || *pc == '%' )
               break;
             else
+            {
               cfmt += *pc;
+              put_str(cfmt);
+              break;
+            }
           }
       }
     }
