@@ -1,7 +1,7 @@
 [Project]
 FileName=tiscript.dev
 Name=tiscript
-UnitCount=95
+UnitCount=94
 Type=1
 Ver=1
 ObjFiles=
@@ -16,7 +16,7 @@ Linker=../../Dev-Cpp/lib/libws2_32.a_@@_../../Dev-Cpp/lib/librpcrt4.a_@@_
 IsCpp=1
 Icon=
 ExeOutput=
-ObjectOutput=
+ObjectOutput=..\..\build
 OverrideOutput=0
 OverrideOutputName=tiscript.exe
 HostApplication=
@@ -27,7 +27,7 @@ CustomMakefile=
 IncludeVersionInfo=0
 SupportXPThemes=0
 CompilerSet=0
-CompilerSettings=0000000000000000000000
+CompilerSettings=00010010010010000000e0
 
 [Unit1]
 FileName=main.cpp
@@ -789,27 +789,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit80]
-FileName=tool\tl_markup.cpp
-CompileCpp=1
-Folder=tool
-Compile=1
-Link=1
-Priority=1000
-OverrideBuildCmd=0
-BuildCmd=
-
 [Unit81]
-FileName=tool\tl_markup.h
-CompileCpp=1
-Folder=tool
-Compile=1
-Link=1
-Priority=1000
-OverrideBuildCmd=0
-BuildCmd=
-
-[Unit82]
 FileName=tool\tl_mm_file.cpp
 CompileCpp=1
 Folder=tool
@@ -819,7 +799,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit83]
+[Unit82]
 FileName=tool\tl_mm_file.h
 CompileCpp=1
 Folder=tool
@@ -829,7 +809,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit84]
+[Unit83]
 FileName=tool\tl_slice.h
 CompileCpp=1
 Folder=tool
@@ -839,7 +819,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit85]
+[Unit84]
 FileName=tool\tl_string.cpp
 CompileCpp=1
 Folder=tool
@@ -849,7 +829,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit86]
+[Unit85]
 FileName=tool\tl_string.h
 CompileCpp=1
 Folder=tool
@@ -859,7 +839,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit87]
+[Unit86]
 FileName=tool\tl_sync.h
 CompileCpp=1
 Folder=tool
@@ -869,7 +849,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit88]
+[Unit87]
 FileName=tool\tl_type_traits.h
 CompileCpp=1
 Folder=tool
@@ -879,7 +859,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit89]
+[Unit88]
 FileName=tool\tl_url.cpp
 CompileCpp=1
 Folder=tool
@@ -889,7 +869,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit90]
+[Unit89]
 FileName=tool\tl_url.h
 CompileCpp=1
 Folder=tool
@@ -899,7 +879,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit91]
+[Unit90]
 FileName=tool\tl_ustring.cpp
 CompileCpp=1
 Folder=tool
@@ -909,7 +889,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit92]
+[Unit91]
 FileName=tool\tl_ustring.h
 CompileCpp=1
 Folder=tool
@@ -919,7 +899,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit93]
+[Unit92]
 FileName=tool\tl_util.cpp
 CompileCpp=1
 Folder=tool
@@ -929,10 +909,20 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit94]
+[Unit93]
 FileName=tool\tl_value.h
 CompileCpp=1
 Folder=tool
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit94]
+FileName=regexp\regsub.c
+CompileCpp=1
+Folder=regexp
 Compile=1
 Link=1
 Priority=1000
@@ -1021,6 +1011,16 @@ BuildCmd=
 FileName=com\cs_com.cpp
 CompileCpp=1
 Folder=compiler
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit80]
+FileName=tool\tl_markup.h
+CompileCpp=1
+Folder=tool
 Compile=1
 Link=1
 Priority=1000

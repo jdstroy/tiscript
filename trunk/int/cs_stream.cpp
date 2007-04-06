@@ -212,25 +212,28 @@ stream *OpenFileStream(VM *c,const wchar *fname, const wchar *mode)
       return 0;
 
     wchar buf[10] = {0};
-    bool binstream = true;
+    wcsncpy(buf,mode,9);
+    bool utfstream = false;
 
-    if(wcschr(mode,'b') == 0)
+    wchar* pu = 0;
+
+    if( (pu = wcschr(buf,'u')) != 0)
     {
-      wcsncpy(buf,mode,8);
-      wcscat(buf,L"b");
-      binstream = false;
-      mode = buf;
+      utfstream = true;
+      *pu = 'b';
     }
+    else if(wcschr(buf,'b') == 0)
+      wcscat(buf,L"b");
 
-    bool writeable = wcschr(mode,'w') || wcschr(mode,'a');
+    bool writeable = wcschr(buf,'w') || wcschr(buf,'a');
 
-    FILE *fp = _wfopen(fname,mode);
+    FILE *fp = _wfopen(fname,buf);
     if (fp)
     {
-      if(binstream)
-        s = new file_stream(fp, fname, writeable);
-      else
+      if(utfstream)
         s = new file_utf8_stream(fp,fname, writeable);
+      else
+        s = new file_stream(fp, fname, writeable);
       if(!s)
          fclose(fp);
     }

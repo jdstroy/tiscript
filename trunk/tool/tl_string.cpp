@@ -720,13 +720,13 @@ namespace tool
     return tool::match( cr, pattern );
   }
 
-#ifndef PLATFORM_WINCE
+#if defined(PLATFORM_WIN32) && defined(SCITER)
   #pragma comment(lib, "Rpcrt4.lib")
 #endif
 
   string unique_id()
   {
-#ifndef PLATFORM_WINCE
+#if defined(PLATFORM_WIN32) && defined(SCITER)
     char buffer[80];
     string r;
     UUID uuid;
@@ -738,6 +738,7 @@ namespace tool
     return r;
 #else
     static int count = 12345;
+#pragma TODO("uuid generation needs to be stronger!")
     return string::format("%x",++count);
 #endif
   }

@@ -51,6 +51,7 @@ static void do_switch(CsCompiler *c);
 static void do_case(CsCompiler *c);
 static void do_default(CsCompiler *c);
 static void UnwindStack(CsCompiler *c,int levels);
+static void UnwindTryStack(CsCompiler *c,int& endaddr);
 static void do_block(CsCompiler *c,char *parameter);
 static void do_property_block(CsCompiler *c, const char* valName);
 static void do_get_set(CsCompiler *c, bool get, const char* valName);
@@ -160,6 +161,8 @@ static char *copystring(CsCompiler *c,char *str);
 
 extern int  getoutputstring(CsCompiler *c);
 
+static void Optimize(CsCompiler *c, value bytecodes);
+
 // fully qualified name
 struct qualified_name
 {
@@ -252,7 +255,7 @@ static void SetupCompiler(CsCompiler *c)
 }
 
 /* CsCompileExpr - compile a single expression */
-value CsCompileExpr(CsScope *scope)
+value CsCompileExpr(CsScope *scope, bool add_this)
 {
     VM *ic = scope->c;
     CsCompiler *c = ic->compiler;
@@ -262,6 +265,8 @@ value CsCompileExpr(CsScope *scope)
 
     /* initialize the compiler */
     SetupCompiler(c);
+
+    PushNewArgFrame(c);
 
 
     TRY
@@ -276,6 +281,12 @@ value CsCompileExpr(CsScope *scope)
       /* make dummy function name */
       addliteral(c,ic->undefinedValue);
 
+      if(add_this) /* the first arguments are always 'this' and '_next' */
+      {
+        AddArgument(c,c->arguments,"this", true);
+        AddArgument(c,c->arguments,"_next", true);
+      }
+
       /* generate the argument frame */
       c->lineNumberChangedP = false;
       putcbyte(c,BC_AFRAME);
@@ -284,7 +295,8 @@ value CsCompileExpr(CsScope *scope)
       c->lineNumberChangedP = true;
 
       /* compile the code */
-      do_statement(c);
+      //do_statement(c);
+      do_stream(c);
       putcbyte(c,BC_RETURN);
 
       /* make the bytecode array */
@@ -304,7 +316,7 @@ value CsCompileExpr(CsScope *scope)
 
       /* return the function */
       //CsDecodeProcedure(ic,code,ic->standardOutput);
-
+      FreeArguments(c);
       return code;
     }
     CATCH_ERROR(e)
@@ -553,6 +565,10 @@ static void compile_code(CsCompiler *c,char *name, bool isPropertyMethod)
     oldlines = c->lineNumbers;
     oldcblock = c->currentBlock;
 
+    //tool::array<CsCompiler::TryCatchDef> saveTryCatchStack;   /* try/catch/finally stack */
+    //tool::swop(c->tryCatchStack,saveTryCatchStack);
+    CsCompiler::TryCatchDef *save_tcStack = c->tcStack;
+
     /* initialize new compiler state */
     PushNewArgFrame(c);
     c->blockLevel = 0;
@@ -642,6 +658,8 @@ static void compile_code(CsCompiler *c,char *name, bool isPropertyMethod)
       if( tkn == ':' ) /* this is lambda declaration */
       {
 		    do_init_expr(c);
+        // cannot use do_statement(c); here due to ',' parsing
+        putcbyte(c,BC_NOTHING);
         putcbyte(c,BC_RETURN);
         UnwindStack(c,c->blockLevel); // ???
       }
@@ -667,13 +685,13 @@ static void compile_code(CsCompiler *c,char *name, bool isPropertyMethod)
     }
 
     /* make the bytecode array */
-    code = CsMakeByteVector(ic,c->cbase,c->cptr - c->cbase);
+    value bytecodes = CsMakeByteVector(ic,c->cbase,c->cptr - c->cbase);
 
     value lineNums = AllocateLineNumbers(c);
 
     /* make the literal vector */
     size = c->lptr - c->lbase;
-    code = CsMakeCompiledCode(ic,CsFirstLiteral + size,code, lineNums, c->input->stream_name());
+    code = CsMakeCompiledCode(ic,CsFirstLiteral + size,bytecodes, lineNums, c->input->stream_name());
     src = CsVectorAddress(c->ic, c->literalbuf) + c->lbase;
     dst = CsCompiledCodeLiterals(code) + CsFirstLiteral;
     while (--size >= 0)
@@ -699,6 +717,11 @@ static void compile_code(CsCompiler *c,char *name, bool isPropertyMethod)
     c->blockLevel = oldLevel;
     c->lineNumbers = oldlines;
     c->currentBlock = oldcblock;
+
+    //tool::swop(c->tryCatchStack,saveTryCatchStack);
+    c->tcStack = save_tcStack;
+
+    Optimize(c,bytecodes);
 
     /* make a closure */
     code_literal(c,addliteral(c,code));
@@ -1190,6 +1213,27 @@ static void UnwindStack(CsCompiler *c,int levels)
         putcbyte(c,BC_UNFRAME);
 }
 
+static void UnwindTryStack(CsCompiler *c, int& retaddr)
+{
+    if(!c->tcStack)
+      return;
+
+    CsCompiler::TryCatchDef* ptcsi = c->tcStack;
+    // order: innermost finally first
+    while( ptcsi ) 
+    {
+      if(ptcsi->inTry) 
+        putcbyte ( c, BC_EH_POP );
+      putcbyte ( c, BC_S_CALL );
+      ptcsi->finallyAddr = putcword(c,ptcsi->finallyAddr);
+      ptcsi = ptcsi->prev;
+    }
+    putcbyte ( c, BC_BR);
+    retaddr = putcword(c,retaddr);
+
+}
+
+
 /* addswitch - add a switch level to the stack */
 static SWENTRY *addswitch(CsCompiler *c)
 {
@@ -1390,21 +1434,32 @@ static void do_default(CsCompiler *c)
 static void do_try(CsCompiler *c)
 {
 
-    int finallyaddr,tkn;
-    int catchaddr;
+    int tkn;
+    int catchaddr, end;
+
+    CsCompiler::TryCatchDef tcdef;
+    tcdef.prev = c->tcStack;
+    c->tcStack = &tcdef;
 
     /* compile the protected block */
     frequire(c,'{');
 
     putcbyte ( c, BC_EH_PUSH );
-    catchaddr = putcword ( c, 0 );
+    catchaddr = putcword ( c, NIL );
 
     do_block(c, 0);
 
-    /* branch to the 'finally' code and pop error handler */
+    /* pop error handler */
 
     putcbyte ( c, BC_EH_POP );
-    finallyaddr = putcword(c,NIL);
+    tcdef.inTry = false;
+
+    /* branch to the 'finally' code */
+    putcbyte ( c, BC_S_CALL );
+    tcdef.finallyAddr = putcword(c,tcdef.finallyAddr);
+
+    putcbyte ( c, BC_BR);
+    end = putcword(c,NIL);
 
     fixup (c, catchaddr, codeaddr(c) );
 
@@ -1412,6 +1467,7 @@ static void do_try(CsCompiler *c)
     if ((tkn = CsToken(c)) == T_CATCH) {
         char name[TKNSIZE+1];
         /* get the formal parameter */
+
         frequire(c,'(');
         frequire(c,T_IDENTIFIER);
         strcpy(name,c->t_token);
@@ -1419,24 +1475,43 @@ static void do_try(CsCompiler *c)
 
         /* compile the catch block */
 
-        /* thrown var (error) is in intepreter->val
+        /* thrown var (error) is in intepreter->val,
            load it into T_IDENTIFIER (name) (first var in the CFRAME) */
 
         frequire(c,'{');
         do_block(c, name);
         tkn = CsToken(c);
+
+        putcbyte ( c, BC_S_CALL );
+        tcdef.finallyAddr = putcword(c,tcdef.finallyAddr);
+
+        putcbyte ( c, BC_BR);
+        end = putcword(c,end);
+
     }
 
     /* start of the 'finally' code or the end of the statement */
-    fixup(c,finallyaddr,codeaddr(c));
+    fixup(c, tcdef.finallyAddr, codeaddr(c));
+    
+    c->tcStack = tcdef.prev;
 
     /* handle a 'finally' clause */
-    if (tkn == T_FINALLY) {
+    if (tkn == T_FINALLY) 
+    {
         frequire(c,'{');
+        putcbyte ( c, BC_PUSH );        
         do_block(c, 0);
+        putcbyte ( c, BC_DROP );
     }
     else
+    {
         CsSaveToken(c,tkn);
+}
+    putcbyte ( c, BC_S_RETURN );
+
+    /* handle the end of the statement */
+    fixup(c,end,codeaddr(c));
+
 }
 
 
@@ -1801,7 +1876,7 @@ static void do_stream(CsCompiler *c)
           do_statement(c);
           break;
       }
-    putcbyte(c,BC_UNDEFINED);
+    //putcbyte(c,BC_UNDEFINED);
 }
 
 
@@ -1810,7 +1885,7 @@ static void do_stream(CsCompiler *c)
 /* do_return - handle the 'return' statement */
 static void do_return(CsCompiler *c)
 {
-    int tkn;
+    int tkn, end = NIL;
 	  if ((tkn = CsToken(c)) == ';')
 		  putcbyte(c,BC_UNDEFINED);
 	  else {
@@ -1819,6 +1894,8 @@ static void do_return(CsCompiler *c)
 		  frequire(c,';');
 	  }
     UnwindStack(c,c->blockLevel);
+    UnwindTryStack(c,end);
+    fixup(c,end,codeaddr(c));
     putcbyte(c,BC_RETURN);
 }
 
@@ -2507,6 +2584,21 @@ static void do_primary_json(CsCompiler *c,PVAL *pv)
     case T_DIVEQ:
         do_literal_regexp(c, pv, tkn);
         break;
+
+    case T_IDENTIFIER:
+        if( strcmp(c->t_token,"true") == 0)
+        {
+          putcbyte(c,BC_T);
+          pv->fcn = NULL;
+          break;
+        }
+        else if( strcmp(c->t_token,"false") == 0)
+        {
+          putcbyte(c,BC_F);
+          pv->fcn = NULL;
+          break;
+        }
+        // else fall through
     default:
         CsParseError(c,"Expecting a primary expression");
         break;
@@ -2787,6 +2879,10 @@ static void do_literal_obj(CsCompiler *c,PVAL *pv)
             if( tkn == T_IDENTIFIER )
             {
               code_literal(c,addliteral(c,CsInternCString(c->ic,c->t_token)));
+            }
+            else if( tkn == T_TYPE )
+            {
+              code_literal(c,addliteral(c,CsInternCString(c->ic,"type")));
             }
             else
             {
@@ -3560,8 +3656,6 @@ static value AllocateLineNumbers(CsCompiler *c)
 
 }
 
-
-
 /* copystring - make a copy of a string */
 static char *copystring(CsCompiler *c,char *str)
 {
@@ -3570,6 +3664,12 @@ static char *copystring(CsCompiler *c,char *str)
         CsInsufficientMemory(c->ic);
     strcpy(ns,str);
     return ns;
+}
+
+static void Optimize(CsCompiler *c, value bytecodes)
+{
+  //JumpToJumpOpt(c, bytecodes);
+  //PeepholeOpt(c, bytecodes);
 }
 
 }

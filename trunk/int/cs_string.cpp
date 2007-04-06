@@ -33,6 +33,8 @@ static value CSF_localeCompare(VM *c);
 static value CSF_slice(VM *c);
 static value CSF_printf(VM *c);
 
+static value CSF_trim(VM *c);
+
 static value CSF_htmlEscape(VM *c);
 static value CSF_htmlUnescape(VM *c);
 
@@ -75,6 +77,7 @@ C_METHOD_ENTRY( "match",            CSF_string_match    ),
 C_METHOD_ENTRY( "replace",          CSF_string_replace  ),
 C_METHOD_ENTRY( "search",           CSF_string_search  ),
 C_METHOD_ENTRY( "split",            CSF_string_split  ),
+C_METHOD_ENTRY( "trim",             CSF_trim  ),
 
 C_METHOD_ENTRY( "htmlEscape",       CSF_htmlEscape  ),
 C_METHOD_ENTRY( "htmlUnescape",     CSF_htmlUnescape  ),
@@ -286,6 +289,44 @@ static value CSF_toLowerCase(VM *c)
 
 }
 
+/* CSF_trim - built-in method 'trim' */
+static value CSF_trim(VM *c)
+{
+    static int s_all    = symbol_table()["all"];
+    static int s_left   = symbol_table()["left"];
+    static int s_right  = symbol_table()["right"];
+
+
+    wchar *str;
+    int len;
+    int flags = s_all;
+
+    /* parse the arguments */
+    CsParseArguments(c,"S#*|L",&str,&len,&flags);
+
+    const wchar *p;
+    const wchar *start = str;
+    const wchar *end = str + len;
+
+    if(flags == s_all || flags == s_left)
+      for (; start < end; ++start)
+        if (!iswspace(*start)) 
+          break;
+
+    if(flags == s_all || flags == s_right)
+      for (p = end; --p >= start;)
+        if (!iswspace(*p))
+          break;
+        else
+          end = p;
+
+    tool::wchars r(start, end); 
+        
+    if( r.length == len )
+      return CsGetArg(c,1); // return this;
+    return CsMakeString(c,r);
+
+}
 
 
 

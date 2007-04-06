@@ -435,12 +435,21 @@ void CsFreeDispatch(VM *c,dispatch *d)
     CsFree(c,d);
 }
 
-void CsCollectGarbageIf(VM *c)
+bool CsCollectGarbageIf(VM *c, size_t threshold)
 {
     CsMemorySpace *space = c->newSpace;
+
+    if( threshold == 0)
+    {
     if( (space->free - space->base) < ((space->top - space->base)*2)/3 ) // 2/3 threshold
-      return;
+        return false;
+    }
+    else
+      if( (space->top - space->free) > threshold ) 
+        return false;
+
     CsCollectGarbage(c);
+    return true;
 }
 
 /* CsCollectGarbage - garbage collect a heap */

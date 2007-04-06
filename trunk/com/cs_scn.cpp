@@ -516,8 +516,8 @@ static int CollectOctalChar(CsCompiler *c,int ch)
     return (value << 3) | (ch - '0');
 }
 
-/* CollecUnicodeChar - collect a unicode character code */
-static int CollecUnicodeChar(CsCompiler *c)
+/* CollectUnicodeChar - collect a unicode character code */
+static int CollectUnicodeChar(CsCompiler *c)
 {
     int value,ch;
     if ((ch = getch(c)) == EOF || !isxdigit(ch)) {
@@ -553,7 +553,7 @@ static int literalch(CsCompiler *c,int ch)
         case 'r':   ch = '\r'; break;
         case 't':   ch = '\t'; break;
         case 'x':   ch = CollectHexChar(c); break;
-        case 'u':   ch = CollecUnicodeChar(c); break;
+        case 'u':   ch = CollectUnicodeChar(c); break;
         case '"':   ch = '"';  break;
         case '0':
         case '1':

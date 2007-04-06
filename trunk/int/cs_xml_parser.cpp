@@ -11,6 +11,8 @@
 namespace tis 
 {
 
+typedef tool::markup::scanner<wchar> markup_scanner;
+
 /* 'XmlScanner' pdispatch */
 
 /* method handlers */
@@ -36,21 +38,20 @@ VP_METHOD_ENTRY( 0,                0,					0					)
 };
 
 
-
 static constant constants[] = 
 {
-  CONSTANT_ENTRY("ERROR"          , int_value(tool::markup::scanner::TT_ERROR     )),
-  CONSTANT_ENTRY("EOF"            , int_value(tool::markup::scanner::TT_EOF       )),
-  CONSTANT_ENTRY("HEAD"           , int_value(tool::markup::scanner::TT_TAG_START )),
-  CONSTANT_ENTRY("HEAD_END"       , int_value(tool::markup::scanner::TT_TAG_HEAD_END   )),
-  CONSTANT_ENTRY("EMPTY_HEAD_END" , int_value(tool::markup::scanner::TT_EMPTY_TAG_END  )),
-  CONSTANT_ENTRY("TAIL"           , int_value(tool::markup::scanner::TT_TAG_END   )),
+  CONSTANT_ENTRY("ERROR"          , int_value(markup_scanner::TT_ERROR     )),
+  CONSTANT_ENTRY("EOF"            , int_value(markup_scanner::TT_EOF       )),
+  CONSTANT_ENTRY("HEAD"           , int_value(markup_scanner::TT_TAG_START )),
+  CONSTANT_ENTRY("HEAD_END"       , int_value(markup_scanner::TT_TAG_HEAD_END   )),
+  CONSTANT_ENTRY("EMPTY_HEAD_END" , int_value(markup_scanner::TT_EMPTY_TAG_END  )),
+  CONSTANT_ENTRY("TAIL"           , int_value(markup_scanner::TT_TAG_END   )),
 
-  CONSTANT_ENTRY("ATTR"         , int_value(tool::markup::scanner::TT_ATTR      )),
-  CONSTANT_ENTRY("TEXT"         , int_value(tool::markup::scanner::TT_TEXT      )),
-  CONSTANT_ENTRY("COMMENT"      , int_value(tool::markup::scanner::TT_COMMENT   )),
-  CONSTANT_ENTRY("CDATA"        , int_value(tool::markup::scanner::TT_CDATA     )),
-  CONSTANT_ENTRY("PI"           , int_value(tool::markup::scanner::TT_PI        )),
+  CONSTANT_ENTRY("ATTR"         , int_value(markup_scanner::TT_ATTR      )),
+  CONSTANT_ENTRY("TEXT"         , int_value(markup_scanner::TT_TEXT      )),
+  CONSTANT_ENTRY("COMMENT"      , int_value(markup_scanner::TT_COMMENT   )),
+  CONSTANT_ENTRY("CDATA"        , int_value(markup_scanner::TT_CDATA     )),
+  CONSTANT_ENTRY("PI"           , int_value(markup_scanner::TT_PI        )),
 
   CONSTANT_ENTRY(0, 0)
 };
@@ -78,12 +79,12 @@ bool CsXMLScannerP(VM *c, value obj)
   return CsIsType(obj,c->xmlScannerDispatch);
 }
 
-struct xml_stream:  public tool::markup::instream
+struct xml_stream:  public tool::markup::instream<wchar>
   {
     value istr;
-    xml_stream(value instream): istr( instream ) {}
+    xml_stream(value ins): istr( ins ) {}
     
-    virtual wchar get_char() 
+    virtual char_type get_char() 
     {
       stream *s = CsFileStream(istr);
       int c = s->get();
@@ -93,10 +94,10 @@ struct xml_stream:  public tool::markup::instream
 
 struct xml_scanner_ctl 
   {
-    tool::markup::scanner scan;
+    markup_scanner    scan;
     xml_stream            xstr;    
     //value streamObj;
-    xml_scanner_ctl(value instream): xstr( instream ), scan(xstr) {}
+    xml_scanner_ctl(value ins): xstr( ins ), scan(xstr) {}
   };
 
 static void CsXMLScannerScan(VM* c, value obj)

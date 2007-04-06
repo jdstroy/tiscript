@@ -251,8 +251,8 @@ value CsEvalStream(CsScope *scope,stream *s)
 {
     value val;
     CsInitScanner(scope->c->compiler,s);
-    val = CsCompileExpr(scope);
-    return val ? CsCallFunction(scope,val,0) : scope->c->undefinedValue;
+    val = CsCompileExpr(scope, true);
+    return val ? CsSendMessage(scope, CsGetArgSafe(scope->c,1) , val,0) : scope->c->undefinedValue;
 }
 
 /* CsEvalDataStream - evaluate a data stream, JSON++ like literal */

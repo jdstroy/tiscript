@@ -273,7 +273,7 @@ static value CSF_rand(VM *c)
     return CsMakeInteger(c,(int_t) (i?(rseed % i):rseed) );
 }
 
-/*value CsToInteger(VM *c, value v)
+value CsToInteger(VM *c, value v)
 {
     int_t i = 0;
     wchar *pend;
@@ -295,7 +295,30 @@ static value CSF_rand(VM *c)
         return CsMakeInteger(c,n);
     }
     return CsMakeInteger(c,i);
-}*/
+}
+
+value CsToFloat(VM *c, value v)
+{
+    wchar *pend;
+    if( CsFloatP(v) )
+      return v;
+    else if (CsIntegerP(v))
+      return CsMakeFloat(c,(float_t) CsIntegerValue(v));
+    else if ( v == c->trueValue )
+      return CsMakeFloat(c,1);
+    else if ( v == c->falseValue )
+      return CsMakeFloat(c,0);
+    else if ( v == c->undefinedValue || v == c->nullValue )
+      return CsMakeInteger(c,0);
+    else if (CsStringP(v))
+    {
+      float_t n = wcstod(CsStringAddress(v),&pend);
+      if( CsStringAddress(v) != pend )
+        return CsMakeFloat(c,n);
+    }
+    return CsMakeFloat(c,float_t((int64)v));
+}
+
 
 static value CSF_toInteger(VM *c)
 {

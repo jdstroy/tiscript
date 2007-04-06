@@ -179,7 +179,8 @@ static value FloatCopy(VM *c,value obj)
 
 static int_t FloatHash(value obj)
 {
-  return int_t(int64(obj) >> 32);
+  uint u = tool::hash_uint32((uint32*)&obj,2,0);
+  return int_t(u);
 }
 
 

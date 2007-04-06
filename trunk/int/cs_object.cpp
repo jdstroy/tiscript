@@ -42,6 +42,7 @@ C_METHOD_ENTRY( "call",             CSF_call            ),
 C_METHOD_ENTRY( "show",             CSF_show            ),
 C_METHOD_ENTRY( "store",            CSF_store           ),
 C_METHOD_ENTRY( "restore",          CSF_restore         ),
+C_METHOD_ENTRY( "eval",             CSF_eval            ),
 C_METHOD_ENTRY(	0,                  0                   )
 };
 
@@ -697,7 +698,7 @@ void CsRemoveObjectProperty(VM *c,value obj, value tag)
     {
       CsSetModified( obj, true );
       CsSetObjectProperties(CsTop(c),properties);
-      CsSetObjectPropertyCount(CsTop(c),CsObjectPropertyCount(c->sp[1]) - 1);
+      CsSetObjectPropertyCount(CsTop(c),CsObjectPropertyCount(CsTop(c)) - 1);
     }
     CsPop(c);
 }
@@ -723,7 +724,7 @@ value CsFindProperty(VM *c,value obj,value tag,int_t *pHashValue,int_t *pIndex)
     return 0;
 }
 
-value FindFirstSymbol(VM *c,value obj)
+value FindFirstSymbol(VM *c, value obj, value& idx)
 {
     value p = CsObjectProperties(obj);
     if (CsHashTableP(p))
@@ -732,16 +733,67 @@ value FindFirstSymbol(VM *c,value obj)
         {
           value t = CsHashTableElement(p,i);
           if(t != c->undefinedValue)
+          {
+            idx = t;
+#ifdef _DEBUG
+            dispatch *pd = CsGetDispatch(CsPropertyTag(t));
+#endif
             return CsPropertyTag(t);
         }
     }
+    }
     if(p != c->undefinedValue)
+    {
+      idx = p;
       return CsPropertyTag(p);
+    }
     else
+    {
+      idx = c->undefinedValue;
       return c->nothingValue;
 }
+}
 
-value FindNextSymbol(VM *c,value obj,value tag)
+value FindNextSymbol(VM *c,value obj, value& idx)
+{
+    if( idx == c->undefinedValue )
+      return c->nothingValue;
+
+    value np = CsPropertyNext(idx);
+    if( np != c->undefinedValue ) 
+    {
+      idx = np; // easy case
+      return CsPropertyTag(np);
+    }
+
+    value props = CsObjectProperties(obj);
+    value tag = CsPropertyTag(idx);
+
+    if (!CsHashTableP(props)) // this is simple prop list
+                              // its end reached.
+    {
+      idx = c->undefinedValue;
+      return c->nothingValue;
+    }
+    
+    int_t hashValue = CsHashValue(tag);
+    int_t i = hashValue & (CsHashTableSize(props) - 1);
+
+    for(++i; i < CsHashTableSize(props); ++i)
+    {
+      value p = CsHashTableElement(props,i);
+      if(p != c->undefinedValue)
+      {
+        idx = p; 
+        return CsPropertyTag(p);
+      }
+    }
+
+    idx = c->undefinedValue; // end of has table reached;
+    return c->nothingValue;
+}
+
+/*value FindNextSymbol(VM *c,value obj, value tag)
 {
     value p = CsObjectProperties(obj);
     value objprops = p;
@@ -781,16 +833,18 @@ value FindNextSymbol(VM *c,value obj,value tag)
     }
     return c->nothingValue;
 }
+*/
+
 
 value ObjectNextElement(VM *c, value* index, value obj)
 {
   if( *index == c->nothingValue ) // first
   {
     FETCH(c,obj);
-    return *index = FindFirstSymbol(c,obj);
+    return FindFirstSymbol(c,obj,*index);
   }
   else
-    return *index = FindNextSymbol(c,obj,*index);
+    return FindNextSymbol(c,obj,*index);
 }
 
 /* CopyPropertyList - copy the property list of an obj */
@@ -810,14 +864,40 @@ static value CopyPropertyList(VM *c,value plist)
 
 static value CopyPropertyListExcept(VM *c,value plist, value tag, bool& r)
 {
+    value p = 0;
+    value t = plist;
+
+    for (; t != c->undefinedValue; t = CsPropertyNext(t))
+    {
+        value pTag = CsPropertyTag(t);
+        if( tag == pTag)
+        {
+          r = true;
+          if( p ) 
+            CsSetPropertyNext(p,CsPropertyNext(t));
+          else
+            plist = CsPropertyNext(t);
+          break;
+        }
+        p = t;
+    }
+    return plist;
+}
+
+/*
+static value CopyPropertyListExcept(VM *c,value plist, value tag, bool& r)
+{
     CsCheck(c,2);
     CsPush(c,c->undefinedValue);
     CsPush(c,plist);
     for (; CsTop(c) != c->undefinedValue; CsSetTop(c,CsPropertyNext(CsTop(c))))
     {
         value pTag = CsPropertyTag(CsTop(c));
-        if( CsEqualOp(c,tag, pTag))
+        if( tag == pTag)
+        {
+          r = true;
           continue;
+        }
         value pValue = CsPropertyValue(CsTop(c));
         value newo = CsMakeProperty(c,pTag,pValue,CsPropertyFlags(CsTop(c)));
         CsSetPropertyNext(newo,c->sp[1]);
@@ -827,7 +907,7 @@ static value CopyPropertyListExcept(VM *c,value plist, value tag, bool& r)
     return CsPop(c);
 }
 
-
+*/
 
 
 /* CopyPropertyTable - copy the property hash table of an obj */
@@ -852,14 +932,18 @@ static value CopyPropertyTableExcept(VM *c,value table, value tag, bool& r)
     r = false;
     int_t size = CsHashTableSize(table);
     int_t i;
-    CsCheck(c,2);
-    CsPush(c,CsMakeHashTable(c,size));
+    CsCheck(c,1);
+    //CsPush(c,CsMakeHashTable(c,size));
+    //CsPush(c,table);
     CsPush(c,table);
+    //CsPush(c,CsMakeHashTable(c,size));
+    //tool::swap( c->sp[1], c->sp[0] );
+    
     for (i = 0; i < size; ++i) {
         value properties = CopyPropertyListExcept(c,CsHashTableElement(CsTop(c),i), tag, r );
-        CsSetHashTableElement(c->sp[1],i,properties);
+        CsSetHashTableElement(CsTop(c),i,properties);
     }
-    CsDrop(c,1);
+    //CsDrop(c,1);
     return CsPop(c);
 }
 
@@ -886,16 +970,16 @@ void CsAddProperty(VM *c,value obj,value tag,value val,int_t hashValue, int_t i,
     value p;
     CsCPush(c,obj);
     p = CsMakeProperty(c,tag,val, flags);
-    obj = CsPop(c);
+    obj = CsTop(c);
     if (i >= 0) {
         int_t currentSize = CsHashTableSize(CsObjectProperties(obj));
         if (CsObjectPropertyCount(obj) >= currentSize * CsHashTableExpandThreshold) {
-            CsCheck(c,2);
-            CsPush(c,obj);
+            CsCheck(c,1);
+            //CsPush(c,obj);
             CsPush(c,p);
-            i = ExpandHashTable(c,c->sp[1],hashValue);
+            i = ExpandHashTable(c,obj,hashValue);
             p = CsPop(c);
-            obj = CsPop(c);
+            obj = CsTop(c);
         }
         CsSetPropertyNext(p,CsHashTableElement(CsObjectProperties(obj),i));
         CsSetHashTableElement(CsObjectProperties(obj),i,p);
@@ -908,6 +992,7 @@ void CsAddProperty(VM *c,value obj,value tag,value val,int_t hashValue, int_t i,
             CsSetObjectProperties(obj,p);
         }
     }
+    obj = CsPop(c);
     IncObjectPropertyCount(obj);
 }
 

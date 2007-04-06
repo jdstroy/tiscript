@@ -1115,18 +1115,20 @@ static size_t regrepeat(struct exec* ep, CHAR_TYPE* node)
 		return(count);
 		break;
     case CCLASS:
-        ch = *OPERAND(node);
-        count = 0;
-        if(ch >= 0)
         {
-            for (scan = ep->reginput; (*class_table_f[ch])(*scan); scan++)
-                count++;
-        }
-        else
-        {
-            ch = -ch + 1;
-            for (scan = ep->reginput; !(*class_table_f[ch])(*scan); scan++)
-                count++;
+            int ich = (signed char)*OPERAND(node);
+            count = 0;
+            if(ich >= 0)
+            {
+                for (scan = ep->reginput; (*class_table_f[ich])(*scan); scan++)
+                    count++;
+            }
+            else
+            {
+                ich = -ich + 1;
+                for (scan = ep->reginput; !(*class_table_f[ich])(*scan); scan++)
+                    count++;
+            }
         }
         return(count);
         break;

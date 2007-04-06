@@ -17,12 +17,13 @@
 //#include <new.h>
 
 #include "tl_basic.h" // OS dependent
+#include "tl_slice.h"
 #include "tl_array.h"
 #include "tl_string.h" // OS dependent
 #include "tl_ustring.h" // OS dependent
 #include "tl_hash.h"
-#include "tl_hash_table.h"
 #include "tl_dictionary.h"
+#include "tl_hash_table.h"
 #include "tl_datetime.h" // OS dependent
 #include "tl_ternary_tree.h"
 #include "tl_url.h"
@@ -33,7 +34,7 @@
 #include "tl_sync.h"  // OS dependent
 #include "tl_slice.h"
 #include "tl_pool.h"
-#include "tl_slice.h"
+
 #include "tl_filesystem.h" // OS dependent
 
 //using namespace tool;

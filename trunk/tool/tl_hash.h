@@ -42,6 +42,25 @@ namespace tool
     return h;
   }
 
+  template<>
+  inline unsigned int
+    hash<chars> ( const chars& value )
+  {
+    unsigned int h = 0, g;
+    const char *pc  = value.start;
+    const char *end = value.end(); 
+
+    while ( pc != end )
+    {
+      h = ( h << 4 ) + *pc++;
+      if ( ( g = h & 0xF0000000 ) != 0 )
+        h ^= g >> 24;
+      h &= ~g;
+    }
+    return h;
+  }
+
+
 
   template<>
   inline unsigned int
@@ -79,8 +98,8 @@ namespace tool
   inline unsigned int
     hash<unsigned int> (unsigned int const& the_dword )
   {
-    return (unsigned int) the_dword;
-    /*dword key = the_dword;
+    //return (unsigned int) the_dword;
+    dword key = the_dword;
     
     key += ~(key << 16);
     key ^=  (key >>  5);
@@ -89,7 +108,7 @@ namespace tool
     key += ~(key <<  9);
     key ^=  (key >> 17);
    
-    return key;*/
+    return key;
   }
 
   template<>

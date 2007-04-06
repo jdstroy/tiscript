@@ -308,6 +308,49 @@ value CsSendMessage(VM *c,value obj, value selector,int argc,...)
     return c->val;
 }
 
+value CsSendMessage(CsScope *scope,value obj, value selector,int argc,...)
+{
+    VM *c = scope->c;
+    
+    va_list ap;
+    int n;
+
+    /* save the interpreter state */
+    CsSavedState state(c);
+
+    TRY
+    {
+      /* reserve space for the obj, selector, _next and arguments */
+      CsCheck(c,argc + 3);
+
+      /* push the obj, selector and _next argument */
+      CsPush(c,obj);
+	    CsPush(c,selector);
+	    CsPush(c,scope->globals); /* _next */
+
+	  /* push the arguments */
+      va_start(ap,argc);
+      for (n = argc; --n >= 0; )
+          CsPush(c,va_arg(ap,value));
+      va_end(ap);
+
+      /* setup the call */
+      if (Send(c,&CsTopCDispatch,argc + 2))
+      {
+          return c->val;
+      }
+	    /* execute the method */
+	    Execute(c);
+
+    }
+    CATCH_ERROR(e)
+    {
+       state.restore();
+       RETHROW(e);
+    }
+    return c->val;
+}
+
 
 
 /* CsSendMessageByName - send a message to an obj by name */
@@ -1157,7 +1200,22 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
 
     /* parse the argument frame instruction */
     rflag = *pc++ == BC_AFRAMER;
-    rargc = *pc++; oargc = *pc++;
+
+    if (rflag) 
+    {
+      if( CsCollectGarbageIf(c,2048) ) // we need to allocate array below, so this hack, well - sort of
+      {
+        c->argv = &c->sp[argc];
+        c->argc = argc;
+        method = c->sp[argc];
+        code = CsMethodCode(method);
+        cbase = pc = CsByteVectorAddress(CsCompiledCodeBytecodes(code));
+        pc++;
+      }
+    }
+
+    rargc = *pc++; 
+    oargc = *pc++;
     targc = rargc + oargc;
 
     /* check the argument count */
@@ -1179,6 +1237,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
         int rcnt;
         if ((rcnt = argc - targc) < 0)
             rcnt = 0;
+
         val = CsMakeVector(c,rcnt);
         p = CsVectorAddressI(val) + rcnt;
         while (--rcnt >= 0)
@@ -1515,48 +1574,14 @@ value CsToBoolean(VM* c, value obj)
 /* CsEql - compare two objects for equality */
 bool CsEqualOp(VM* c, value obj1,value obj2)
 {
-    if (CsIntegerP(obj1)) {
-        if (CsIntegerP(obj2))
-            return CsIntegerValue(obj1) == CsIntegerValue(obj2);
-        else if (CsFloatP(obj2))
-            return (float_t)CsIntegerValue(obj1) == CsFloatValue(obj2);
-        else
-            return false;
-    }
-    else if (CsFloatP(obj1)) {
-        if (CsFloatP(obj2))
-            return CsFloatValue(obj1) == CsFloatValue(obj2);
-        else if (CsIntegerP(obj2))
-            return CsFloatValue(obj1) == (float_t)CsIntegerValue(obj2);
-        else
-            return false;
-    }
-    else if (CsStringP(obj1))
-    {
-        if( CsStringP(obj2) )
-          return CompareStrings(obj1,obj2) == 0;
-        if(CsSymbolP(obj2))
-        {
-          tool::string s1 = utf8_string(obj1);
-          tool::string s2 = CsSymbolName(obj2);
-          return s1 == s2;
-
-        }
-        return false;
-    }
-    else if (CsSymbolP(obj1))
-    {
-        if(CsSymbolP(obj2))
-          return obj1 == obj2;
-        if(CsStringP(obj2))
-        {
-          tool::string s1 = CsSymbolName(obj1);
-          tool::string s2 = utf8_string(obj2);
-          return s1 == s2;
-        }
-        else
-          return false;
-    }
+    if ( CsIntegerP(obj1) || CsIntegerP(obj2)) 
+        return CsToInteger(c,obj1) == CsToInteger(c,obj2);
+    else if (CsFloatP(obj1) || CsFloatP(obj2)) 
+        return CsToFloat(c,obj1) == CsToFloat(c,obj2);
+    else if (CsStringP(obj1) || CsStringP(obj2))
+        return CompareStrings(CsToString(c,obj1),CsToString(c,obj2)) == 0;
+    else if (CsBooleanP(c,obj1) || CsBooleanP(c,obj2))
+        return CsToBoolean(c,obj1) == CsToBoolean(c,obj2);
     else if (CsVectorP(obj1) && CsVectorP(obj2))
         return CsVectorsEqual(c,obj1,obj2);
     else
@@ -1568,30 +1593,11 @@ bool CsEqualOp(VM* c, value obj1,value obj2)
 /* CsCompareObjects - compare two objects */
 int CsCompareObjects(VM *c,value obj1,value obj2, bool suppressError)
 {
-    if (CsIntegerP(obj1) && CsIntegerP(obj2)) {
-        int_t diff = CsIntegerValue(obj1) - CsIntegerValue(obj2);
-        return diff < 0 ? -1 : diff == 0 ? 0 : 1;
-    }
-    else if (CsFloatP(obj1)) {
-        float_t diff;
-        if (CsFloatP(obj2))
-            diff = CsFloatValue(obj1) - CsFloatValue(obj2);
-        else if (CsIntegerP(obj2))
-            diff = CsFloatValue(obj1) - (float_t)CsIntegerValue(obj2);
-        else {
-            CsTypeError(c,obj2);
-            diff = 0; /* never reached */
-        }
-        return diff < 0 ? -1 : diff == 0 ? 0 : 1;
-    }
-    else if (CsFloatP(obj2)) {
-        float_t diff;
-        if (CsIntegerP(obj1))
-            diff = (float_t)CsIntegerValue(obj1) - CsFloatValue(obj2);
-        else {
-            CsTypeError(c,obj1);
-            diff = 0; /* never reached */
-        }
+    if ( CsIntegerP(obj1) || CsIntegerP(obj2)) 
+        return to_int(CsToInteger(c,obj1)) - to_int(CsToInteger(c,obj2));
+    else if (CsFloatP(obj1) || CsFloatP(obj2)) 
+    {
+        float_t diff = to_float(CsToFloat(c,obj1)) - to_float(CsToFloat(c,obj2));
         return diff < 0 ? -1 : diff == 0 ? 0 : 1;
     }
     else if (CsStringP(obj1) && CsStringP(obj2))

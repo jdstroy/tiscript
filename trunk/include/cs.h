@@ -495,8 +495,7 @@ struct header {
     header():pdispatch(0) {}
 };
 
-struct persistent_header {
-    dispatch *    pdispatch;
+struct persistent_header: header {
     value		      vstorage;
     unsigned int  oid;
     uint32        status;
@@ -507,7 +506,7 @@ struct persistent_header {
     bool modified() const {  return tool::getbit(0x2,status); }
     void modified(bool v) {  tool::setbit(0x2,status,v); }
 
-    persistent_header() : pdispatch(0), vstorage(0), oid(0),status(0) {}
+    persistent_header() : vstorage(0), oid(0),status(0) {}
 };
 
 /* type macros */
@@ -1292,7 +1291,7 @@ struct file_utf8_stream: public file_stream
 {
     file_utf8_stream(FILE *f, const wchar* name, bool w ): file_stream(f, name, w) 
     { 
-      int t = get();
+      int t = (unsigned int)get_utf8();
       if( t != 0xFEFF )
         rewind();
     }
@@ -1359,7 +1358,7 @@ enum CsErrorCodes
 void CsInitScanner(CsCompiler *c,stream *s);
 CsCompiler *CsMakeCompiler(VM *ic,long csize,long lsize);
 void CsFreeCompiler(CsCompiler *c);
-value CsCompileExpr(CsScope *scope);
+value CsCompileExpr(CsScope *scope, bool add_this);
 /* compile sequence of expressions */
 value CsCompileExpressions(CsScope *scope, bool serverScript);
 
@@ -1384,9 +1383,12 @@ struct vargs
 value CsCallFunction(CsScope *scope,value fun, vargs& args);
 
 //value CsSendMessage(VM *c,value obj, value cls, value selector,int argc,...);
+value       CsSendMessage(CsScope *scope, value obj, value selectorOrMethod,int argc,...);
 value       CsSendMessage(VM *c,value obj, value selectorOrMethod,int argc,...);
 value       CsSendMessageByName(VM *c,value obj,char *sname,int argc,...);
 json::value CsSendMessageByNameJSON(VM *c,value obj, const char *sname,int argc, json::value* argv, bool optional);
+
+value       CSF_eval(VM *c);
 
 value CsInternalCall(VM *c,int argc);
 value CsInternalSend(VM *c,int argc);
@@ -1443,7 +1445,7 @@ CsScope *CsMakeScopeFromObject(VM *c,value gobject);
 void CsFreeScope(CsScope *scope);
 void CsInitScope(CsScope *scope);
 void CsCollectGarbage(VM *c);
-void CsCollectGarbageIf(VM *c); // ... if it is enough garbage to collect.
+bool CsCollectGarbageIf(VM *c, size_t threshold = 0); // ... if it is enough garbage to collect.
 void CsDumpHeap(VM *c);
 void CsDumpScopes(VM *c);
 void CsDumpObject(VM *c, value obj);
@@ -1616,6 +1618,8 @@ int     CsCompareObjects(VM *c,value obj1,value obj2, bool suppressError = false
 
 /* cvt everything into String */
 value CsToString(VM *c, value val);
+value CsToInteger(VM *c, value val);
+value CsToFloat(VM *c, value val);
 
 //inline size_t CsSymbolIdx(value o) { return int_t(((CsPointerType)o) >> 2); }
 
