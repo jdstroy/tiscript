@@ -142,7 +142,10 @@ class critical_section {
 
 struct task 
 {
+  task(){}
+  virtual ~task(){}
   virtual void exec() = 0;
+  
 };
 
 class thread_pool
@@ -168,6 +171,10 @@ public:
         }
     }
     
+    ~thread_pool()
+    {
+        foreach(n, thread_handles) CloseHandle(thread_handles[n]);
+    }
 
     void add_task(task *t)
     {

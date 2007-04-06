@@ -38,11 +38,29 @@ namespace tool
   date_time
     date_time::now (bool utc)
   {
+    date_time dt;
+#ifdef WIN32
+    SYSTEMTIME st;
+    if(utc)
+      GetSystemTime(&st);
+    else
+      GetLocalTime(&st);
+    
+    SystemTimeToFileTime( &st, (FILETIME*)&dt._time);
+    
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL); 
+    dt = tv; // cvt needs to be implemented 
+#endif    
+
+    /*
     time_t t;
     ::time ( &t );
     struct tm syst = utc? *gmtime( &t ): *localtime ( &t );
-    date_time dt;
+    
     dt = syst;
+    */
     return dt;
   }
 

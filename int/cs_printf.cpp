@@ -170,6 +170,8 @@ tool::ustring htmlEscape( const wchar* wc )
             }
             else if ( *pc == 0 || *pc == '%' )
               break;
+            else if( isdigit(*pc) )
+              cfmt += *pc;
             else
             {
               cfmt += *pc;

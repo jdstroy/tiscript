@@ -209,7 +209,7 @@ static value IntegerCopy(VM *c,value obj)
 /* IntegerHash - Integer hash handler */
 static int_t IntegerHash(value obj)
 {
-  return CsIntegerValue(obj);
+  return tool::hash(CsIntegerValue(obj));
 }
 
 /* CsMakeInteger - make a new integer value 

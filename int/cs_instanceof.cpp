@@ -46,8 +46,8 @@ bool CsInstanceOf(VM *c, value obj, value cls)
       }
       return true;
     }
-    else 
-        CsTypeError(c,cls); 
+    //else 
+    //    CsTypeError(c,cls); 
     return false;
 }
 

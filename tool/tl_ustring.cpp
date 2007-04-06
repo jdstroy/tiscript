@@ -724,9 +724,10 @@ wchar getc_utf8(FILE *f)
     unsigned int b1;
     bool isSurrogate = false;
 
-    b1 = (unsigned int)getc(f);
-    if(feof(f))
+    int t = getc(f);
+    if( t == EOF )
       return WEOF;
+    b1 = (unsigned int) t;
     isSurrogate = false;
 
 		// Determine whether we are dealing
@@ -740,12 +741,17 @@ wchar getc_utf8(FILE *f)
     else if ((b1 & 0xe0) == 0xc0)
     {
 	    // 2-byte sequence: 00000yyyyyxxxxxx = 110yyyyy 10xxxxxx
-	    return (wchar)(((b1 & 0x1f) << 6) | get_next_utf8(getc(f)));
+	    uint r = (b1 & 0x1f) << 6;
+           r |= get_next_utf8(getc(f));
+      return (wchar) r;
     }
     else if ((b1 & 0xf0) == 0xe0)
     {
 	    // 3-byte sequence: zzzzyyyyyyxxxxxx = 1110zzzz 10yyyyyy 10xxxxxx
-	    return (wchar)(((b1 & 0x0f) << 12) | (get_next_utf8(getc(f)) << 6) | get_next_utf8(getc(f)));
+      uint r = (b1 & 0x0f) << 12;
+           r |= get_next_utf8(getc(f)) << 6;
+           r |= get_next_utf8(getc(f));
+	    return (wchar) r;
     }
     else if ((b1 & 0xf8) == 0xf0)
     {

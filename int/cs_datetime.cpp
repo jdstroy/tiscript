@@ -266,7 +266,7 @@ static value CSF_ctor(VM *c)
         break;
     case 3: case 4: case 5: case 6: case 7:
       {
-        if( CsIntegerP(p1) )
+        if( !CsIntegerP(p1) )
             CsTypeError(c, p1);
         year = CsIntegerValue(p1);
         
@@ -999,7 +999,7 @@ static value CSF_toGMTString(VM *c)
 
     char time_buf[48];
     sprintf(time_buf, "%s,%d %s %d %02d:%02d:%02d GMT",
-      week_days[st.day_of_week() - 1],
+      week_days[st.day_of_week()],
       st.day(), short_months[st.month() - 1], st.year(),
       st.hours(), st.minutes(), st.seconds() );
 
@@ -1015,7 +1015,7 @@ static value CSF_toUTCString(VM *c)
 
     char time_buf[48];
     sprintf(time_buf, "%s,%d %s %d %02d:%02d:%02d UTC",
-      week_days[st.day_of_week() - 1],
+      week_days[st.day_of_week()],
       st.day(), short_months[st.month() - 1], st.year(),
       st.hours(), st.minutes(), st.seconds() );
 
@@ -1120,7 +1120,7 @@ static value CSF_dayOfWeekName(VM *c)
 
     tool::date_time st = get_utc(c,d); 
 
-    return CsMakeCString(c,week_days[st.day_of_week() - 1]);
+    return CsMakeCString(c,week_days[st.day_of_week()]);
 /*
     bool longFmt = false;
     
