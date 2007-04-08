@@ -281,6 +281,12 @@ int dbFile::open(char const* fileName, int attr)
     return ok;
 }
 
+int dbFile::open(wchar_t const* fileName, int attr)
+{
+    return open(cvt::w2a(fileName),attr );
+}
+
+
 int dbFile::setSize(offs_t size)
 {
     return ftruncate(fd, size);

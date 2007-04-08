@@ -13,6 +13,7 @@
 
 #include "tl_basic.h"
 #include <ctype.h>
+#include "assert.h"
 
 namespace tool
 {
@@ -247,12 +248,12 @@ template <typename CT >
       bool inv = *p == '^';
       if ( inv ) { ++p; }
       set ( 0, 0xff, inv );
-      if ( *p == '-' ) codes [ '-' ] = !inv;
+      if ( *p == '-' ) codes [ int('-') ] = !inv;
       while ( *p )
       {
         if ( p[0] == ']' ) { p++; break; }
         if ( p[1] == '-' && p[2] != 0 ) { set ( p[0], p[2], !inv );  p += 3; }
-        else codes [ *p++ ] = !inv;
+        else codes [ int(*p++) ] = !inv;
       }
       *pp = (const CT *) p;
     }

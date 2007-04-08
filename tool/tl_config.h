@@ -1,8 +1,6 @@
 #ifndef __tl_config_h__
 #define __tl_config_h__
 
-#pragma warning(disable:4996) //'strcpy' was declared deprecated
-
 #if defined(_WIN32_WCE) || defined(UNDER_CE)
   #define PLATFORM_WINCE
   #define WINDOWS
@@ -16,9 +14,18 @@
   #if defined(__GNUC__)
     #define PLATFORM_WIN32_GNU 1
   #endif
+#else
+  #define PLATFORM_LINUX
+  #define LINUX
 #endif
 
+
+
+
 #if defined(WINDOWS)
+
+  #pragma warning(disable:4996) //'strcpy' was declared deprecated
+
   #define WIN32_LEAN_AND_MEAN
   #include <windows.h>
   #include <assert.h>
@@ -28,15 +35,15 @@
 #endif
 
 
-#if defined(PLATFORM_DESKTOP) 
+#if defined(PLATFORM_DESKTOP)
 
 	#if !defined(__GNUC__) && _MSC_VER < 1400
-	  #ifdef _CRTDBG_MAP_ALLOC            
-	  #undef _CRTDBG_MAP_ALLOC        
-	  #endif        
-	  #include <crtdbg.h>        
-	  #ifdef _DEBUG            
-		#define THIS_FILE __FILE__            
+	  #ifdef _CRTDBG_MAP_ALLOC
+	  #undef _CRTDBG_MAP_ALLOC
+	  #endif
+	  #include <crtdbg.h>
+	  #ifdef _DEBUG
+		#define THIS_FILE __FILE__
 
 		#define DEBUG_NEW       new(_NORMAL_BLOCK, THIS_FILE, __LINE__)
 		#define malloc(s)       _malloc_dbg(s, _NORMAL_BLOCK, THIS_FILE, __LINE__)
@@ -44,17 +51,17 @@
 		#define realloc(p, s)   _realloc_dbg(p, s, _NORMAL_BLOCK, THIS_FILE, __LINE__)
 		#define _expand(p, s)   _expand_dbg(p, s, _NORMAL_BLOCK, THIS_FILE, __LINE__)
 		#define free(p)         _free_dbg(p, _NORMAL_BLOCK)
-		#define _msize(p)       _msize_dbg(p, _NORMAL_BLOCK)        
+		#define _msize(p)       _msize_dbg(p, _NORMAL_BLOCK)
 	  #endif
     #else
-      #define DEBUG_NEW new   
+      #define DEBUG_NEW new
 	#endif
 
     #define muldiv MulDiv
-   
+
 #elif defined(PLATFORM_WINCE)
 
-  #define DEBUG_NEW new   
+  #define DEBUG_NEW new
 
   #define stricmp _stricmp
   #define strnicmp _strnicmp
@@ -111,10 +118,10 @@ typedef unsigned short        ushort;
 }*/
 
 
-namespace locked 
+namespace locked
 {
-  
-#if defined(PLATFORM_WIN32_GNU)          
+
+#if defined(PLATFORM_WIN32_GNU)
   typedef long counter;
   inline long inc(counter& v)               {    return InterlockedIncrement(&v);  }
   inline long dec(counter& v)               {    return InterlockedDecrement(&v);  }

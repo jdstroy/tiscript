@@ -20,11 +20,11 @@ namespace tool
 
 //#pragma pack(push,4)
 
-  class value 
+  class value
   {
     friend class string;
   public:
-    enum types 
+    enum types
     {
       t_undefined,
       t_null,
@@ -37,29 +37,29 @@ namespace tool
       t_function,
     };
 
-    enum unit_type 
+    enum unit_type
       {
         //-------- rel
-        em = 1, //height of the element's font. 
-        ex, //height of letter 'x' 
+        em = 1, //height of the element's font.
+        ex, //height of letter 'x'
         pr, //%
         sp, //%% "springs"
         rs, //value is -1,1 // smaller larger
         //-------- abs
         as, //value is 1,2,3,4,5,6,7
         px, //pixels
-        in, //Inches (1 inch = 2.54 centimeters). 
-        cm, //Centimeters. 
-        mm, //Millimeters. 
-        pt, //Points (1 point = 1/72 inches). 
-        pc, //Picas (1 pica = 12 points). 
+        in, //Inches (1 inch = 2.54 centimeters).
+        cm, //Centimeters.
+        mm, //Millimeters.
+        pt, //Points (1 point = 1/72 inches).
+        pc, //Picas (1 pica = 12 points).
         // above-stated should match size_v
         clr,  // color
         uri,  // url
         func, // func
         algn, // alignment
       };
-  
+
     typedef pair<string,value> named_value;
 
     struct function: public resource
@@ -74,28 +74,30 @@ namespace tool
 
     value()                   :_type(t_undefined),_units(0) { v.li = 0; }
 
-    explicit value(bool b, word u = 0)             :_units(u),_type(t_bool)    { v.li = 0; v.i = int(b); }
-    explicit value(int i, word u = 0)              :_units(u),_type(t_int)     { v.li = 0; v.i = i; }
-    explicit value(double d, word u = 0)           :_units(u),_type(t_double)  { v.li = 0; v.d = d; }
-    explicit value(const string& s, word u = 0)    :_units(u),_type(t_string)  { v.li = 0; v.s = s.get_data(); }
-    explicit value(const ustring& us, word u = 0)  :_units(u),_type(t_ustring) { v.li = 0; v.us = us.get_data(); }
+    explicit value(bool b, word u = 0)             { _units = u; _type = t_bool; v.li = 0; v.i = int(b); }
+    explicit value(int i, word u = 0)              { _units = u; _type = t_int;  v.li = 0; v.i = i; }
+    explicit value(double d, word u = 0)           { _units = u; _type = t_double; v.li = 0; v.d = d; }
+    explicit value(const string& s, word u = 0)    { _units = u; _type = t_string; v.li = 0; v.s = s.get_data(); }
+    explicit value(const ustring& us, word u = 0)  { _units = u, _type = t_ustring; v.li = 0; v.us = us.get_data(); }
     //value(const void* ptr)    :_type(t_pointer) { v.ptr = const_cast<void*>(ptr); }
 
     value(const value& cv) { copy(cv); }
 
-    explicit value(const array<value>& va, word u = 0)  :_type(t_array),_units(u) 
-    { 
-      v.li = 0; 
-      v.a = a_impl::create(va); 
+    explicit value(const array<value>& va, word u = 0)
+    {
+      _type= t_array;
+      _units = u;
+      v.li = 0;
+      v.a = a_impl::create(va);
     }
 
     void copy(const value& cv)
-    { 
+    {
       if(&cv == this)
         return;
       clear();
-      _type = cv._type; 
-      _units = cv._units; 
+      _type = cv._type;
+      _units = cv._units;
       if(_type == t_string)
       {
         string::data *p = cv.v.s;
@@ -123,8 +125,8 @@ namespace tool
       else v.li = cv.v.li;
     }
 
-    void clear() 
-    { 
+    void clear()
+    {
 
       if(_type == t_string)
         string::release_data(v.s);
@@ -149,13 +151,13 @@ namespace tool
     value& operator = (const string& s) {  clear(); _type = t_string; v.s = s.get_data(); return *this;  }
     value& operator = (const ustring& s) {  clear(); _type = t_ustring; v.us = s.get_data(); return *this; }
 
-    value& operator = (function* f) {  clear(); _type = t_function; v.f = f; f->add_ref();  return *this; } 
+    value& operator = (function* f) {  clear(); _type = t_function; v.f = f; f->add_ref();  return *this; }
 
     value& operator = (const array<value>& va)
-    { 
+    {
       clear();
       _type = t_array;
-      v.a = a_impl::create(va); 
+      v.a = a_impl::create(va);
       return *this;
     }
 
@@ -175,7 +177,7 @@ namespace tool
     bool  is_function() const { return _type == t_function; }
 
     bool  is_text() const { return is_string() || is_ustring(); }
-        
+
     int       get_int() const { assert(_type == t_int); return v.i; }
     bool      get_bool() const { assert(_type == t_bool); return v.i != 0; }
     double    get_double(double dv = 0.0) const { if(_type == t_double) return v.d; return dv; }
@@ -183,9 +185,9 @@ namespace tool
     ustring   get_ustring() const { assert(_type == t_ustring); return ustring(v.us); }
     function* get_function() const { assert(_type == t_function); return v.f; }
 
-    string to_string() const 
-    { 
-      switch(_type) 
+    string to_string() const
+    {
+      switch(_type)
       {
       //case t_null:
       //  return "{undefined}";
@@ -207,9 +209,9 @@ namespace tool
       }
     }
 
-    int to_int() const 
-    { 
-      switch(_type) 
+    int to_int() const
+    {
+      switch(_type)
       {
         case t_bool:
         case t_int:
@@ -218,12 +220,12 @@ namespace tool
           return (int)v.d;
         case t_string:
           {
-            string s(v.s); 
+            string s(v.s);
             return atoi(s);
           }
         case t_ustring:
           {
-            ustring s(v.us); 
+            ustring s(v.us);
             return atoi(string(s));
           }
         default:
@@ -231,9 +233,9 @@ namespace tool
       }
     }
 
-    double to_float() const 
-    { 
-      switch(_type) 
+    double to_float() const
+    {
+      switch(_type)
       {
         case t_bool:
         case t_int:
@@ -242,12 +244,12 @@ namespace tool
           return v.d;
         case t_string:
           {
-            string s(v.s); 
+            string s(v.s);
             return atof(s);
           }
         case t_ustring:
           {
-            ustring s(v.us); 
+            ustring s(v.us);
             return atof(string(s));
           }
         default:
@@ -256,9 +258,9 @@ namespace tool
     }
 
 
-    bool to_bool() const 
-    { 
-      switch(_type) 
+    bool to_bool() const
+    {
+      switch(_type)
       {
         case t_bool:
         case t_int:
@@ -267,12 +269,12 @@ namespace tool
           return (int)v.d != 0;
         case t_string:
           {
-            string s(v.s); 
+            string s(v.s);
             return s == "true";
           }
         case t_ustring:
           {
-            ustring s(v.us); 
+            ustring s(v.us);
             return s == L"true";
           }
         case t_array:
@@ -283,9 +285,9 @@ namespace tool
     }
 
 
-    ustring to_ustring() const 
-    { 
-      switch(_type) 
+    ustring to_ustring() const
+    {
+      switch(_type)
       {
       case t_null:
         return ustring();
@@ -327,8 +329,8 @@ namespace tool
     }
 
 
-    bool equal(const value& rs) const 
-    {  
+    bool equal(const value& rs) const
+    {
 
       if(_type != rs._type) return false;
       if(_units != rs._units) return false;
@@ -356,10 +358,10 @@ namespace tool
     bool operator == (const value& rs) const { return equal(rs); }
     bool operator != (const value& rs) const { return !equal(rs); }
 
-    
-    size_t storage_size() const 
-    { 
-      switch(_type) 
+
+    size_t storage_size() const
+    {
+      switch(_type)
       {
       case t_null:
         return sizeof(_type);
@@ -379,12 +381,12 @@ namespace tool
       }
     }
 
-    size_t store(byte *data) const 
-    { 
+    size_t store(byte *data) const
+    {
       byte *p = data;
       memcpy(p,&_type,sizeof(_type));
       p += sizeof(_type);
-      switch(_type) 
+      switch(_type)
       {
       case t_null:
         break;
@@ -430,7 +432,7 @@ namespace tool
       const byte *p = data;
       memcpy(&_type,p,sizeof(_type));
       p += sizeof(_type);
-      switch(_type) 
+      switch(_type)
       {
       case t_null:
         break;
@@ -469,12 +471,12 @@ namespace tool
       return p - data;
     }
 
-    
+
     static value null() { value t; t._type = t_null; return t; }
     static const value undefined;
 
     // if array...
-    value& operator[](int i) 
+    value& operator[](int i)
     {
       assert(is_array());
       if(is_array())
@@ -494,8 +496,8 @@ namespace tool
       }
       return *this; // just in case
     }
-    
-    int array_size() const 
+
+    int array_size() const
     {
       if(is_array())
         return int(v.a->size);
@@ -519,7 +521,7 @@ namespace tool
       void release(){ if(--ref_cnt == 0) destroy(this); }
 
       bool equal( const a_impl* rs) const;
-      
+
     };
 
     word _type;
@@ -537,31 +539,31 @@ namespace tool
      }v;
   };
 
-	inline value::a_impl* value::a_impl::allocate(size_t num)  
-    {  
-      a_impl* imp = (a_impl*) new byte[sizeof(a_impl) + num * sizeof(value)]; 
-      //typedef typename 
+	inline value::a_impl* value::a_impl::allocate(size_t num)
+    {
+      a_impl* imp = (a_impl*) new byte[sizeof(a_impl) + num * sizeof(value)];
+      //typedef typename
       tool::init(imp->elements(),num);
       imp->ref_cnt = 0;
       imp->size = num;
       return imp;
     }
-	inline value::a_impl* value::a_impl::create(const array<value>& va)  
-    { 
+	inline value::a_impl* value::a_impl::create(const array<value>& va)
+    {
       a_impl* imp = allocate(va.size());
 		  tool::copy(imp->elements(), va.head(), va.size());
       imp->add_ref();
       return imp;
     }
 
-  inline void value::a_impl::destroy(a_impl* imp) 
-	  { 
-		  tool::erase<value>(imp->elements(),imp->size); 
+  inline void value::a_impl::destroy(a_impl* imp)
+	  {
+		  tool::erase<value>(imp->elements(),imp->size);
       delete imp;
 	  }
 
   inline bool value::a_impl::equal( const a_impl* rs) const
-    {    
+    {
       if( size != rs->size ) return false;
       for( int n = int(size) - 1; n >= 0; --n )
         if( elements()[n] != rs->elements()[n] ) return false;
@@ -574,36 +576,36 @@ namespace tool
   template<typename T, T default_value, T null_value >
   struct t_value
   {
-    T _v;  
+    T _v;
 
     t_value(): _v(null_value) {}
     t_value(const T& iv): _v(iv) {}
-    t_value(const t_value& c): _v(c._v) {} 
-    
+    t_value(const t_value& c): _v(c._v) {}
+
     operator T() const { return _v == null_value? default_value: _v; }
     const t_value& operator = (const T& nv) { _v = nv; return *this; }
-    const t_value& operator = (const value& nv) 
-    { 
-      clear(); 
+    const t_value& operator = (const value& nv)
+    {
+      clear();
       if(nv.is_undefined())
-        return *this; 
-      else if(nv.is_null()) 
+        return *this;
+      else if(nv.is_null())
         _v = null_value;
       else
-        _v = T(nv); 
+        _v = T(nv);
 
-      return *this; 
+      return *this;
     }
 
     static T null_val() { return null_value; }
 
     value to_value() const
-    { 
+    {
       if(undefined())
         return value::undefined;
-      return value(_v); 
+      return value(_v);
     }
-  
+
     bool undefined() const { return _v == null_value; }
     bool defined() const { return _v != null_value; }
 
@@ -614,7 +616,7 @@ namespace tool
     T val(const t_value& v1) const { return defined()?_v: v1; }
 
     static T val(const t_value& v1,T defval) { return v1.defined()? v1._v:defval; }
-    
+
     static t_value val(const t_value& v1,const t_value& v2)
     {
       if(v1.defined()) return v1;
@@ -640,7 +642,7 @@ namespace tool
   };
 
   typedef t_value<int,0,0x80000000>  int_v;
-  typedef t_value<uint,FALSE,0xFF>   tristate_v;
+  typedef t_value<uint,0,0xFF>       tristate_v;
   typedef int_v enum_v;
 
 

@@ -16,23 +16,33 @@
 wchar to_wchar(char c)
 {
   wchar wc = '?';
+#ifdef WIN32
   MultiByteToWideChar(CP_OEMCP,0,&c,1,&wc,1);
+#else
+  mbtowc(&wc, &c, 1 );
+#endif
   return wc;
 }
 
-char to_char(wchar wc)
+int to_char(wchar wc, char* pc10)
 {
-  char c = '?';
-  WideCharToMultiByte(CP_OEMCP,0,&wc,1,&c,1,0,0);
-  return c;
+#ifdef WIN32
+  return WideCharToMultiByte(CP_OEMCP,0,&wc,1,pc10,10,0,0);
+#else
+  return wctomb(pc10,wc);
+#endif
 }
 
 struct console_stream: public tis::stream
 {
   virtual int  get() { int c = getchar(); return c != EOF? to_wchar(c) : int(EOS); }
-  virtual bool put(int ch) {
-    putchar(to_char(ch));
-    return true; }
+  virtual bool put(int ch)
+  {
+    char bf[MB_CUR_MAX];
+    int n = to_char(ch,bf);
+    for( int i = 0; i < n; ++i ) putchar(bf[i]);
+    return true;
+  }
 };
 
 console_stream console;
@@ -72,7 +82,7 @@ static int sourceType(const char* t)
 }
 
 
-// main - the main routine 
+// main - the main routine
 int main(int argc,char **argv)
 {
 	bool interactiveP = true;

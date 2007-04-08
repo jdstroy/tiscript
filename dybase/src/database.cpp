@@ -13,9 +13,9 @@
 
 void dbDatabase::handleError(int error, char const* msg)
 {
-    if (errorHandler != NULL) { 
+    if (errorHandler != NULL) {
         (*errorHandler)(error, msg);
-    } else {  
+    } else {
         fprintf(stderr, "Error %d: %s\n", error, msg);
     }
 }
@@ -32,7 +32,7 @@ bool dbDatabase::open(wchar_t const* name, int openAttr)
     dbCriticalSection cs(mutex);
     int rc;
     opened = false;
-    
+
     size_t indexSize = initIndexSize < dbFirstUserId
         ? size_t(dbFirstUserId) : initIndexSize;
     indexSize = DOALIGN(indexSize, dbHandlesPerPage);
@@ -51,11 +51,13 @@ bool dbDatabase::open(wchar_t const* name, int openAttr)
     gcDone = false;
     modified = false;
 
-    if (accessType == dbReadOnly) { 
+    if (accessType == dbReadOnly) {
         openAttr |= dbFile::read_only;
     }
     if (*name == L'@') {
-        FILE* f = _wfopen(name+1, L"r");
+        char fn[1024];
+        wcstombs ( fn, name+1, 1024 );
+        FILE* f = fopen( fn , "r");
         if (f == NULL) {
             handleError(dybase_open_error,
                         "Failed to open database configuration file");
@@ -68,7 +70,7 @@ bool dbDatabase::open(wchar_t const* name, int openAttr)
         db_int8 size;
         bool raid = false;
         size_t raidBlockSize = dbDefaultRaidBlockSize;
-        for (i=0; (n=fscanf(f, "%s" INT8_FORMAT, fileName, &size)) >= 1; i++) 
+        for (i=0; (n=fscanf(f, "%s" INT8_FORMAT, fileName, &size)) >= 1; i++)
         {
             if (i == dbMaxFileSegments) {
                 while (--i >= 0) delete[] segment[i].name;
@@ -76,9 +78,9 @@ bool dbDatabase::open(wchar_t const* name, int openAttr)
                 handleError(dybase_open_error, "Too much segments");
                 return false;
             }
-            
+
             if (n == 1) {
-                if (i == 0) { 
+                if (i == 0) {
                     raid = true;
                 } else if (!raid && segment[i-1].size == 0) {
                     while (--i >= 0) delete[] segment[i].name;
@@ -91,13 +93,13 @@ bool dbDatabase::open(wchar_t const* name, int openAttr)
             } else if (size == 0 || raid) {
                 while (--i >= 0) delete[] segment[i].name;
                 fclose(f);
-                handleError(dybase_open_error, size == 0 
-                            ? "Invalid segment size" 
+                handleError(dybase_open_error, size == 0
+                            ? "Invalid segment size"
                             : "segment size should not be specified for raid");
                 return false;
-            } 
-                
-            if (strcmp(fileName, ".RaidBlockSize") == 0) { 
+            }
+
+            if (strcmp(fileName, ".RaidBlockSize") == 0) {
                 raidBlockSize = (size_t)size;
                 raid = true;
                 i -= 1;
@@ -121,15 +123,15 @@ bool dbDatabase::open(wchar_t const* name, int openAttr)
                         "File should have at least one segment");
             return false;
         }
-        if (i == 1 && raid) { 
+        if (i == 1 && raid) {
             raid = false;
         }
         dbMultiFile* mfile;
-        if (raid) { 
+        if (raid) {
             mfile = new dbRaidFile(raidBlockSize);
-        } else { 
+        } else {
             mfile = new dbMultiFile;
-        } 
+        }
         rc = mfile->open(i, segment, openAttr);
         while (--i >= 0) delete[] segment[i].name;
         if (rc != dbFile::ok) {
@@ -228,11 +230,11 @@ bool dbDatabase::open(wchar_t const* name, int openAttr)
         header->root[1].size = used;
         currIndexSize = dbFirstUserId;
         if (!pool.open(file, used)) {
-            delete file;           
+            delete file;
             handleError(dybase_open_error, "Failed to allocate page pool");
             return false;
         }
-        if (dbFileExtensionQuantum != 0) { 
+        if (dbFileExtensionQuantum != 0) {
             file->setSize(DOALIGN(used, dbFileExtensionQuantum));
         }
         offs_t indexPage = header->root[1].index;
@@ -307,7 +309,7 @@ bool dbDatabase::open(wchar_t const* name, int openAttr)
                       DOALIGN(header->root[curr].indexUsed*sizeof(offs_t),
                               dbPageSize));
             TRACE_MSG(("Recovery completed\n"));
-        }   
+        }
         currIndexSize = header->root[1-curr].indexUsed;
     }
     committedIndexSize = currIndexSize;
@@ -322,7 +324,7 @@ void dbDatabase::loadScheme()
     dbGetTie tie;
     dbClassDescriptor** cpp = &classDescList;
     int cid = header->root[1-curr].classDescList;
-    while (cid != 0) { 
+    while (cid != 0) {
         dbClass* cls = ((dbClass*)getObject(tie, cid))->clone();
         dbClassDescriptor* desc = new dbClassDescriptor(cls, cid);
         classOidHash.put(&desc->oid, sizeof(desc->oid), desc);
@@ -338,15 +340,15 @@ void dbDatabase::loadScheme()
 void dbDatabase::close()
 {
     dbCriticalSection cs(mutex);
-    if (!opened) { 
+    if (!opened) {
         handleError(dybase_not_opened, "Database not opened");
         return;
     }
-    if (modified) { 
+    if (modified) {
         commitTransaction();
     }
     dbClassDescriptor *desc, *next;
-    for (desc = classDescList; desc != NULL; desc = next) { 
+    for (desc = classDescList; desc != NULL; desc = next) {
         next = desc->next;
         delete desc;
     }
@@ -405,10 +407,10 @@ byte* dbDatabase::put(dbPutTie& tie, oid_t oid) {
 
 oid_t dbDatabase::getRoot()
 {
-    return header->root[1-curr].rootObject;     
+    return header->root[1-curr].rootObject;
 }
-    
-void dbDatabase::setRoot(oid_t oid) 
+
+void dbDatabase::setRoot(oid_t oid)
 {
     header->root[1-curr].rootObject = oid;
     modified = true;
@@ -417,7 +419,7 @@ void dbDatabase::setRoot(oid_t oid)
 dbLoadHandle* dbDatabase::getLoadHandle(oid_t oid)
 {
     dbCriticalSection cs(mutex);
-    if (!opened) { 
+    if (!opened) {
         handleError(dybase_not_opened, "Database not opened");
         return NULL;
     }
@@ -433,7 +435,7 @@ dbLoadHandle* dbDatabase::getLoadHandle(oid_t oid)
 void dbDatabase::storeObject(dbStoreHandle* handle)
 {
     dbCriticalSection cs(mutex);
-    if (!opened) { 
+    if (!opened) {
         handleError(dybase_not_opened, "Database not opened");
         return;
     }
@@ -443,7 +445,7 @@ void dbDatabase::storeObject(dbStoreHandle* handle)
         dbClass* cls = dbClass::create(handle->signature.base(), handle->signature.size());
         cls->next = header->root[1-curr].classDescList;
         desc = new dbClassDescriptor(cls, allocateObject(cls));
-        header->root[1-curr].classDescList = desc->oid;         
+        header->root[1-curr].classDescList = desc->oid;
         classOidHash.put(&desc->oid, sizeof(desc->oid), desc);
         classSignatureHash.put(cls->signature, desc->signatureSize, desc);
         desc->next = classDescList;
@@ -453,10 +455,10 @@ void dbDatabase::storeObject(dbStoreHandle* handle)
     obj->cid = desc->oid;
     oid_t oid = handle->oid;
     offs_t pos = getPos(oid);
-    if (pos == 0) { 
-        pos = allocate(obj->size); 
+    if (pos == 0) {
+        pos = allocate(obj->size);
         setPos(oid, pos | dbModifiedFlag);
-    } else { 
+    } else {
         int offs = (int)pos & (dbPageSize-1);
         byte* p = pool.get(pos - offs);
         size_t oldSize = ((dbObject*)(p + (offs & ~dbFlagsMask)))->size;
@@ -480,9 +482,9 @@ void dbDatabase::storeObject(dbStoreHandle* handle)
     pool.put(pos & ~dbFlagsMask, (byte*)obj, obj->size);
 }
 
-oid_t dbDatabase::allocateObject(dbObject* obj) 
+oid_t dbDatabase::allocateObject(dbObject* obj)
 {
-    if (!opened) { 
+    if (!opened) {
         handleError(dybase_not_opened, "Database not opened");
         return 0;
     }
@@ -497,7 +499,7 @@ oid_t dbDatabase::allocateObject(dbObject* obj)
 void dbDatabase::freeObject(oid_t oid)
 {
     dbCriticalSection cs(mutex);
-    if (!opened) { 
+    if (!opened) {
         handleError(dybase_not_opened, "Database not opened");
         return;
     }
@@ -528,7 +530,7 @@ inline void dbDatabase::extend(offs_t size)
 {
     if (size > header->root[1-curr].size) {
         if (dbFileExtensionQuantum != 0
-            && DOALIGN(size, dbFileExtensionQuantum) 
+            && DOALIGN(size, dbFileExtensionQuantum)
                != DOALIGN(header->root[1-curr].size, dbFileExtensionQuantum))
         {
             file->setSize(DOALIGN(size, dbFileExtensionQuantum));
@@ -537,9 +539,9 @@ inline void dbDatabase::extend(offs_t size)
     }
 }
 
-inline bool dbDatabase::wasReserved(offs_t pos, size_t size) 
+inline bool dbDatabase::wasReserved(offs_t pos, size_t size)
 {
-    for (dbLocation* location = reservedChain; location != NULL; location = location->next) { 
+    for (dbLocation* location = reservedChain; location != NULL; location = location->next) {
         if (pos - location->pos < location->size || location->pos - pos < size) {
             return true;
         }
@@ -561,10 +563,10 @@ inline void dbDatabase::commitLocation()
 }
 
 
-void dbDatabase::setDirty() 
+void dbDatabase::setDirty()
 {
     modified = true;
-    if (!header->dirty) { 
+    if (!header->dirty) {
         header->dirty = true;
         if (file->write(0, header, dbPageSize) != dbFile::ok) {
             throwException(dybase_file_error, "Failed to write header to the file");
@@ -668,12 +670,12 @@ offs_t dbDatabase::allocate(size_t size, oid_t oid)
                     } else if ((holeBitSize += 8) == objBitSize) {
                         pos = ((offs_t(i-dbBitmapId)*dbPageSize + offs)*8
                                - holeBitSize) << dbAllocationQuantumBits;
-                        if (wasReserved(pos, size)) { 
+                        if (wasReserved(pos, size)) {
                             offs += objBitSize >> 3;
                             startOffs = offs = DOALIGN(offs, inc);
                             holeBitSize = 0;
                             continue;
-                        }       
+                        }
                         reserveLocation(location, pos, size);
                         currPBitmapPage = i;
                         currPBitmapOffs = offs;
@@ -729,11 +731,11 @@ offs_t dbDatabase::allocate(size_t size, oid_t oid)
                     if (holeBitSize + firstHoleSize[mask] >= objBitSize) {
                         pos = ((offs_t(i-dbBitmapId)*dbPageSize + offs)*8
                                - holeBitSize) << dbAllocationQuantumBits;
-                        if (wasReserved(pos, size)) {                       
+                        if (wasReserved(pos, size)) {
                             startOffs = offs += (objBitSize + 7) >> 3;
                             holeBitSize = 0;
                             continue;
-                        }       
+                        }
                         reserveLocation(location, pos, size);
                         currRBitmapPage = i;
                         currRBitmapOffs = offs;
@@ -771,11 +773,11 @@ offs_t dbDatabase::allocate(size_t size, oid_t oid)
                         int holeBitOffset = maxHoleOffset[mask];
                         pos = ((offs_t(i-dbBitmapId)*dbPageSize + offs)*8 +
                                holeBitOffset) << dbAllocationQuantumBits;
-                        if (wasReserved(pos, size)) { 
+                        if (wasReserved(pos, size)) {
                             startOffs = offs += (objBitSize + 7) >> 3;
                             holeBitSize = 0;
                             continue;
-                        }       
+                        }
                         reserveLocation(location, pos, size);
                         currRBitmapPage = i;
                         currRBitmapOffs = offs;
@@ -878,7 +880,7 @@ offs_t dbDatabase::allocate(size_t size, oid_t oid)
             if (alignment != 0) {
                 currRBitmapPage = j;
                 currRBitmapOffs = 0;
-            } else { 
+            } else {
                 currPBitmapPage = j;
                 currPBitmapOffs = 0;
             }
@@ -915,7 +917,7 @@ offs_t dbDatabase::allocate(size_t size, oid_t oid)
             allocatedDelta -= size;
             startGC();
             currRBitmapPage = currPBitmapPage = dbBitmapId;
-            currRBitmapOffs = currPBitmapOffs = 0;                
+            currRBitmapOffs = currPBitmapOffs = 0;
             return allocate(size, oid);
         }
         freeBitmapPage = i;
@@ -972,10 +974,10 @@ void dbDatabase::free(offs_t pos, size_t size)
     }
 }
 
-void dbDatabase::gc() 
-{ 
+void dbDatabase::gc()
+{
     dbCriticalSection cs(mutex);
-    if (gcDone) { 
+    if (gcDone) {
         return;
     }
     startGC();
@@ -994,46 +996,46 @@ void dbDatabase::startGC()
     memset(greyBitmap, 0, bitmapSize*sizeof(db_int4));
     memset(blackBitmap, 0, bitmapSize*sizeof(db_int4));
     int rootOid = header->root[curr].rootObject;
-    if (rootOid != 0) { 
+    if (rootOid != 0) {
         dbGetTie tie;
         markOid(rootOid);
-        do { 
+        do {
             existsNotMarkedObjects = false;
-            for (i = 0; i < bitmapSize; i++) { 
-                if (greyBitmap[i] != 0) { 
+            for (i = 0; i < bitmapSize; i++) {
+                if (greyBitmap[i] != 0) {
                     existsNotMarkedObjects = true;
-                    for (j = 0; j < 32; j++) { 
-                        if ((greyBitmap[i] & (1 << j)) != 0) { 
+                    for (j = 0; j < 32; j++) {
+                        if ((greyBitmap[i] & (1 << j)) != 0) {
                             pos = (((offs_t)i << 5) + j) << dbAllocationQuantumBits;
                             greyBitmap[i] &= ~(1 << j);
                             blackBitmap[i] |= 1 << j;
                             int offs = (int)pos & (dbPageSize-1);
                             byte* pg = pool.get(pos - offs);
                             dbObject* obj = (dbObject*)(pg + offs);
-                            if (obj->cid == dbBtreeId) { 
+                            if (obj->cid == dbBtreeId) {
                                 ((dbBtree*)obj)->markTree(this);
                             } else if (obj->cid >= dbFirstUserId) {
                                 markOid(obj->cid);
                                 tie.set(pool, pos);
                                 markObject((dbObject*)tie.get());
                             }
-                            pool.unfix(pg);                                
+                            pool.unfix(pg);
                         }
                     }
                 }
             }
         } while (existsNotMarkedObjects);
     }
-        
+
     // sweep
     gcDone = true;
     for (i = dbFirstUserId, j = committedIndexSize; i < j; i++) {
         pos = getGCPos(i);
         if (((int)pos & (dbPageObjectFlag|dbFreeHandleFlag)) == 0) {
             unsigned bit = (unsigned)(pos >> dbAllocationQuantumBits);
-            if ((blackBitmap[bit >> 5] & (1 << (bit & 31))) == 0) { 
+            if ((blackBitmap[bit >> 5] & (1 << (bit & 31))) == 0) {
                 // object is not accessible
-                assert(getPos(i) == pos); 
+                assert(getPos(i) == pos);
                 int offs = (int)pos & (dbPageSize-1);
                 byte* pg = pool.get(pos - offs);
                 dbObject* obj = (dbObject*)(pg + offs);
@@ -1044,7 +1046,7 @@ void dbDatabase::startGC()
                     cloneBitmap(pos, obj->size);
                 }
                 pool.unfix(pg);
-            }   
+            }
         }
     }
 
@@ -1070,7 +1072,7 @@ byte* dbDatabase::markField(byte* p)
     oid_t oid;
     int i;
 
-    switch (type & 0xF) { 
+    switch (type & 0xF) {
       case dybase_object_ref_type:
       case dybase_array_ref_type:
       case dybase_index_ref_type:
@@ -1089,38 +1091,38 @@ byte* dbDatabase::markField(byte* p)
         p += sizeof(db_int8);
         break;
       case dybase_string_type:
-        if (type != dybase_string_type) { 
-            // small string 
+        if (type != dybase_string_type) {
+            // small string
             p += type >> 4;
-        } else { 
+        } else {
             memcpy(&len, p, sizeof(db_int4));
             p += sizeof(db_int4) + len;
         }
         break;
       case dybase_array_type:
         if (type != dybase_array_type) {
-            // small array 
-            for (i = type >> 4; --i >= 0;) { 
+            // small array
+            for (i = type >> 4; --i >= 0;) {
                 p = markField(p);
             }
-        } else { 
+        } else {
             memcpy(&len, p, sizeof(db_int4));
             p += sizeof(db_int4);
-            for (i = len; --i >= 0;) { 
+            for (i = len; --i >= 0;) {
                 p = markField(p);
             }
         }
 	break;
       case dybase_map_type:
         if (type != dybase_map_type) {
-            // small map 
-            for (i = (type >> 4) << 1; --i >= 0;) { 
+            // small map
+            for (i = (type >> 4) << 1; --i >= 0;) {
                 p = markField(p);
             }
-        } else { 
+        } else {
             memcpy(&len, p, sizeof(db_int4));
             p += sizeof(db_int4);
-            for (i = len << 1; --i >= 0;) { 
+            for (i = len << 1; --i >= 0;) {
                 p = markField(p);
             }
         }
@@ -1172,14 +1174,14 @@ oid_t dbDatabase::allocate()
 
 oid_t dbDatabase::allocateId()
 {
-    oid_t oid; 
+    oid_t oid;
     int curr = 1-this->curr;
     setDirty();
     if ((oid = header->root[curr].freeList) != 0) {
         header->root[curr].freeList = oid_t(getPos(oid) >> dbFlagsBits);
         dirtyPagesMap[size_t(oid / dbHandlesPerPage / 32)]
             |= 1 << (int(oid / dbHandlesPerPage) & 31);
-    } else { 
+    } else {
         if (currIndexSize + 1 > header->root[curr].indexSize) {
             size_t oldIndexSize = header->root[curr].indexSize;
             size_t newIndexSize = oldIndexSize * 2;
@@ -1210,19 +1212,19 @@ void dbDatabase::freeId(oid_t oid)
     header->root[1-curr].freeList = oid;
 }
 
-void dbDatabase::commit() 
+void dbDatabase::commit()
 {
     dbCriticalSection cs(mutex);
     commitTransaction();
 }
 
-void dbDatabase::commitTransaction() 
+void dbDatabase::commitTransaction()
 {
-    if (!opened) { 
+    if (!opened) {
         handleError(dybase_not_opened, "Database not opened");
         return;
     }
-    if (!modified) { 
+    if (!modified) {
         return;
     }
     //
@@ -1297,7 +1299,7 @@ void dbDatabase::commitTransaction()
             dstIndex += 1;
             srcIndex += 1;
         } while (--n != 0);
-        
+
         pool.unfix(srcIndex);
         pool.unfix(dstIndex);
     }
@@ -1334,20 +1336,20 @@ void dbDatabase::commitTransaction()
     pool.flush();
 
     header->curr = curr ^= 1;
-    
+
     if ((rc = file->write(0, header, dbPageSize)) != dbFile::ok ||
         (rc = file->flush()) != dbFile::ok)
     {
         throwException(dybase_file_error, "Failed to flush changes to the disk");
     }
-    
+
     header->root[1-curr].size = header->root[curr].size;
     header->root[1-curr].indexUsed = currIndexSize;
     header->root[1-curr].freeList  = header->root[curr].freeList;
     header->root[1-curr].bitmapEnd = header->root[curr].bitmapEnd;
     header->root[1-curr].rootObject  = header->root[curr].rootObject;
     header->root[1-curr].classDescList = header->root[curr].classDescList;
-    
+
     if (newIndexSize != oldIndexSize) {
         header->root[1-curr].index=header->root[curr].shadowIndex;
         header->root[1-curr].indexSize=header->root[curr].shadowIndexSize;
@@ -1387,21 +1389,21 @@ void dbDatabase::commitTransaction()
 void dbDatabase::rollback()
 {
     dbCriticalSection cs(mutex);
-    if (!opened) { 
+    if (!opened) {
         handleError(dybase_not_opened, "Database not opened");
         return;
     }
-    if (!modified) { 
+    if (!modified) {
         return;
     }
     int curr = header->curr;
     size_t nPages =
         (committedIndexSize + dbHandlesPerPage - 1) / dbHandlesPerPage;
     db_int4 *map = dirtyPagesMap;
-    if (header->root[1-curr].index != header->root[curr].shadowIndex) { 
-        pool.copy(header->root[curr].shadowIndex, header->root[curr].index, 
+    if (header->root[1-curr].index != header->root[curr].shadowIndex) {
+        pool.copy(header->root[curr].shadowIndex, header->root[curr].index,
                   dbPageSize*nPages);
-    } else { 
+    } else {
         for (oid_t i = 0; i < nPages; i++) {
             if (map[size_t(i >> 5)] & (1 << int(i & 31))) {
                 pool.copy(header->root[curr].shadowIndex + i*dbPageSize,
@@ -1414,19 +1416,19 @@ void dbDatabase::rollback()
            size_t((currIndexSize+dbHandlesPerPage*32-1) / (dbHandlesPerPage*32))*4);
     header->root[1-curr].indexSize = header->root[curr].shadowIndexSize;
     header->root[1-curr].indexUsed = header->root[curr].indexUsed;
-    header->root[1-curr].freeList  = header->root[curr].freeList; 
+    header->root[1-curr].freeList  = header->root[curr].freeList;
     header->root[1-curr].index = header->root[curr].shadowIndex;
     header->root[1-curr].bitmapEnd = header->root[curr].bitmapEnd;
     header->root[1-curr].size = header->root[curr].size;
     header->root[1-curr].rootObject = header->root[curr].rootObject;
     header->root[1-curr].classDescList = header->root[curr].classDescList;
-   
+
     currRBitmapPage = currPBitmapPage = dbBitmapId;
     currRBitmapOffs = currPBitmapOffs = 0;
     currIndexSize = committedIndexSize;
 
     modified = false;
-    
+
     oid_t cid = header->root[curr].classDescList;
     dbClassDescriptor* desc = classDescList;
     while (desc->oid != cid) {
@@ -1439,12 +1441,12 @@ void dbDatabase::rollback()
     classDescList = desc;
 }
 
-        
-    
-dbDatabase::dbDatabase(dbAccessType   type, 
-                       dbErrorHandler hnd, 
+
+
+dbDatabase::dbDatabase(dbAccessType   type,
+                       dbErrorHandler hnd,
                        size_t         poolSize,
-                       size_t         dbExtensionQuantum, 
+                       size_t         dbExtensionQuantum,
                        size_t         dbInitIndexSize
 ) : accessType(type),
     extensionQuantum(dbExtensionQuantum),
@@ -1457,7 +1459,7 @@ dbDatabase::dbDatabase(dbAccessType   type,
     classDescList = NULL;
     opened = false;
     header = (dbHeader*)dbFile::allocateBuffer(dbPageSize);
-    dbFileExtensionQuantum = 0; 
+    dbFileExtensionQuantum = 0;
     dbFileSizeLimit = 0;
 }
 

@@ -445,7 +445,7 @@ bool CsCollectGarbageIf(VM *c, size_t threshold)
         return false;
     }
     else
-      if( (space->top - space->free) > threshold ) 
+      if( (space->top - space->free) > threshold )
         return false;
 
     CsCollectGarbage(c);
@@ -456,7 +456,7 @@ bool CsCollectGarbageIf(VM *c, size_t threshold)
 void CsCollectGarbage(VM *c)
 {
     CsProtectedPtrs *ppb;
-    BYTE *scan;
+    byte *scan;
     CsMemorySpace *ms;
     CsSavedState *ss;
     CsScope *scope;
@@ -593,7 +593,7 @@ void CsCollectGarbage(VM *c)
 /* CsDumpHeap - dump the contents of the heap */
 void CsDumpHeap(VM *c)
 {
-    BYTE *scan;
+    byte *scan;
 
     /* first collect the garbage */
     CsCollectGarbage(c);

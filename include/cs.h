@@ -15,7 +15,7 @@
 #include "json-value.h"
 
 //struct regexp;
-#define snprintf _snprintf
+//#define snprintf _snprintf
 
 namespace tis
 {
@@ -159,7 +159,7 @@ inline float_t  to_float( const value& v )  { float_t t; *((value*)(&t)) = v << 
 inline int      iface_no( const value& v)       { return int(v >> 32) & 0xF; } // only 16 ifaces so far
 inline int      symbol_idx( const value& v)     { assert(is_symbol(v)); return lodword(v); }
 
-inline void dprint_value(value v) { dword d1 = hidword(v); dword d2 = lodword(v); printf("value=%x %x\n", d1,d2); }
+inline void dprint_value(value v) { uint d1 = hidword(v); uint d2 = lodword(v); printf("value=%x %x\n", d1,d2); }
 
 
 /* output conversion functions */
@@ -347,6 +347,8 @@ struct _VM
 
 struct loader
 {
+  loader() {}
+  virtual ~loader() {}
   virtual tool::ustring combine_url( const tool::ustring& base, const tool::ustring& relative ) = 0;
   virtual stream* open( const tool::ustring& url ) = 0;
 };
@@ -630,7 +632,7 @@ struct CsByteVector: public header
 {
     size_t size;
     value  type;
-    
+
 /*  unsigned byte data[0]; */
 };
 
@@ -769,6 +771,8 @@ void  CsRemoveObjectProperty(VM *c,value obj, value tag);
 
 struct object_scanner
 {
+  object_scanner() {}
+  virtual ~object_scanner() {}
   virtual bool item( VM *c, value key, value val ) = 0; // true - continue, false - stop;
 };
 
@@ -936,11 +940,21 @@ struct vp_method: public header
     vp_set_t set_handler;
     void*    tag;
     vp_method():name(0),get_handler(0),set_handler(0), tag(0) {}
-    vp_method(char *n,vp_get_t gh, vp_set_t sh):name(n), tag(0),
-        get_handler(gh),set_handler(sh) { pdispatch = &CsVPMethodDispatch; }
+    vp_method(char *n,vp_get_t gh, vp_set_t sh)
+    {
+        name = n; tag = 0;
+        get_handler = gh; set_handler = sh;
+        pdispatch = &CsVPMethodDispatch;
+    }
 
-    vp_method(char *n,vp_get_ext_t gh, vp_set_ext_t sh, void* t):name(n), tag(t),
-        get_handler((vp_get_t)gh),set_handler((vp_set_t)sh) { pdispatch = &CsVPMethodDispatch; }
+    vp_method(char *n,vp_get_ext_t gh, vp_set_ext_t sh, void* t)
+        {
+            name = (n);
+            tag = (t);
+            get_handler = ((vp_get_t)gh);
+            set_handler = ((vp_set_t)sh);
+            pdispatch = &CsVPMethodDispatch;
+        }
 
     inline bool get(VM* c, value obj, value& val )
     {
@@ -1289,8 +1303,8 @@ struct file_stream: public stream
 /* text file stream structure */
 struct file_utf8_stream: public file_stream
 {
-    file_utf8_stream(FILE *f, const wchar* name, bool w ): file_stream(f, name, w) 
-    { 
+    file_utf8_stream(FILE *f, const wchar* name, bool w ): file_stream(f, name, w)
+    {
       int t = (unsigned int)get_utf8();
       if( t != 0xFEFF )
         rewind();
@@ -1362,9 +1376,9 @@ value CsCompileExpr(CsScope *scope, bool add_this);
 /* compile sequence of expressions */
 value CsCompileExpressions(CsScope *scope, bool serverScript);
 
-/* compile data expression, JSON style of data declaration. 
-   Example: { one:1, two:2 } 
-   is a valid data declaration 
+/* compile data expression, JSON style of data declaration.
+   Example: { one:1, two:2 }
+   is a valid data declaration
 */
 value CsCompileDataExpr(CsScope *scope);
 
@@ -1376,6 +1390,8 @@ value CsCallFunctionByName(CsScope *scope,char *fname,int argc,...);
 
 struct vargs
 {
+  vargs() {}
+  virtual ~vargs() {}
   virtual int   count() = 0;
   virtual value nth(int n) = 0;
 };

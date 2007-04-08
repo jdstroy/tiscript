@@ -11,12 +11,15 @@
 #define __tl_basic_h_
 
 #include "tl_config.h"
-#include "tl_sync.h"
 
 #include <new>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdarg.h>
+#include <assert.h>
 
-
-//typedef const wchar * uchar_cptr;
 
 /****************************************************************************/
 
@@ -89,7 +92,7 @@ template <typename T>
     arg1 = arg2;
     arg2 = tmp;
   }
-  
+
 
 
   /****************************************************************************/
@@ -99,7 +102,7 @@ template <typename T>
   {
     // Declare string as static so that it isn't defined per instantiation
     // in case the compiler actually does decide to inline this code.
-    static const char *const mem_err = "Error allocating memory.\n";
+    //static const char *const mem_err = "Error allocating memory.\n";
     if ( ptr == NULL )
     {
       //cerr << mem_err;
@@ -127,8 +130,8 @@ template <typename T>
     }
     unsigned int get_ref_count() { return _ref_cntr; }
     long release()
-    { 
-        assert(_ref_cntr > 0); 
+    {
+        assert(_ref_cntr > 0);
         long t = locked::dec(_ref_cntr);
         if(t == 0)
           delete this;
@@ -192,7 +195,7 @@ template <typename T>
     {
       return _ptr;
     }
-    
+
     bool
       is_null () const
     {
@@ -236,7 +239,7 @@ template <typename T>
   // Language".
   //
 
-  template < class X > 
+  template < class X >
   class auto_ptr {
   public:
     typedef X element_type;
@@ -247,8 +250,8 @@ template <typename T>
 
     // a copy constructor from another instance of auto_ptr.
     template< class Y >
-    auto_ptr( auto_ptr<Y> &r ): 
-      ptr( r.get() ), owner(true) { 
+    auto_ptr( auto_ptr<Y> &r ):
+      ptr( r.get() ), owner(true) {
       r.release();
     }
 
@@ -262,15 +265,15 @@ template <typename T>
         if( owner && ptr ) delete ptr;
         owner = r.owner;
         ptr = r.release();
-      }       
+      }
       return *this;
     }
-    
+
     // dereferencing returns the target of ptr.
     X &operator* () const { return *ptr; }
-    X *operator->() const { return  ptr; }    
-    X *get       () const { return  ptr; }      
-    
+    X *operator->() const { return  ptr; }
+    X *get       () const { return  ptr; }
+
     // release returns the ptr value and releases ownership
     // if we were previously the owner.
     X* release() const
@@ -287,7 +290,7 @@ template <typename T>
 
   template <class c_key>
   unsigned int
-    hash ( const c_key &the_key ); 
+    hash ( const c_key &the_key );
 
   template <typename T> void copy ( T* dst, const T* src, size_t elements, __true_type)
   {
@@ -317,7 +320,7 @@ template <typename T>
 
   template <typename T> void move ( T* dst, const T* src, size_t elements, __false_type)
   {
-            
+
       T* dst_end = dst + elements;
       const T* src_end = src + elements;
 
@@ -336,7 +339,7 @@ template <typename T>
       }
   }
 
-  template <typename T> 
+  template <typename T>
     inline void xcopy ( T& dst, const T& src, __false_type)
   {
       byte buf[sizeof(T)];
@@ -344,7 +347,7 @@ template <typename T>
       memcpy(&dst,&src,sizeof(T));
   }
 
-  template <typename T> 
+  template <typename T>
     inline void xcopy ( T& dst, const T& src, __true_type)
   {
       dst = src;
@@ -352,7 +355,7 @@ template <typename T>
 
   template <typename T> void copy ( T* dst, const T* src, size_t elements)
   {
-      typedef typename __type_traits<T>::has_trivial_copy_constructor Tr;           
+      typedef typename __type_traits<T>::has_trivial_copy_constructor Tr;
       copy(dst,src,elements, Tr());
   }
   template <typename T> void move ( T* dst, const T* src, size_t elements)
@@ -361,7 +364,7 @@ template <typename T>
       move(dst,src,elements, Tr());
   }
 
-  template <typename T> 
+  template <typename T>
     inline void xcopy ( T& dst, const T& src)
   {
       typedef typename __type_traits<T>::has_trivial_copy_constructor Tr;
@@ -375,7 +378,7 @@ template <typename T>
   template <typename T> void init ( T* dst, size_t elements, __false_type)
   {
       for(T* dst_end = dst + elements; dst < dst_end; ++dst )
-        new(dst) T();
+        new((void*)dst) T();
   }
 
   template <typename T> void init ( T* dst, size_t elements)
@@ -396,12 +399,12 @@ template <typename T>
 
   template <typename T> void erase ( T* dst, size_t elements)
   {
-      typedef typename __type_traits<T>::has_trivial_destructor Tr;           
+      typedef typename __type_traits<T>::has_trivial_destructor Tr;
       erase(dst,elements, Tr());
   }
 
-  template <typename T1,typename T2> 
-    struct pair 
+  template <typename T1,typename T2>
+    struct pair
     {
       T1 name;
       T2 value;
@@ -425,7 +428,7 @@ template <typename T>
   inline word hiword(dword dw) { return (word)(dw >> 16); }
   inline word loword(dword dw) { return (word) dw; }
 
-  enum os_versions 
+  enum os_versions
   {
     WIN_32S       = 0x100,
     WIN_95        = 0x101,
@@ -441,6 +444,9 @@ template <typename T>
     WIN_2003      = 0x114,
 
     WIN_VISTA     = 0x120,
+
+    SOME_LINUX    = 0, // :-p
+
   };
   int get_os_version();
 
@@ -463,7 +469,7 @@ template <typename T>
         T* e2;
 
         int  stack[80];
-        int* top = stack; 
+        int* top = stack;
         int  limit = int(arr_size);
         int  base = 0;
 
@@ -484,16 +490,16 @@ template <typename T>
                 i = base + 1;
                 j = limit - 1;
 
-                // now ensure that *i <= *base <= *j 
-                e1 = &(arr[j]); 
+                // now ensure that *i <= *base <= *j
+                e1 = &(arr[j]);
                 e2 = &(arr[i]);
                 if(cmp.less(*e1,*e2)) swap(*e1, *e2);
 
-                e1 = &(arr[base]); 
+                e1 = &(arr[base]);
                 e2 = &(arr[i]);
                 if(cmp.less(*e1,*e2)) swap(*e1, *e2);
 
-                e1 = &(arr[j]); 
+                e1 = &(arr[j]);
                 e2 = &(arr[base]);
                 if(cmp.less(*e1,*e2)) swap(*e1, *e2);
 
@@ -588,7 +594,7 @@ template<typename T>
       T* e2;
 
       int  stack[80];
-      int* top = stack; 
+      int* top = stack;
       int  limit = arr_size;
       int  base = 0;
 
@@ -609,16 +615,16 @@ template<typename T>
               i = base + 1;
               j = limit - 1;
 
-              // now ensure that *i <= *base <= *j 
-              e1 = &(arr[j]); 
+              // now ensure that *i <= *base <= *j
+              e1 = &(arr[j]);
               e2 = &(arr[i]);
               if(*e1 < *e2) swap(*e1, *e2);
 
-              e1 = &(arr[base]); 
+              e1 = &(arr[base]);
               e2 = &(arr[i]);
               if(*e1 < *e2) swap(*e1, *e2);
 
-              e1 = &(arr[j]); 
+              e1 = &(arr[j]);
               e2 = &(arr[base]);
               if(*e1 < *e2) swap(*e1, *e2);
 
@@ -701,19 +707,20 @@ template<typename T>
 };
 
 //|
-//| Search binary data using HORSPOOL algorithm (modified Boyer-Moore) 
+//| Search binary data using HORSPOOL algorithm (modified Boyer-Moore)
 //| see http://www-igm.univ-mlv.fr/~lecroq/string/node18.html
 //| SYNOPSIS:
-//|   where - source data, src_length - source data byte length (bytes) 
+//|   where - source data, src_length - source data byte length (bytes)
 //|   what - data to be sought, what_length - sought data length (bytes)
-//| RETURNS: 
+//| RETURNS:
 //|   0 if not found or address of 'what' data if found.
 //|
-const void *memmem(const void *where, size_t where_length, const void *what, size_t what_length );
+
+const void *mem_lookup(const void *where, size_t where_length, const void *what, size_t what_length );
 
 inline const char *strnstr(const char *src, size_t src_length, const char *search )
 {
-  return (const char *)memmem(src, src_length, search, strlen(search) );
+  return (const char *)mem_lookup(src, src_length, search, strlen(search) );
 }
 
 inline void memzero( void *p, size_t sz )
@@ -726,6 +733,7 @@ template <typename T>
   {
     memset(&t,0,sizeof(T));
   }
+
 
 
 unsigned int crc32( const unsigned char *buffer, unsigned int count);
@@ -743,17 +751,28 @@ unsigned int crc32( const unsigned char *buffer, unsigned int count);
 
 #if defined(_DEBUG) //&& !defined(PLATFORM_WINCE)
   void _dprintf(const char* fmt, ...);
-  #define dprintf _dprintf
+  #define dbg_printf _dprintf
 #else
   inline void _dprintf(const char*, ...) {}
-  #define dprintf 1 ? (void)0 : _dprintf
+  #define dbg_printf 1 ? (void)0 : _dprintf
 #endif
 
-  typedef VOID CALLBACK debug_output_func( LPVOID p, INT c);
-  void setup_debug_output(LPVOID p, debug_output_func* pf);
-  void debug_printf(const char* fmt, ...);
-  void debug_println(const wchar* start, const wchar* end);
 
+void debug_printf(const char* fmt, ...);
+void debug_println(const wchar* start, const wchar* end);
+
+
+#if defined(WINDOWS)
+  typedef void CALLBACK debug_output_func( void* p, int c);
   inline void beep() { MessageBeep(MB_ICONEXCLAMATION); }
+
+#else
+  typedef void debug_output_func( void* p, int c);
+  inline void beep() { putchar(7); }
+#endif
+
+void setup_debug_output(void* p, debug_output_func* pf);
+
+
 
 #endif

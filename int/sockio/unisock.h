@@ -5,7 +5,7 @@
 //                          Created:      7-Jan-97    K.A. Knizhnik  * / [] \ *
 //                          Last update: 21-Nov-98    K.A. Knizhnik  * GARRET *
 //-------------------------------------------------------------------*--------*
-// Unix socket 
+// Unix socket
 //-------------------------------------------------------------------*--------*
 
 #ifndef __UNISOCK_H__
@@ -13,58 +13,66 @@
 
 #include "sockio.h"
 
-class unix_socket : public socket_t { 
-    friend class async_event_manager; 
-  protected: 
-    descriptor_t  fd; 
-    int           errcode;     // error code of last failed operation 
+#if !defined(descriptor_t)
+ typedef int descriptor_t;
+#endif
+
+
+class unix_socket : public socket_t {
+    friend class async_event_manager;
+  protected:
+    descriptor_t  fd;
+    int           errcode;     // error code of last failed operation
     char*         address;     // host address
+    int           n_port;        // host port
+    char*         r_address;   // remote host address
+    int           nr_port;      // remote host port
+
     socket_domain domain;      // Unix domain or INET socket
-    boolean       create_file; // Unix domain sockets use files for connection
+    bool          create_file; // Unix domain sockets use files for connection
 
 #ifdef COOPERATIVE_MULTITASKING
     semaphore     input_sem;
-    semaphore     output_sem;  
+    semaphore     output_sem;
 #endif
 
-    enum error_codes { 
-	ok = 0,
-	not_opened = -1,
-	bad_address = -2,
-	connection_failed = -3,
-	broken_pipe = -4, 
-	invalid_access_mode = -5
-    };
 
-  public: 
+
+  public:
     //
-    // Directory for Unix Domain socket files. This directory should be 
+    // Directory for Unix Domain socket files. This directory should be
     // either empty or be terminated with "/". Dafault value is "/tmp/"
     //
-    static char* unix_socket_dir; 
+    static char* unix_socket_dir;
 
-    boolean   open(int listen_queue_size);
-    boolean   connect(int max_attempts, time_t timeout);
+    bool   open(int listen_queue_size);
+    bool   connect(int max_attempts, time_t timeout);
 
-    int       read(void* buf, size_t min_size, size_t max_size,time_t timeout);
-    boolean   read(void* buf, size_t size,size_t *size_read = 0);
-    boolean   write(void const* buf, size_t size);
+    int    read(void* buf, size_t min_size, size_t max_size,time_t timeout);
+    bool   read(void* buf, size_t size,size_t *size_read = 0);
+    bool   write(void const* buf, size_t size);
 
-    boolean   is_ok(); 
-    boolean   is_timeout();
-    boolean   shutdown();
-    boolean   close();
-    void      get_error_text(char* buf, size_t buf_size);
+    bool   is_ok();
+    bool   is_timeout();
+    bool   shutdown();
+    bool   close();
+    void   get_error_text(char* buf, size_t buf_size);
 
     socket_t* accept();
-    boolean   cancel_accept();
-    
+    bool   cancel_accept();
+
+    virtual const char *addr() const { return address; }
+    virtual int         port() const { return n_port; }
+    virtual const char *remote_addr() const { return r_address; }
+    virtual int         remote_port() const { return nr_port; }
+
+
 #ifdef COOPERATIVE_MULTITASKING
-    boolean   wait_input();
-    boolean   wait_output();
+    bool   wait_input();
+    bool   wait_output();
 #endif
 
-    unix_socket(const char* address, socket_domain domain); 
+    unix_socket(const char* address, socket_domain domain = sock_any_domain);
     unix_socket(int new_fd);
 
     ~unix_socket();

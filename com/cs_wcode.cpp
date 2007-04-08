@@ -2,7 +2,7 @@
 #include <string.h>
 #include "cs.h"
 
-namespace tis 
+namespace tis
 {
 
 /* prototypes */
@@ -48,7 +48,7 @@ bool CsCompileFile(CsScope *scope,const wchar *iname, const wchar *oname, bool s
         return false;
     }
 
-    TRY 
+    TRY
     {
       /* initialize the scanner */
       CsInitScanner(c->compiler,is);
@@ -57,13 +57,13 @@ bool CsCompileFile(CsScope *scope,const wchar *iname, const wchar *oname, bool s
       //while ((expr = CsCompileExpressions(scope)) != NULL)
       //    if (!WriteMethod(c,expr,os))
       //        CsThrowKnownError(c,CsErrWrite,0);
-      
+
       if ((expr = CsCompileExpressions(scope,serverScript) ) != 0)
           if (!WriteMethod(c,expr,os))
               CsThrowKnownError(c,CsErrWrite,0);
 
     }
-    CATCH_ERROR(e) 
+    CATCH_ERROR(e)
     {
       is->close();
       os->close();
@@ -99,17 +99,17 @@ int CsCompileStream(CsScope *scope,stream *is,stream *os, bool serverScript)
         return false;
     }
 
-    TRY 
+    TRY
     {
       /* initialize the scanner */
       CsInitScanner(c->compiler,is);
-     
+
       if ((expr = CsCompileExpressions(scope,serverScript) ) != 0)
           if (!WriteMethod(c,expr,os))
               CsThrowKnownError(c,CsErrWrite,0);
 
     }
-    CATCH_ERROR(e) 
+    CATCH_ERROR(e)
     {
       is->close();
       os->close();
@@ -125,7 +125,7 @@ int CsCompileStream(CsScope *scope,stream *is,stream *os, bool serverScript)
 bool CsCompile(VM *c, stream *is,stream *os, bool serverScript)
 {
     CsScope *scope = CsMakeScope(c,CsGlobalScope(c));
-        
+
     value expr;
 
     /* write the obj file header */
@@ -135,7 +135,7 @@ bool CsCompile(VM *c, stream *is,stream *os, bool serverScript)
         return false;
     }
 
-    TRY 
+    TRY
     {
       /* initialize the scanner */
       CsInitScanner(c->compiler,is);
@@ -144,13 +144,13 @@ bool CsCompile(VM *c, stream *is,stream *os, bool serverScript)
       //while ((expr = CsCompileExpressions(scope)) != NULL)
       //    if (!WriteMethod(c,expr,os))
       //        CsThrowKnownError(c,CsErrWrite,0);
-      
+
       if ((expr = CsCompileExpressions(scope,serverScript) ) != 0)
           if (!WriteMethod(c,expr,os))
               CsThrowKnownError(c,CsErrWrite,0);
 
     }
-    CATCH_ERROR(e) 
+    CATCH_ERROR(e)
     {
       is->close();
       os->close();
@@ -203,7 +203,7 @@ static int WriteValue(VM *c,value v,stream *s)
     else if (CsDateP(c,v))
         return WriteDateValue(c,v,s);
     else
-        return FALSE;
+        return false;
     return true;
 }
 
@@ -230,7 +230,7 @@ static int WriteObjectValue(VM *c,value v,stream *s)
     if (!s->put(CsFaslTagObject)
     ||  !WriteValue(c,c->undefinedValue,s) /* class symbol */
     ||  !s->put_int(CsObjectPropertyCount(v)))
-        return FALSE;
+        return false;
 
     /* write out the properties */
     p = CsObjectProperties(v);
@@ -242,7 +242,7 @@ static int WriteObjectValue(VM *c,value v,stream *s)
             for (; pp != c->undefinedValue; pp = CsPropertyNext(pp)) {
                 if (!WriteValue(c,CsPropertyTag(pp),s)
                 ||  !WriteValue(c,CsPropertyValue(pp),s))
-                    return FALSE;
+                    return false;
             }
         }
     }
@@ -250,7 +250,7 @@ static int WriteObjectValue(VM *c,value v,stream *s)
         for (; p != c->undefinedValue; p = CsPropertyNext(p)) {
             if (!WriteValue(c,CsPropertyTag(p),s)
             ||  !WriteValue(c,CsPropertyValue(p),s))
-                return FALSE;
+                return false;
         }
     }
 
@@ -261,7 +261,7 @@ static int WriteObjectValue(VM *c,value v,stream *s)
 
 bool CsStoreValue(VM* c,value v,stream *s)
 {
-    if(  !s->put_str("cs-data") 
+    if(  !s->put_str("cs-data")
       || !s->put_int(CsFaslVersion)) return false;
     return 0 != WriteValue(c,v,s);
 }
@@ -298,9 +298,9 @@ static int WriteByteVectorValue(VM *c,value v,stream *s)
 /* WriteIntegerValue - write an integer value */
 static int WriteIntegerValue(VM *c,value v,stream *s)
 {
-    return 
-      s->put(CsFaslTagInteger) 
-      && s->put_int( 
+    return
+      s->put(CsFaslTagInteger)
+      && s->put_int(
         CsIntegerValue(v)
       );
 }
@@ -327,10 +327,10 @@ static int WriteVector(VM *c,value v,stream *s)
     int_t size = CsBasicVectorSize(v);
     value *p = CsBasicVectorAddress(v);
     if (!s->put_int(size))
-        return FALSE;
+        return false;
     while (--size >= 0)
         if (!WriteValue(c,*p++,s))
-            return FALSE;
+            return false;
     return true;
 }
 
@@ -338,10 +338,10 @@ static int WriteVector(VM *c,value v,stream *s)
 static int WriteBytes(const byte *str,int_t size,stream *s)
 {
     if (!s->put_int(size))
-        return FALSE;
+        return false;
     while (--size >= 0)
         if (!s->put(*str++))
-            return FALSE;
+            return false;
     return true;
 }
 
@@ -351,10 +351,10 @@ static int WriteString(const wchar *str,int_t size,stream *s)
     assert( s->is_file_stream() );
     file_stream *fs = static_cast<file_stream *>(s);
     if (!fs->put_int(size))
-        return FALSE;
+        return false;
     while (--size >= 0)
         if (!fs->put_utf8(*str++))
-            return FALSE;
+            return false;
     return true;
 }
 
@@ -390,13 +390,13 @@ static int WriteFloat(float_t n,stream *s)
     char *p = (char *)&n + sizeof(float_t);
     while (--count >= 0) {
         if (!s->put(*--p))
-            return FALSE;
+            return false;
 	}
 #else
     char *p = (char *)&n;
     while (--count >= 0) {
-        if (!s->put(*p++,s))
-            return FALSE;
+        if (!s->put(*p++))
+            return false;
 	}
 #endif
     return true;

@@ -7,7 +7,7 @@
 
 #include "cs.h"
 
-namespace tis 
+namespace tis
 {
 
 /*
@@ -25,7 +25,8 @@ int CsGetArgCount(VM *c)
 /* CsParseArguments - parse the argument list of a method */
 int CsParseArguments(VM *c,char *fmt,...)
 {
-    int spec,optionalP;
+    int spec;
+    bool optionalP = false; /* no optional specifier seen yet */
     value *argv = c->argv;
     int argc = c->argc;
     value arg;
@@ -33,9 +34,6 @@ int CsParseArguments(VM *c,char *fmt,...)
 
     /* get the variable argument list */
     va_start(ap,fmt);
-
-    /* no optional specifier seen yet */
-    optionalP = FALSE;
 
     /* handle each argument specifier */
     while (*fmt) {
@@ -55,7 +53,7 @@ int CsParseArguments(VM *c,char *fmt,...)
             arg = *--argv;
 
             /* pdispatch on the specifier */
-            switch (spec) 
+            switch (spec)
             {
             case '*':   /* skip */
                 break;
@@ -113,9 +111,9 @@ int CsParseArguments(VM *c,char *fmt,...)
                 }
                 break;
             case 'S':   /* string */
-                {   
+                {
                     wchar **p = va_arg(ap,wchar **);
-                    int nilAllowedP = FALSE;
+                    bool nilAllowedP = false;
                     if (*fmt == '?') {
                         nilAllowedP = true;
                         ++fmt;
@@ -134,9 +132,9 @@ int CsParseArguments(VM *c,char *fmt,...)
                 }
                 break;
             case 'V':   /* value */
-                {   
+                {
                     value *p = va_arg(ap,value *);
-                    int nilAllowedP = FALSE;
+                    bool nilAllowedP = false;
                     if (*fmt == '?') {
                         nilAllowedP = true;
                         ++fmt;
@@ -161,7 +159,7 @@ int CsParseArguments(VM *c,char *fmt,...)
                 break;
             case 'P':   /* foreign pointer */
                 {   void **p = va_arg(ap,void **);
-                    int nilAllowedP = FALSE;
+                    bool nilAllowedP = false;
                     if (*fmt == '?') {
                         nilAllowedP = true;
                         ++fmt;
@@ -212,7 +210,7 @@ int CsParseArguments(VM *c,char *fmt,...)
 
     //if (argc > 0)
     //    CsTooManyArguments(c);
-    //else 
+    //else
     if (argc < 0 && !optionalP)
 	      CsTooFewArguments(c);
 

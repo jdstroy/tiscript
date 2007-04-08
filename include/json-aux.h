@@ -3,13 +3,13 @@
 
 /*
  * Terra Informatica Sciter and HTMLayout Engines
- * http://terrainformatica.com/sciter, http://terrainformatica.com/htmlayout 
- * 
- * basic primitives. 
- * 
+ * http://terrainformatica.com/sciter, http://terrainformatica.com/htmlayout
+ *
+ * basic primitives.
+ *
  * The code and information provided "as-is" without
  * warranty of any kind, either expressed or implied.
- * 
+ *
  * (C) 2003-2006, Andrew Fedoniouk (andrew@terrainformatica.com)
  */
 
@@ -25,7 +25,7 @@
 
   utf8::towcs() - utf8 to wchar_t* converter
   utf8::fromwcs() - wchar_t* to utf8 converter
-  utf8::ostream  - raw ASCII/UNICODE -> UTF8 converter 
+  utf8::ostream  - raw ASCII/UNICODE -> UTF8 converter
   utf8::oxstream - ASCII/UNICODE -> UTF8 converter with XML support
 
   inline bool streq(const char* s, const char* s1) - NULL safe string comparison function
@@ -43,7 +43,7 @@
 
   itoa - int to const char* converter
   ftoa - double to const char* converter
-  
+
  */
 
 #pragma once
@@ -54,10 +54,43 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#if !defined(WIN32)
+#define wcsicmp	wcscasecmp
+#define stricmp	strcasecmp
+#endif
+
  // disable that warnings in VC 2005
 #pragma warning(disable:4786) //identifier was truncated...
 #pragma warning(disable:4996) //'strcpy' was declared deprecated
-#pragma warning(disable:4100) //unreferenced formal parameter 
+#pragma warning(disable:4100) //unreferenced formal parameter
+
+template < typename T >
+void reverse(T* begin, T* end)
+{
+	T aux;
+	while(end>begin)
+		aux=*end, *end--=*begin, *begin++=aux;
+}
+
+template < typename CHAR_TYPE >
+void i2str(int value, CHAR_TYPE* str, int base) {
+
+	static char num[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+	CHAR_TYPE* wstr=str;
+	int sign;
+
+	// Validate base
+	if (base<2 || base>35){ *wstr='\0'; return; }
+	// Take care of sign
+	if ((sign=value) < 0) value = -value;
+	// Conversion. Number is reversed.
+	do *wstr++ = num[value%base]; while(value/=base);
+	if(sign<0) *wstr++='-';
+	*wstr='\0';
+	// Reverse string
+	reverse(str,wstr-1);
+}
+
 
 
 #ifndef byte
@@ -89,32 +122,32 @@
 #define UTF2W aux::utf2w
 #endif
 
-#if !defined(W2T) 
-#if !defined(UNICODE) 
+#if !defined(W2T)
+#if !defined(UNICODE)
 #define W2T(S) aux::w2a(S)
 #else
 #define W2T(S) (S)
 #endif
 #endif
 
-#if !defined(T2W) 
-#if !defined(UNICODE) 
+#if !defined(T2W)
+#if !defined(UNICODE)
 #define T2W(S) aux::a2w(S)
 #else
 #define T2W(S) (S)
 #endif
 #endif
 
-#if !defined(A2T) 
-#if !defined(UNICODE) 
+#if !defined(A2T)
+#if !defined(UNICODE)
 #define A2T(S) (S)
 #else
 #define A2T(S) aux::a2w(S)
 #endif
 #endif
 
-#if !defined(T2A) 
-#if !defined(UNICODE) 
+#if !defined(T2A)
+#if !defined(UNICODE)
 #define T2A(S) (S)
 #else
 #define T2A(S) aux::w2a(S)
@@ -136,7 +169,7 @@ namespace pod
 
   /** buffer  - in-memory dynamic buffer implementation. **/
   template <typename T>
-    class buffer 
+    class buffer
     {
       T*              _body;
       size_t          _allocated;
@@ -145,7 +178,7 @@ namespace pod
       T*  reserve(size_t size)
       {
         size_t newsize = _size + size;
-        if( newsize > _allocated ) 
+        if( newsize > _allocated )
         {
           _allocated = (_allocated * 2) / 3;
           if(_allocated < newsize) _allocated = newsize;
@@ -162,10 +195,10 @@ namespace pod
       buffer():_size(0)        { _body = new T[_allocated = 256]; }
       ~buffer()                { delete[] _body;  }
 
-      const T * data()   
-      {  
-               if(_size == _allocated) reserve(1); 
-               _body[_size] = 0; return _body; 
+      const T * data()
+      {
+               if(_size == _allocated) reserve(1);
+               _body[_size] = 0; return _body;
       }
 
       size_t length() const         { return _size; }
@@ -177,13 +210,13 @@ namespace pod
 
     };
 
-    typedef buffer<byte> byte_buffer; 
-    typedef buffer<wchar_t> wchar_buffer; 
-    typedef buffer<char> char_buffer; 
+    typedef buffer<byte> byte_buffer;
+    typedef buffer<wchar_t> wchar_buffer;
+    typedef buffer<char> char_buffer;
 }
 
-namespace utf8 
-{ 
+namespace utf8
+{
   // convert utf8 code unit sequence to wchar_t sequence
 
   inline bool towcs(const byte *utf8, size_t length, pod::wchar_buffer& outbuf)
@@ -193,7 +226,7 @@ namespace utf8
     const byte* last = pc + length;
     uint b;
     uint num_errors = 0;
-    while (pc < last) 
+    while (pc < last)
     {
       b = *pc++;
 
@@ -203,27 +236,27 @@ namespace utf8
       {
 	      // 1-byte sequence: 000000000xxxxxxx = 0xxxxxxx
 	      ;
-      } 
-      else if ((b & 0xe0) == 0xc0) 
+      }
+      else if ((b & 0xe0) == 0xc0)
       {
         // 2-byte sequence: 00000yyyyyxxxxxx = 110yyyyy 10xxxxxx
         if(pc == last) { outbuf.push('?'); ++num_errors; break; }
         b = (b & 0x1f) << 6;
         b |= (*pc++ & 0x3f);
-      } 
-      else if ((b & 0xf0) == 0xe0) 
+      }
+      else if ((b & 0xf0) == 0xe0)
       {
         // 3-byte sequence: zzzzyyyyyyxxxxxx = 1110zzzz 10yyyyyy 10xxxxxx
         if(pc >= last - 1) { outbuf.push('?'); ++num_errors; break; }
-	      
+
         b = (b & 0x0f) << 12;
         b |= (*pc++ & 0x3f) << 6;
         b |= (*pc++ & 0x3f);
         if(b == 0xFEFF &&
            outbuf.length() == 0) // bom at start
              continue; // skip it
-      } 
-      else if ((b & 0xf8) == 0xf0) 
+      }
+      else if ((b & 0xf8) == 0xf0)
       {
         // 4-byte sequence: 11101110wwwwzzzzyy + 110111yyyyxxxxxx = 11110uuu 10uuzzzz 10yyyyyy 10xxxxxx
         if(pc >= last - 2) { outbuf.push('?'); break; }
@@ -245,7 +278,7 @@ namespace utf8
           outbuf.push( wchar_t(0xd7c0 + (b >> 10)) );
           outbuf.push( wchar_t(0xdc00 | (b & 0x3ff)) );
         }
-        else if( sizeof(wchar_t) >= 21 ) // wchar_t is full ucs-4 
+        else if( sizeof(wchar_t) >= 21 ) // wchar_t is full ucs-4
         {
           outbuf.push( wchar_t(b) );
         }
@@ -253,8 +286,8 @@ namespace utf8
         {
           assert(0); // what? wchar_t is single byte here?
         }
-      } 
-      else 
+      }
+      else
       {
         assert(0); //bad start for UTF-8 multi-byte sequence"
         ++num_errors;
@@ -271,31 +304,31 @@ namespace utf8
     const wchar_t *pc = wcs;
     const wchar_t *end = pc + length;
     uint  num_errors = 0;
-    for(unsigned int c = *pc; pc < end ; c = *(++pc)) 
+    for(unsigned int c = *pc; pc < end ; c = *(++pc))
     {
-      if (c < (1 << 7)) 
+      if (c < (1 << 7))
       {
         outbuf.push(byte(c));
-      } 
-      else if (c < (1 << 11)) 
+      }
+      else if (c < (1 << 11))
       {
         outbuf.push(byte((c >> 6) | 0xc0));
         outbuf.push(byte((c & 0x3f) | 0x80));
-      } 
-      else if (c < (1 << 16)) 
+      }
+      else if (c < (1 << 16))
       {
         outbuf.push(byte((c >> 12) | 0xe0));
         outbuf.push(byte(((c >> 6) & 0x3f) | 0x80));
         outbuf.push(byte((c & 0x3f) | 0x80));
-      } 
-      else if (c < (1 << 21)) 
+      }
+      else if (c < (1 << 21))
       {
         outbuf.push(byte((c >> 18) | 0xf0));
         outbuf.push(byte(((c >> 12) & 0x3f) | 0x80));
         outbuf.push(byte(((c >> 6) & 0x3f) | 0x80));
         outbuf.push(byte((c & 0x3f) | 0x80));
       }
-      else 
+      else
         ++num_errors;
     }
     return num_errors == 0;
@@ -306,41 +339,41 @@ namespace utf8
   // class T must have two methods:
   //   void push(unsigned char c)
   //   void push(const unsigned char *pc, size_t sz)
-  
+
   // bool X - true - XML markup character conversion (characters '<','>',etc).
-  //          false - no conversion at all. 
+  //          false - no conversion at all.
 
   template <class T, bool X = true>
   class ostream_t : public T
   {
   public:
     ostream_t()
-    { 
+    {
       // utf8 byte order mark
       static unsigned char BOM[] = { 0xEF, 0xBB, 0xBF };
       T::push(BOM, sizeof(BOM));
     }
 
     // intended to handle only ascii-7 strings
-    // use this for markup output 
-    ostream_t& operator << (const char* str) 
-    { 
-      T::push((const unsigned char*)str,strlen(str)); return *this; 
+    // use this for markup output
+    ostream_t& operator << (const char* str)
+    {
+      T::push((const unsigned char*)str,strlen(str)); return *this;
     }
 
-    ostream_t& operator << (char c) 
-    { 
-      T::push((unsigned char)c); return *this; 
+    ostream_t& operator << (char c)
+    {
+      T::push((unsigned char)c); return *this;
     }
 
     // use UNICODE chars for value output
     ostream_t& operator << (const wchar_t* wstr)
     {
       const wchar_t *pc = wstr;
-      for(unsigned int c = *pc; c ; c = *(++pc)) 
+      for(unsigned int c = *pc; c ; c = *(++pc))
       {
         if(X)
-          switch(c) 
+          switch(c)
           {
               case '<': *this << "&lt;"; continue;
               case '>': *this << "&gt;"; continue;
@@ -348,20 +381,20 @@ namespace utf8
               case '"': *this << "&quot;"; continue;
               case '\'': *this << "&apos;"; continue;
           }
-        if (c < (1 << 7)) 
+        if (c < (1 << 7))
         {
          T::push (byte(c));
-        } 
+        }
         else if (c < (1 << 11)) {
          T::push (byte((c >> 6) | 0xc0));
          T::push (byte((c & 0x3f) | 0x80));
-        } 
+        }
         else if (c < (1 << 16)) {
          T::push (byte((c >> 12) | 0xe0));
          T::push (byte(((c >> 6) & 0x3f) | 0x80));
          T::push (byte((c & 0x3f) | 0x80));
-        } 
-        else if (c < (1 << 21)) 
+        }
+        else if (c < (1 << 21))
         {
          T::push (byte((c >> 18) | 0xf0));
          T::push (byte(((c >> 12) & 0x3f) | 0x80));
@@ -373,7 +406,7 @@ namespace utf8
     }
   };
 
-  // raw ASCII/UNICODE -> UTF8 converter 
+  // raw ASCII/UNICODE -> UTF8 converter
   typedef ostream_t<pod::byte_buffer,false> ostream;
   // ASCII/UNICODE -> UTF8 converter with XML support
   typedef ostream_t<pod::byte_buffer,true> oxstream;
@@ -381,7 +414,7 @@ namespace utf8
 
 } // namespace utf8
 
-namespace aux 
+namespace aux
 {
 
   // safe string comparison
@@ -404,7 +437,7 @@ namespace aux
   inline bool streqi(const char* s, const char* s1)
   {
     if( s && s1 )
-      return _stricmp(s,s1) == 0;
+      return stricmp(s,s1) == 0;
     return false;
   }
 
@@ -417,12 +450,12 @@ namespace aux
   }
 
   // helper convertor objects wchar_t to ACP and vice versa
-  class w2a 
+  class w2a
   {
     char* buffer;
   public:
     explicit w2a(const wchar_t* wstr):buffer(0)
-    { 
+    {
       if(wstr)
       {
         size_t nu = wcslen(wstr);
@@ -443,12 +476,12 @@ namespace aux
     #define a2t( str ) (str)
   #endif
 
-  class a2w 
+  class a2w
   {
     wchar_t* buffer;
   public:
     explicit a2w(const char* str):buffer(0)
-    { 
+    {
       if(str)
       {
         size_t n = strlen(str);
@@ -464,12 +497,12 @@ namespace aux
   };
 
   // helper convertor objects wchar_t to utf8 and vice versa
-  class utf2w 
+  class utf2w
   {
     pod::wchar_buffer buffer;
   public:
     explicit utf2w(const byte* utf8)
-    { 
+    {
       if(utf8)
       {
         size_t n = strlen((const char*)utf8);
@@ -482,13 +515,13 @@ namespace aux
 
   };
 
-  class w2utf 
+  class w2utf
   {
     pod::byte_buffer buffer;
   public:
     w2utf() {}
     explicit w2utf(const wchar_t* wstr)
-    { 
+    {
       if(wstr)
       {
         size_t nu = wcslen(wstr);
@@ -498,7 +531,7 @@ namespace aux
     ~w2utf() {}
 
     void set(const wchar_t* wstr)
-    { 
+    {
       buffer.clear();
       if(wstr)
       {
@@ -512,30 +545,30 @@ namespace aux
   };
 
   /** Integer to string converter.
-      Use it as ostream << itoa(234) 
+      Use it as ostream << itoa(234)
   **/
-  class itoa 
+  class itoa
   {
     char buffer[38];
   public:
     itoa(int n, int radix = 10)
-    { 
-      _itoa(n,buffer,radix);
+    {
+      i2str(n,buffer,radix);
     }
     operator const char*() { return buffer; }
   };
 
   /** Integer to wstring converter.
-      Use it as wostream << itow(234) 
+      Use it as wostream << itow(234)
   **/
 
-  class itow 
+  class itow
   {
     wchar_t buffer[38];
   public:
     itow(int n, int radix = 10)
-    { 
-      _itow(n,buffer,radix);
+    {
+      i2str(n,buffer,radix);
     }
     operator const wchar_t*() { return buffer; }
   };
@@ -544,13 +577,13 @@ namespace aux
       Use it as ostream << ftoa(234.1); or
       Use it as ostream << ftoa(234.1,"pt"); or
   **/
-  class ftoa 
+  class ftoa
   {
     char buffer[64];
   public:
     ftoa(double d, const char* units = "", int fractional_digits = 1)
-    { 
-      _snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
+    {
+      snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
       buffer[63] = 0;
     }
     operator const char*() { return buffer; }
@@ -565,8 +598,12 @@ namespace aux
     wchar_t buffer[64];
   public:
     ftow(double d, const wchar_t* units = L"", int fractional_digits = 1)
-    { 
-      _snwprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+    {
+      //char cbuf[64];
+      swprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+      //for( int n = 0; n < 64; ++n )
+      //   if(!(buffer[n] = cbuf[n])) // simply widen the string
+      //      break;
       buffer[63] = 0;
     }
     operator const wchar_t*() { return buffer; }
@@ -583,20 +620,20 @@ namespace aux
     ostream_t() {}
 
     // intended to handle only ascii-7 strings
-    // use this for markup output 
-    ostream_t& operator << (const wchar_t* str) 
-    { 
+    // use this for markup output
+    ostream_t& operator << (const wchar_t* str)
+    {
       if(!str || !str[0]) return;
-      T::push(str,wcslen(str)); return *this; 
+      T::push(str,wcslen(str)); return *this;
     }
 
-    ostream_t& operator << (wchar_t c) 
-    { 
-      T::push(c); return *this; 
+    ostream_t& operator << (wchar_t c)
+    {
+      T::push(c); return *this;
     }
   };
 
-  // wostream - a.k.a. wstring builder - buffer for dynamic composition of wchar_t strings 
+  // wostream - a.k.a. wstring builder - buffer for dynamic composition of wchar_t strings
   typedef ostream_t<pod::wchar_buffer> wostream;
 
 

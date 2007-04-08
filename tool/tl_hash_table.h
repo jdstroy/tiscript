@@ -21,15 +21,15 @@ namespace tool
 {
 
   template <typename c_key> inline unsigned int hash ( const c_key &the_key ) {  return the_key.hash();  }
-  
+
   template <typename c_key> inline bool eq ( const c_key &key1, const c_key &key2 ) { return key1 == key2; }
-  
+
   //{ return key1 == key2; }
 
-  template <> 
+  template <>
   inline bool eq ( char const * const &key1, char const * const &key2 )
-  { 
-    return strcmp(key1,key2) == 0; 
+  {
+    return strcmp(key1,key2) == 0;
   }
 
 
@@ -93,7 +93,7 @@ namespace tool
 
     // will return list of all keys. key allkeys[n] correspond to element in n'th position in elements()
     void  keys( array<c_key>& allkeys) const;
-    
+
 
   protected:
     struct hash_item
@@ -138,7 +138,7 @@ namespace tool
       src.clear();
     }
 
-    array<c_element>& elements () 
+    array<c_element>& elements ()
     {
       return _array;
     }
@@ -146,12 +146,12 @@ namespace tool
 
 
 #ifdef _DEBUG
-    void report() 
+    void report()
     {
-      dprintf("hash table: size=%d\n",_hash_size);
-      dprintf("\tbuckets:\n");
+      dbg_printf("hash table: size=%d\n",_hash_size);
+      dbg_printf("\tbuckets:\n");
       for(unsigned i = 0; i < _hash_size; i++ )
-        dprintf("\t\t#%d size=%d\n",i,_table[i].size());
+        dbg_printf("\t\t#%d size=%d\n",i,_table[i].size());
     }
 #endif
 
@@ -168,9 +168,9 @@ namespace tool
 
   template <class c_key, class c_element>
   inline c_element
-    hash_table<c_key, c_element>::operator[] ( const c_key &the_key ) const 
+    hash_table<c_key, c_element>::operator[] ( const c_key &the_key ) const
   {
-    c_element *pel = 
+    c_element *pel =
        const_cast<hash_table<c_key, c_element>*>
                     ( this )->_get ( the_key, false );
     if(pel)
@@ -260,7 +260,7 @@ namespace tool
       for(int k = 0; k < bucket.size(); k++)
       {
         hash_item& hi = bucket[k];
-        allkeys[hi._index] = hi._key;      
+        allkeys[hi._index] = hi._key;
       }
     }
   }
@@ -272,7 +272,7 @@ namespace tool
     uint h = hash<c_key> ( the_key ) % _hash_size;
     int i;
     array<hash_item> &bucket = _table [ h ];
-    
+
     for ( i = 0; i < bucket.size(); i++ )
     {
       const hash_item &it = bucket [ i ];
@@ -316,7 +316,7 @@ namespace tool
   inline bool
     hash_table<c_key, c_element>::exists ( const c_key& the_key ) const
   {
-    return 
+    return
       const_cast<hash_table<c_key, c_element>*>
                     ( this )->_get ( the_key, false ) != 0;
   }
@@ -329,7 +329,7 @@ namespace tool
       _table [ i ].clear ();
     _array.clear ();
   }
-  
+
 
 
 };
