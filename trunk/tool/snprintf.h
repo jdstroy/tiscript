@@ -19,13 +19,13 @@
        C  - int or wint_t - When used with printf functions, specifies a wide character;
             when used with wprintf functions, specifies a single-byte character.
 
-       s  - C string - When used with printf functions, specifies a single-byteÂ–character string;
+       s  - C string - When used with printf functions, specifies a single-byte–character string; 
             when used with w_printf functions, specifies a wide-character string.
             Characters are printed up to the first null character or until the
             precision value is reached.
 
        S  - C string - When used with printf functions, specifies a wide-character string;
-            when used with wprintf functions, specifies a single-byteÂ–character string.
+            when used with wprintf functions, specifies a single-byte–character string. 
             Characters are printed up to the first null character or until the precision
             value is reached.
 

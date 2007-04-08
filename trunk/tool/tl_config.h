@@ -19,9 +19,6 @@
   #define LINUX
 #endif
 
-
-
-
 #if defined(WINDOWS)
 
   #pragma warning(disable:4996) //'strcpy' was declared deprecated
