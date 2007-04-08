@@ -378,6 +378,7 @@ value CsCompileExpressions(CsScope *scope, bool serverScript)
 
       /* compile the code */
       do_stream(c);
+      putcbyte(c,BC_NOTHING); //?
       putcbyte(c,BC_RETURN);
 
       /* make the bytecode array */
@@ -455,8 +456,7 @@ value CsCompileDataExpr(CsScope *scope)
 
       /* compile the code */
       do_init_expr(c);
-
-      putcbyte(c,BC_RETURN);
+      putcbyte(c,BC_RETURN); // return it
 
       /* make the bytecode array */
       code = CsMakeByteVector(ic,c->cbase,c->cptr - c->cbase);
@@ -659,7 +659,7 @@ static void compile_code(CsCompiler *c,char *name, bool isPropertyMethod)
       {
 		    do_init_expr(c);
         // cannot use do_statement(c); here due to ',' parsing
-        // putcbyte(c,BC_NOTHING);
+        // return value of the lambda is a value of last expression seen so no putcbyte(c,BC_NOTHING); here 
         putcbyte(c,BC_RETURN);
         UnwindStack(c,c->blockLevel); // ???
       }
@@ -1888,10 +1888,12 @@ static void do_return(CsCompiler *c)
     int tkn, end = NIL;
 	  if ((tkn = CsToken(c)) == ';')
 		  putcbyte(c,BC_UNDEFINED);
-	  else {
+	  else 
+    {
 		  CsSaveToken(c,tkn);
 		  do_init_expr(c);
-		  frequire(c,';');
+      if ((tkn = CsToken(c)) != ';')
+        CsSaveToken(c,tkn);
 	  }
     UnwindStack(c,c->blockLevel);
     UnwindTryStack(c,end);

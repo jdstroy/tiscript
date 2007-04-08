@@ -127,7 +127,7 @@ namespace tool
       return r;
 #else
       struct stat st;
-      if( 0 == stat( (const char*)(const byte*) aux::w2utf(path),  &st ))
+      if( 0 == stat( (const char*)(const byte*) aux::w2a(path),  &st ))
       {
         return (st.st_mode & S_IFREG) != 0;
       }
