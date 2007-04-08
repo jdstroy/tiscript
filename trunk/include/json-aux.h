@@ -600,7 +600,11 @@ namespace aux
     ftow(double d, const wchar_t* units = L"", int fractional_digits = 1)
     {
       //char cbuf[64];
+#ifdef WIN32      
+      snwprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+#else      
       swprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+#endif      
       //for( int n = 0; n < 64; ++n )
       //   if(!(buffer[n] = cbuf[n])) // simply widen the string
       //      break;
