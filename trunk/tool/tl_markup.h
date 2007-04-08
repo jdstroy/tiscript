@@ -1,7 +1,7 @@
 #ifndef __tl_markup_h__
 #define __tl_markup_h__
 
-//| 
+//|
 //| simple XML/HTML scanner/tokenizer
 //|
 //| (C) Andrew Fedoniouk @ terrainformatica.com
@@ -13,24 +13,24 @@
 namespace tool
 {
 
-namespace markup 
+namespace markup
 {
-  
-template< typename CHAR_TYPE > 
-  struct instream 
+
+template< typename CHAR_TYPE >
+  struct instream
   {
     typedef CHAR_TYPE char_type;
 
     virtual char_type get_char() = 0;
   };
 
-template< typename CHAR_TYPE > 
+template< typename CHAR_TYPE >
   class scanner
   {
   public:
     typedef CHAR_TYPE char_type;
 
-    enum token_type 
+    enum token_type
     {
       TT_ERROR = -1,
       TT_EOF = 0,
@@ -38,51 +38,52 @@ template< typename CHAR_TYPE >
       TT_TAG_START,   // <tag ...
                       //     ^-- happens here
       TT_TAG_END,     // </tag>
-                      //       ^-- happens here 
+                      //       ^-- happens here
 
       TT_TAG_HEAD_END,
                       // <tag ... >
-                      //           ^-- happens on non-empty tags here 
+                      //           ^-- happens on non-empty tags here
       TT_EMPTY_TAG_END,
                       // <tag ... />
-                      //            ^-- happens on empty tags here 
-      TT_ATTR,        // <tag attr="value" >      
-                      //                  ^-- happens here   
+                      //            ^-- happens on empty tags here
+      TT_ATTR,        // <tag attr="value" >
+                      //                  ^-- happens here
       TT_TEXT,
 
       TT_COMMENT,     // "<!--" ...value... "-->"
       TT_CDATA,       // "<![CDATA[" ...value... "]]>"
       TT_PI,          // "<?" ...value... "?>"
-      
+
     };
 
     enum $ { MAX_NAME_SIZE = 128 };
 
   public:
-  
-    scanner<CHAR_TYPE> (instream<CHAR_TYPE>& is): 
-        input(is), 
-        input_char(0), 
-        tag_name_length(0), 
-        attr_name_length(0) { c_scan = &scanner::scan_body; }
+
+    scanner<CHAR_TYPE> (instream<CHAR_TYPE>& is):
+        input(is),
+        input_char(0),
+        tag_name_length(0),
+        c_scan(0),
+        attr_name_length(0) { c_scan = &scanner<CHAR_TYPE>::scan_body; }
 
     // get next token
-    token_type      get_token()  { return (this->*c_scan)(); } 
-    
+    token_type      get_token()  { return (this->*c_scan)(); }
+
     // get value of TT_WORD, TT_SPACE, TT_ATTR and TT_DATA
     slice<char_type> get_value() { return value; }
-      
+
     // get attribute name
     const char*     get_attr_name()               { attr_name[attr_name_length] = 0; return attr_name; }
     size_t          get_attr_name_length() const  { return attr_name_length; }
-    
+
     // get tag name
     const char*     get_tag_name()                { tag_name[tag_name_length] = 0; return tag_name; }
     size_t          get_tag_name_length() const   { return tag_name_length; }
-    
+
     // should be overrided to resolve entities, e.g. &nbsp;
     virtual char_type  resolve_entity(const char* buf, int buf_size) { return 0; }
-        
+
   private: /* methods */
 
     typedef token_type (scanner::*scan)();
@@ -99,12 +100,12 @@ template< typename CHAR_TYPE >
 
     char_type   skip_whitespace();
     void        push_back(char_type c);
-  
+
     char_type   get_char();
     char_type   scan_entity();
 
     bool        is_whitespace(char_type c);
-      
+
     void        append_value(char_type c);
     void        append_attr_name(char_type c);
     void        append_tag_name(char_type c);
@@ -123,9 +124,9 @@ template< typename CHAR_TYPE >
 
     char        attr_name[MAX_NAME_SIZE];
     int         attr_name_length;
-  
+
     instream<CHAR_TYPE>&  input;
-    char_type             input_char; 
+    char_type             input_char;
 
     // case sensitive string equality test
     // s_lowcase shall be lowercase string
@@ -145,19 +146,19 @@ template< typename CHAR_TYPE >
         default: return strncmp(s,s1,length) == 0;
       }
     }
-    
-    inline token_type scan_body() 
+
+    inline token_type scan_body()
     {
       char_type c = get_char();
 
       value.clear();
-       
+
       if(c == 0) return TT_EOF;
       else if(c == '<') return scan_tag();
       else if(c == '&')
          c = scan_entity();
-      
-      while(true) 
+
+      while(true)
       {
         value.push(c);
         c = input.get_char();
@@ -184,7 +185,7 @@ template< typename CHAR_TYPE >
       value.clear();
 
       // attribute name...
-      while(c != '=') 
+      while(c != '=')
       {
         if( c == 0) return TT_EOF;
         if( c == '>' ) { push_back(c); return TT_ATTR; } // attribute without value (HTML style)
@@ -201,23 +202,23 @@ template< typename CHAR_TYPE >
 
       c = skip_whitespace();
       // attribute value...
-    
+
       if(c == '\"')
-        while(c = get_char())
+        while((c = get_char()))
         {
             if(c == '\"') return TT_ATTR;
             if(c == '&') c = scan_entity();
             append_value(c);
         }
       else if(c == '\'') // allowed in html
-        while(c = get_char())
+        while((c = get_char()))
         {
             if(c == '\'') return TT_ATTR;
             if(c == '&') c = scan_entity();
             append_value(c);
         }
       else // scan token, allowed in html: e.g. align=center
-        while(c = get_char()) 
+        while((c = get_char()))
         {
             if( is_whitespace(c) ) return TT_ATTR;
             if( c == '/' || c == '>' ) { push_back(c); return TT_ATTR; }
@@ -229,7 +230,7 @@ template< typename CHAR_TYPE >
 
     // caller already consumed '<'
     // scan header start or tag tail
-    inline token_type scan_tag() 
+    inline token_type scan_tag()
     {
       tag_name_length = 0;
 
@@ -237,8 +238,8 @@ template< typename CHAR_TYPE >
 
       bool is_tail = c == '/';
       if(is_tail) c = get_char();
-    
-      while(c) 
+
+      while(c)
       {
         if(is_whitespace(c)) { c = skip_whitespace(); break; }
         if(c == '/' || c == '>') break;
@@ -246,8 +247,8 @@ template< typename CHAR_TYPE >
 
         switch(tag_name_length)
         {
-        case 3: 
-          if(equal(tag_name,"!--",3)) return scan_comment(); 
+        case 3:
+          if(equal(tag_name,"!--",3)) return scan_comment();
           break;
         case 8:
           if( equal(tag_name,"![CDATA[",8) ) return scan_cdata();
@@ -257,25 +258,25 @@ template< typename CHAR_TYPE >
         c = get_char();
       }
 
-      if(c == 0) return TT_ERROR;    
-            
+      if(c == 0) return TT_ERROR;
+
       if(is_tail)
       {
           if(c == '>') return TT_TAG_END;
           return TT_ERROR;
       }
-      else 
+      else
            push_back(c);
-    
-      c_scan = &scanner<char_type>::scan_head;
+
+      c_scan = &scanner<CHAR_TYPE>::scan_head;
       return TT_TAG_START;
     }
 
     // skip whitespaces.
     // returns first non-whitespace char
-    inline char_type skip_whitespace() 
+    inline char_type skip_whitespace()
     {
-        while(char_type c = get_char()) 
+        while(char_type c = get_char())
         {
             if(!is_whitespace(c)) return c;
         }
@@ -284,14 +285,14 @@ template< typename CHAR_TYPE >
 
     inline void    push_back(char_type c) { input_char = c; }
 
-    inline char_type get_char() 
-    { 
+    inline char_type get_char()
+    {
       if(input_char) { char_type t(input_char); input_char = 0; return t; }
       return input.get_char();
     }
 
     // caller consumed '&'
-    inline char_type scan_entity() 
+    inline char_type scan_entity()
     {
       char buf[32];
       uint i = 0;
@@ -300,7 +301,7 @@ template< typename CHAR_TYPE >
       {
         t = get_char();
         if(t == 0) return TT_EOF;
-        buf[i] = char(t); 
+        buf[i] = char(t);
         if(t == ';')
           break;
       }
@@ -319,24 +320,24 @@ template< typename CHAR_TYPE >
 
     inline bool is_whitespace(char_type c)
     {
-        return c <= ' ' 
+        return c <= ' '
             && (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f');
     }
 
-    inline void append_value(char_type c) 
-    { 
+    inline void append_value(char_type c)
+    {
       value.push(c);
     }
 
     inline void append_attr_name(char_type c)
     {
-      if(attr_name_length < (MAX_NAME_SIZE - 1)) 
+      if(attr_name_length < (MAX_NAME_SIZE - 1))
         attr_name[attr_name_length++] = char(c);
     }
 
     inline void append_tag_name(char_type c)
     {
-      if(tag_name_length < (MAX_NAME_SIZE - 1)) 
+      if(tag_name_length < (MAX_NAME_SIZE - 1))
         tag_name[tag_name_length++] = char(c);
     }
 
@@ -348,9 +349,9 @@ template< typename CHAR_TYPE >
         if( c == 0) return TT_EOF;
         value.push(c);
         int value_length = value.size();
-        if(value_length >= 3 
-          && value[value_length - 1] == '>' 
-          && value[value_length - 2] == '-' 
+        if(value_length >= 3
+          && value[value_length - 1] == '>'
+          && value[value_length - 2] == '-'
           && value[value_length - 3] == '-')
         {
           value.size( value_length - 3 );
@@ -369,9 +370,9 @@ template< typename CHAR_TYPE >
         if( c == 0) return TT_EOF;
         value.push(c);
         int value_length = value.size();
-        if(value_length >= 3 
-          && value[value_length - 1] == '>' 
-          && value[value_length - 2] == ']' 
+        if(value_length >= 3
+          && value[value_length - 1] == '>'
+          && value[value_length - 2] == ']'
           && value[value_length - 3] == ']')
         {
           value.size( value_length - 3 );
@@ -391,8 +392,8 @@ template< typename CHAR_TYPE >
         value.push(c);
         int value_length = value.size();
 
-        if(value_length >= 2 
-          && value[value_length - 1] == '>' 
+        if(value_length >= 2
+          && value[value_length - 1] == '>'
           && value[value_length - 2] == '?')
         {
           value.size( value_length - 2 );
@@ -414,7 +415,7 @@ template< typename CHAR_TYPE >
   {
       static char get_char(const bytes& buf, int& pos)
       {
-        if( uint(pos) >= buf.length ) 
+        if( uint(pos) >= buf.length )
             return 0;
         return buf[pos++];
       }
@@ -430,9 +431,9 @@ template< typename CHAR_TYPE >
   };
 
   //utf-8 input stream
-  
-template< typename CHAR_TYPE > 
-  class mem_istream: public instream<CHAR_TYPE> 
+
+template< typename CHAR_TYPE >
+  class mem_istream: public instream<CHAR_TYPE>
   {
     typedef CHAR_TYPE char_type;
 
@@ -440,17 +441,17 @@ template< typename CHAR_TYPE >
     int   pos;
 
   public:
-    
+
     mem_istream(bytes text)
       : buf(text), pos(0) { }
 
     mem_istream(chars text)
       : buf( bytes((const byte*)text.start, text.length)), pos(0) { }
 
-    virtual char_type get_char() 
-    { 
+    virtual char_type get_char()
+    {
         return char_traits<char_type>::get_char(buf, pos);
-    } 
+    }
   };
 
 
@@ -459,26 +460,26 @@ template< typename CHAR_TYPE >
     tool::array<byte> buf;
   public:
     mem_ostream()
-    { 
+    {
       // utf8 byte order mark
       static unsigned char BOM[] = { 0xEF, 0xBB, 0xBF };
       buf.push(BOM, sizeof(BOM));
     }
 
     // intended to handle only ascii-7 strings
-    // use this for markup output 
-    mem_ostream& operator << (const char* str) 
-    { 
-      buf.push((const byte*)str,int(strlen(str))); return *this; 
+    // use this for markup output
+    mem_ostream& operator << (const char* str)
+    {
+      buf.push((const byte*)str,int(strlen(str))); return *this;
     }
 
     // use UNICODE chars for value output
     mem_ostream& operator << (const wchar* wstr)
     {
       const wchar *pc = wstr;
-      for(unsigned int c = *pc; c ; c = *(++pc)) 
+      for(unsigned int c = *pc; c ; c = *(++pc))
       {
-        switch(c) 
+        switch(c)
         {
             case '<': *this << "&lt;"; continue;
             case '>': *this << "&gt;"; continue;
@@ -505,23 +506,23 @@ template< typename CHAR_TYPE >
       return *this;
     }
 
-    void write(const char* str, size_t str_length) 
-    { 
+    void write(const char* str, size_t str_length)
+    {
       buf.push((const byte*)str,int(str_length));
     }
 
 
     tool::array<byte>& data() { return buf; }
 
-    operator const char* () 
+    operator const char* ()
     {
       if(buf.size() == 0)
       {
-        buf.push(0); 
+        buf.push(0);
         return (const char*)buf.head();
       }
       if(buf.last() != 0)
-        buf.push(0); 
+        buf.push(0);
       return (const char*)buf.head();
     }
 

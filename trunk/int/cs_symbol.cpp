@@ -39,7 +39,7 @@ symtab& symbol_table()
     {
       (void)_symbol_table[well_known_symbols[n]];
       //const char* str = _symbol_table( n+1 );
-      //dprintf("%d %s\n", n+1, str);
+      //dbg_printf("%d %s\n", n+1, str);
     }
   }
   return _symbol_table;

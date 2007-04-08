@@ -3,7 +3,7 @@
 //| Copyright (c) 2001-2005
 //| Andrew Fedoniouk - andrew@terrainformatica.com
 //|
-//| 
+//|
 //|
 //|
 
@@ -19,10 +19,15 @@
 //|
 //|
 
+
 #include "tl_string.h"
 #include "tl_basic.h"
 #include "tl_array.h"
 #include "tl_slice.h"
+
+#if !defined(_WIN32)
+#define wcsicmp	wcscasecmp
+#endif
 
 
 namespace tool {
@@ -80,7 +85,7 @@ class ustring {
         ~ustring();
         operator const wchar *() const;
         operator slice<wchar> () const;
-        
+
         wchar *buffer();
         wchar &operator[](int index);
         const wchar operator[](int index) const;
@@ -104,7 +109,7 @@ class ustring {
         ustring &operator+=(const ustring &s);
         ustring &operator+=(const wchar *s);
         ustring &operator+=(wchar c);
-        
+
         int length() const;
         const wchar *end() const { return my_data->chars + length(); }
         bool is_empty() const;
@@ -136,36 +141,36 @@ class ustring {
 
         bool equals( const wchar *s, bool nocase = true) const;
 
-        // 
+        //
         // pattern chars:
         //  '*' - any subustring
         //  '?' - any one wchar
         //  '['char set']' = any one char in set
-        //    e.g.  [a-z] - all lowercase letters 
-        //          [a-zA-Z] - all letters 
-        //          [abd-z] - all lowercase letters except of 'c' 
-        //          [-a-z] - all lowercase letters and '-'  
+        //    e.g.  [a-z] - all lowercase letters
+        //          [a-zA-Z] - all letters
+        //          [abd-z] - all lowercase letters except of 'c'
+        //          [-a-z] - all lowercase letters and '-'
         // returns:
         //    -1 - no match otherwise start pos of match
-        int  match(const wchar *pattern) const; 
+        int  match(const wchar *pattern) const;
         bool like(const wchar *pattern) const { return match(pattern) >= 0; }
-        
+
         ustring &printf(const wchar *fmt,...);
         static ustring format(const wchar *fmt,...);
 
-        // create ustring from utf8  
+        // create ustring from utf8
         static ustring utf8(const char *str, size_t len);
 
-        // create ustring from utf8  
+        // create ustring from utf8
         static ustring utf8(const byte *str, size_t len) { return  utf8((const char *)str, len); }
 
-        
+
         // create utf8 string
         string utf8() const;
         ustring xml_escape() const;
 
         void inherit(const ustring& src) { if(src.length()) *this = src; }
-    
+
         bool defined() const { return my_data != &null_data; }
         bool undefined() const { return my_data == &null_data; }
 
@@ -198,12 +203,12 @@ class ustring {
             start = p = text;
             end = tok();
           }
-          bool next(ustring& v) 
-          {  
+          bool next(ustring& v)
+          {
             if(start && *start)
             {
               v = ustring(start,int(end-start));
-              start = p; 
+              start = p;
               end = tok();
               return true;
             }
@@ -275,7 +280,7 @@ inline void swap(ustring &s1, ustring &s2)
 { ustring::data *tmp = s1.my_data; s1.my_data = s2.my_data; s2.my_data = tmp; }
 
 inline bool ustring::equals(const wchar *s, bool nocase) const
-{ 
+{
   if(nocase) return (wcsicmp(my_data->chars,s) == 0);
   else return (wcscmp(my_data->chars,s) == 0);
 }
@@ -287,11 +292,11 @@ inline ustring::ustring(const ustring &s): my_data(&null_data)
 { replace_data(s.my_data); }
 
 inline ustring::ustring(const wchar *s): my_data(&null_data)
-{ if (s) { 
-    const int length = int(::wcslen(s)); 
+{ if (s) {
+    const int length = int(::wcslen(s));
     replace_data(length);
     ::memcpy(head(), s, length * sizeof(wchar));
-  } 
+  }
 }
 
 inline ustring::ustring(const wchar *s, int count): my_data(&null_data)
@@ -299,10 +304,10 @@ inline ustring::ustring(const wchar *s, int count): my_data(&null_data)
   ::memcpy(head(), s, count*sizeof(wchar)); }
 
 inline ustring::ustring(wchar c, int n): my_data(&null_data)
-{ replace_data(n); 
+{ replace_data(n);
   wchar *p = head();
   for(int i=0; i < n; i++ ) *p++ = c;
-  //::memset(head(), c, n * sizeof(wchar)); 
+  //::memset(head(), c, n * sizeof(wchar));
 }
 
 inline ustring::~ustring()
@@ -334,8 +339,8 @@ inline const wchar ustring::operator[](int index) const
   return head()[index]; }
 
 inline ustring &ustring::operator=(const ustring &s)
-{ 
-  replace_data(s.my_data); return *this; 
+{
+  replace_data(s.my_data); return *this;
 }
 
 inline ustring &ustring::operator=(const wchar *s)
@@ -418,7 +423,7 @@ template<>
 inline unsigned int hash<ustring>(const ustring& the_ustring) {
   unsigned int h = 0, g;
   wchar *pc = const_cast<wchar *>((const wchar *)the_ustring);
-  while(*pc) { 
+  while(*pc) {
 	  h = (h << 4) + *pc++;
 	  if ((g = h & 0xF0000000) != 0) h ^= g >> 24;
 	  h &= ~g;
@@ -485,7 +490,7 @@ inline void to_utf8(const wchar* utf16, size_t utf16_length, array<byte>& utf8ou
 {
   const wchar *pc = utf16;
   const wchar *pc_end = utf16 + utf16_length;
-  for(wchar c = *pc; pc < pc_end ; c = *(++pc)) 
+  for(wchar c = *pc; pc < pc_end ; c = *(++pc))
     to_utf8(c,utf8out);
 }
 
@@ -493,9 +498,9 @@ inline void to_utf8_x(const wchar* utf16, size_t utf16_length, array<byte>& utf8
 {
   const wchar *pc = utf16;
   const wchar *pc_end = utf16 + utf16_length;
-  for(wchar c = *pc; pc < pc_end ; c = *(++pc)) 
+  for(wchar c = *pc; pc < pc_end ; c = *(++pc))
   {
-    switch(c) 
+    switch(c)
     {
         case '<': utf8out.push((const byte*)"&lt;",4); continue;
         case '>': utf8out.push((const byte*)"&gt;",4); continue;
@@ -518,8 +523,8 @@ void rtl_reorder( wchar* text, uint text_length );
   #define SOFT_HYPHEN wchar(0xAD)
   #define NBSP_CHAR wchar(0xA0)
 
-  enum WCHAR_CLASS 
-  { 
+  enum WCHAR_CLASS
+  {
     wcc_space,
     wcc_alpha,
     wcc_number,
@@ -539,33 +544,33 @@ inline WCHAR_CLASS wchar_class(wchar c)
   {
     switch(c)
     {
-      case '\r': assert( c == BREAK_CHAR ); 
+      case '\r': assert( c == BREAK_CHAR );
     return wcc_break;
 
-      case '\n': assert( c == NEWLINE_CHAR ); 
+      case '\n': assert( c == NEWLINE_CHAR );
     return wcc_newline;
-      
+
       case ' ':
-      case 0x9:   case 0xB: case 0xC:  
+      case 0x9:   case 0xB: case 0xC:
     return wcc_space;
-      
+
       case '!':   case '#':
       case '$':   case '%':   case '&':
       case '\'':  case '*':   case '+':
       case ',':   case '-':   case '.':
       case '/':   case ':':   case ';':
       case '<':   case '=':   case '>':
-      case '?':   case '\\':  case '^': case '|': 
+      case '?':   case '\\':  case '^': case '|':
     return wcc_punct;
-      
-      //case 0xAB:  //Left Double Guillemet 
-      //case 0xBB:  //Right Double Guillemet 
+
+      //case 0xAB:  //Left Double Guillemet
+      //case 0xBB:  //Right Double Guillemet
       //case 0x8B:
       case '\"':  case '(':   case ')':
-      case '[':   case ']':  
-      case '{':   case '}':  
+      case '[':   case ']':
+      case '{':   case '}':
     return wcc_paren;
-      
+
       case '0':   case '1':   case '2':
       case '3':   case '4':   case '5':
       case '6':   case '7':   case '8': case '9':

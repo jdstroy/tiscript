@@ -7,24 +7,24 @@
 
 #include "cs.h"
 
-namespace tis 
+namespace tis
 {
 
 /* prototypes */
-static int ReadMethod(CsScope *scope,value *pMethod,stream *s);
-static int ReadValue(CsScope *scope,value *pv,stream *s);
-static int ReadCodeValue(CsScope *scope,value *pv,stream *s);
-static int ReadVectorValue(CsScope *scope,value *pv,stream *s);
-static int ReadObjectValue(CsScope *scope,value *pv,stream *s);
-static int ReadSymbolValue(VM *c,value *pv,stream *s);
-static int ReadStringValue(VM *c,value *pv,stream *s);
-static int ReadByteVectorValue(VM *c,value *pv,stream *s);
-static int ReadIntegerValue(VM *c,value *pv,stream *s);
-static int ReadInteger(int_t *pn,stream *s);
-static int ReadLong(uint64 *pn, stream *s);
-static int ReadFloatValue(VM *c,value *pv,stream *s);
-static int ReadFloat(float_t *pn,stream *s);
-static int ReadDateValue(VM *c,value *pv,stream *s);
+static bool ReadMethod(CsScope *scope,value *pMethod,stream *s);
+static bool ReadValue(CsScope *scope,value *pv,stream *s);
+static bool ReadCodeValue(CsScope *scope,value *pv,stream *s);
+static bool ReadVectorValue(CsScope *scope,value *pv,stream *s);
+static bool ReadObjectValue(CsScope *scope,value *pv,stream *s);
+static bool ReadSymbolValue(VM *c,value *pv,stream *s);
+static bool ReadStringValue(VM *c,value *pv,stream *s);
+static bool ReadByteVectorValue(VM *c,value *pv,stream *s);
+static bool ReadIntegerValue(VM *c,value *pv,stream *s);
+static bool ReadInteger(int_t *pn,stream *s);
+static bool ReadLong(uint64 *pn, stream *s);
+static bool ReadFloatValue(VM *c,value *pv,stream *s);
+static bool ReadFloat(float_t *pn,stream *s);
+static bool ReadDateValue(VM *c,value *pv,stream *s);
 
 /* CsLoadObjectFile - load an obj file */
 int CsLoadObjectFile(CsScope *scope,const wchar *fname)
@@ -33,11 +33,11 @@ int CsLoadObjectFile(CsScope *scope,const wchar *fname)
     int_t version;
     value method;
     stream *s;
-    
+
     /* open the obj file */
     if ((s = OpenFileStream(c,fname,L"rb")) == NULL)
         CsThrowKnownError(c,CsErrFileNotFound,fname);
-    
+
     /* check the file type */
     if (s->get() != 'c'
     ||  s->get() != '-'
@@ -63,15 +63,15 @@ int CsLoadObjectFile(CsScope *scope,const wchar *fname)
         os->put_str("'\n");
     }*/
 
-    /* setup the unwind target 
+    /* setup the unwind target
     CsPushUnwindTarget(c,&target);
     if (CsUnwindCatch(c) != 0) {
         s->close();
         CsPopUnwindTarget(c);
-        return FALSE;
+        return false;
     } */
-    
-    TRY 
+
+    TRY
     {
       /* read and evaluate each expression (thunk) */
       while (ReadMethod(scope,&method,s)) {
@@ -87,7 +87,7 @@ int CsLoadObjectFile(CsScope *scope,const wchar *fname)
     {
       e;
       s->close();
-      return FALSE;
+      return false;
     }
     /* return successfully */
     s->close();
@@ -100,7 +100,7 @@ int CsLoadObjectStream(CsScope *scope, stream *s)
     VM *c = scope->c;
     int_t version;
     value method;
-    
+
     /* check the file type */
     if (s->get() != 'c'
     ||  s->get() != '-'
@@ -118,8 +118,8 @@ int CsLoadObjectStream(CsScope *scope, stream *s)
         s->close();
         CsThrowKnownError(c,CsErrWrongObjectVersion,version);
     }
-    
-    TRY 
+
+    TRY
     {
       /* read and evaluate each expression (thunk) */
       while (ReadMethod(scope,&method,s)) {
@@ -142,19 +142,19 @@ int CsLoadObjectStream(CsScope *scope, stream *s)
 }
 
 /* ReadMethod - read a method from a fasl file */
-static int ReadMethod(CsScope *scope,value *pMethod,stream *s)
+static bool ReadMethod(CsScope *scope,value *pMethod,stream *s)
 {
     VM *c = scope->c;
     value code;
     if ( s->get() != CsFaslTagCode
     || !ReadCodeValue(scope,&code,s))
-        return FALSE;
+        return false;
     *pMethod = CsMakeMethod(c,code,c->undefinedValue,scope->globals);
     return true;
 }
 
 /* ReadValue - read a value */
-static int ReadValue(CsScope *scope,value *pv,stream *s)
+static bool ReadValue(CsScope *scope,value *pv,stream *s)
 {
     VM *c = scope->c;
     switch (s->get()) {
@@ -180,23 +180,23 @@ static int ReadValue(CsScope *scope,value *pv,stream *s)
     case CsFaslTagDate:
         return ReadDateValue(c,pv,s);
     default:
-        return FALSE;
+        return false;
     }
 }
 
 /* ReadCodeValue - read a code value */
-static int ReadCodeValue(CsScope *scope,value *pv,stream *s)
+static bool ReadCodeValue(CsScope *scope,value *pv,stream *s)
 {
     VM *c = scope->c;
     int_t size,i;
     if (!ReadInteger(&size,s))
-        return FALSE;
+        return false;
     CsCPush(c,CsMakeBasicVector(c,&CsCompiledCodeDispatch,size));
     for (i = 0; i < size; ++i) {
         value v;
         if (!ReadValue(scope,&v,s)) {
             CsDrop(c,1);
-            return FALSE;
+            return false;
         }
         CsSetBasicVectorElement(CsTop(c),i,v);
     }
@@ -205,18 +205,18 @@ static int ReadCodeValue(CsScope *scope,value *pv,stream *s)
 }
 
 /* ReadVectorValue - read a vector value */
-static int ReadVectorValue(CsScope *scope,value *pv,stream *s)
+static bool ReadVectorValue(CsScope *scope,value *pv,stream *s)
 {
     VM *c = scope->c;
     int_t size,i;
     if (!ReadInteger(&size,s))
-        return FALSE;
+        return false;
     CsCPush(c,CsMakeVector(c,size));
     for (i = 0; i < size; ++i) {
         value v;
         if (!ReadValue(scope,&v,s)) {
             CsDrop(c,1);
-            return FALSE;
+            return false;
         }
         CsSetVectorElement(c, CsTop(c),i,v);
     }
@@ -225,17 +225,17 @@ static int ReadVectorValue(CsScope *scope,value *pv,stream *s)
 }
 
 /* ReadObjectValue - read an obj value */
-static int ReadObjectValue(CsScope *scope,value *pv,stream *s)
+static bool ReadObjectValue(CsScope *scope,value *pv,stream *s)
 {
     VM *c = scope->c;
     value classSymbol,klass;
     int_t size;
     if (!ReadValue(scope,&classSymbol,s)
     ||  !ReadInteger(&size,s))
-        return FALSE;
+        return false;
     if (CsSymbolP(classSymbol)) {
         if (!CsGlobalValue(scope,classSymbol,&klass))
-            return FALSE;
+            return false;
     }
     else
         klass = c->undefinedValue;
@@ -245,12 +245,12 @@ static int ReadObjectValue(CsScope *scope,value *pv,stream *s)
         value tag,value;
         if (!ReadValue(scope,&tag,s)) {
             CsDrop(c,1);
-            return FALSE;
+            return false;
         }
         CsPush(c,tag);
         if (!ReadValue(scope,&value,s)) {
             CsDrop(c,2);
-            return FALSE;
+            return false;
         }
         tag = CsPop(c);
         CsSetProperty(c,CsTop(c),tag,value);
@@ -268,7 +268,7 @@ bool CsFetchValue(VM* c,value *pv,stream *s)
     ||  s->get() != 'd'
     ||  s->get() != 'a'
     ||  s->get() != 't'
-    ||  s->get() != 'a') 
+    ||  s->get() != 'a')
     {
         s->close();
         CsThrowKnownError(c,CsErrNotAnObjectFile,"input stream");
@@ -283,34 +283,34 @@ bool CsFetchValue(VM* c,value *pv,stream *s)
 
 
 /* ReadSymbolValue - read a symbol value */
-static int ReadSymbolValue(VM *c,value *pv,stream *s)
+static bool ReadSymbolValue(VM *c,value *pv,stream *s)
 {
     value name;
     if (!ReadStringValue(c,&name,s))
-        return FALSE;
+        return false;
     *pv = CsIntern(c,name);
     return true;
 }
 
 /* ReadStringValue - read a string value */
-static int ReadByteVectorValue(VM *c,value *pv,stream *s)
+static bool ReadByteVectorValue(VM *c,value *pv,stream *s)
 {
     int_t size;
     byte *p;
     if (!ReadInteger(&size,s))
-        return FALSE;
+        return false;
     *pv = CsMakeByteVector(c,NULL,size);
     for (p = CsByteVectorAddress(*pv); --size >= 0; ) {
         int ch = s->get();
         if (ch == stream::EOS)
-            return FALSE;
+            return false;
         *p++ = ch;
     }
     return true;
 }
 
 /* ReadStringValue - read a string value */
-static int ReadStringValue(VM *c,value *pv,stream *s)
+static bool ReadStringValue(VM *c,value *pv,stream *s)
 {
     assert( s->is_file_stream() );
 
@@ -319,12 +319,12 @@ static int ReadStringValue(VM *c,value *pv,stream *s)
     int_t size;
     wchar *p;
     if (!ReadInteger(&size,fs))
-        return FALSE;
+        return false;
     *pv = CsMakeCharString(c,NULL,size);
     for (p = CsStringAddress(*pv); --size >= 0; ) {
         int ch = fs->get_utf8();
         if (ch == stream::EOS)
-            return FALSE;
+            return false;
         *p++ = ch;
     }
     return true;
@@ -333,26 +333,26 @@ static int ReadStringValue(VM *c,value *pv,stream *s)
 
 
 /* ReadIntegerValue - read an integer value */
-static int ReadIntegerValue(VM *c,value *pv,stream *s)
+static bool ReadIntegerValue(VM *c,value *pv,stream *s)
 {
     int_t n;
     if (!ReadInteger(&n,s))
-        return FALSE;
+        return false;
     *pv = CsMakeInteger(c,n);
     return true;
 }
 
 /* ReadFloatValue - read a float value */
-static int ReadFloatValue(VM *c,value *pv,stream *s)
+static bool ReadFloatValue(VM *c,value *pv,stream *s)
 {
     float_t n;
     if (!ReadFloat(&n,s))
-        return FALSE;
+        return false;
     *pv = CsMakeFloat(c,n);
     return true;
 }
 
-static int ReadDateValue(VM *c,value *pv,stream *s)
+static bool ReadDateValue(VM *c,value *pv,stream *s)
 {
   uint64 ft;
   if (!ReadLong(&ft,s))
@@ -362,26 +362,26 @@ static int ReadDateValue(VM *c,value *pv,stream *s)
 }
 
 /* ReadInteger - read an integer value from an image file */
-static int ReadInteger(int_t *pn,stream *s)
+static bool ReadInteger(int_t *pn,stream *s)
 {
     int c;
     if ((c = s->get()) == stream::EOS)
-        return FALSE;
+        return false;
     *pn = (long)c << 24;
     if ((c = s->get()) == stream::EOS)
-        return FALSE;
+        return false;
     *pn |= (long)c << 16;
     if ((c = s->get()) == stream::EOS)
-        return FALSE;
+        return false;
     *pn |= (long)c << 8;
     if ((c = s->get()) == stream::EOS)
-        return FALSE;
+        return false;
     *pn |= (long)c;
     return true;
 }
 
 /* ReadInteger - read an integer value from an image file */
-static int ReadLong(uint64 *pn,stream *s)
+static bool ReadLong(uint64 *pn,stream *s)
 {
     int c;
     if ((c = s->get()) == stream::EOS)
@@ -413,7 +413,7 @@ static int ReadLong(uint64 *pn,stream *s)
 }
 
 /* ReadFloat - read a float value from an image file */
-static int ReadFloat(float_t *pn,stream *s)
+static bool ReadFloat(float_t *pn,stream *s)
 {
     int count = sizeof(float_t);
 #ifdef CS_REVERSE_FLOATS_ON_READ
@@ -421,7 +421,7 @@ static int ReadFloat(float_t *pn,stream *s)
     int c;
     while (--count >= 0) {
         if ((c = s->get()) == stream::EOS)
-            return FALSE;
+            return false;
         *--p = c;
     }
 #else
@@ -429,7 +429,7 @@ static int ReadFloat(float_t *pn,stream *s)
     int c;
     while (--count >= 0) {
         if ((c = s->get()) == stream::EOS)
-            return FALSE;
+            return false;
         *p++ = c;
     }
 #endif

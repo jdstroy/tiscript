@@ -532,7 +532,7 @@ const char* CsClassClassName(VM* c, value cls)
       return CsSymbolPrintName(className);
 
     else
-      dprintf("", CsTypeName(className));
+      dbg_printf("", CsTypeName(className));
   }
   return "";
 }
@@ -760,7 +760,7 @@ value FindNextSymbol(VM *c,value obj, value& idx)
       return c->nothingValue;
 
     value np = CsPropertyNext(idx);
-    if( np != c->undefinedValue ) 
+    if( np != c->undefinedValue )
     {
       idx = np; // easy case
       return CsPropertyTag(np);
@@ -775,7 +775,7 @@ value FindNextSymbol(VM *c,value obj, value& idx)
       idx = c->undefinedValue;
       return c->nothingValue;
     }
-    
+
     int_t hashValue = CsHashValue(tag);
     int_t i = hashValue & (CsHashTableSize(props) - 1);
 
@@ -784,7 +784,7 @@ value FindNextSymbol(VM *c,value obj, value& idx)
       value p = CsHashTableElement(props,i);
       if(p != c->undefinedValue)
       {
-        idx = p; 
+        idx = p;
         return CsPropertyTag(p);
       }
     }
@@ -873,7 +873,7 @@ static value CopyPropertyListExcept(VM *c,value plist, value tag, bool& r)
         if( tag == pTag)
         {
           r = true;
-          if( p ) 
+          if( p )
             CsSetPropertyNext(p,CsPropertyNext(t));
           else
             plist = CsPropertyNext(t);
@@ -938,7 +938,7 @@ static value CopyPropertyTableExcept(VM *c,value table, value tag, bool& r)
     CsPush(c,table);
     //CsPush(c,CsMakeHashTable(c,size));
     //tool::swap( c->sp[1], c->sp[0] );
-    
+
     for (i = 0; i < size; ++i) {
         value properties = CopyPropertyListExcept(c,CsHashTableElement(CsTop(c),i), tag, r );
         CsSetHashTableElement(CsTop(c),i,properties);

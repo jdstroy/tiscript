@@ -30,6 +30,10 @@ class dbPageHeader : public dbPageLruList {
     };
 };
 
+class dbGetTie;
+class dbPutTie;
+class dbDatabase;
+
 class dbPagePool {
     friend class dbGetTie;
     friend class dbPutTie;
@@ -119,7 +123,7 @@ class dbPutTie {
     void reset();
     void unset() {
         if (obj != NULL) {
-            if (page == NULL) { 
+            if (page == NULL) {
                 delete[] obj;
             }
             obj = NULL;

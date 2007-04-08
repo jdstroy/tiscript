@@ -5,7 +5,7 @@
 //                          Created:      8-May-97    K.A. Knizhnik  * / [] \ *
 //                          Last update: 21-Nov-98    K.A. Knizhnik  * GARRET *
 //-------------------------------------------------------------------*--------*
-// Windows sockets  
+// Windows sockets
 //-------------------------------------------------------------------*--------*
 
 #ifndef __W32SOCK_H__
@@ -14,26 +14,16 @@
 #include "sockio.h"
 #include "winsock2.h"
 
-class win_socket : public socket_t { 
-  protected: 
-    SOCKET        s; 
-    int           errcode;  // error code of last failed operation 
+class win_socket : public socket_t {
+  protected:
+    SOCKET        s;
+    int           errcode;  // error code of last failed operation
     char*         _address; // host address
     int           _port;    // port
-    char*         r_address; 
-    int           r_port; 
+    char*         r_address;
+    int           r_port;
 
-    enum error_codes { 
-	    ok = 0,
-	    not_opened = -1,
-	    bad_address = -2,
-	    connection_failed = -3,
-	    broken_pipe = -4, 
-	    invalid_access_mode = -5,
-      timeout_expired = -6,
-    };
-
-  public: 
+  public:
     bool   open(int listen_queue_size);
     bool   connect(int max_attempts, time_t timeout);
 
@@ -46,8 +36,8 @@ class win_socket : public socket_t {
     virtual const char *remote_addr() const { return r_address; };
     virtual int         remote_port() const { return r_port; };
 
-    bool   is_ok(); 
-    bool   is_timeout(); 
+    bool   is_ok();
+    bool   is_timeout();
     bool   close();
     bool   shutdown();
     void      get_error_text(char* buf, size_t buf_size);
@@ -55,21 +45,21 @@ class win_socket : public socket_t {
     socket_t* accept();
     bool   cancel_accept();
 
-    win_socket(const char* address); 
+    win_socket(const char* address);
     win_socket(SOCKET new_sock);
 
     ~win_socket();
 };
 
-#define SOCKET_BUF_SIZE (8*1024) 
+#define SOCKET_BUF_SIZE (8*1024)
 #define ACCEPT_TIMEOUT  (30*1000)
 
 #ifndef UNDER_CE
 
-  class local_win_socket : public socket_t 
+  class local_win_socket : public socket_t
   {
-    protected: 
-      enum error_codes { 
+    protected:
+      enum error_codes {
 	  ok = 0,
 	  not_opened = -1,
 	  broken_pipe = -2,
@@ -87,30 +77,30 @@ class win_socket : public socket_t {
       // RTR ---> RTT
       //------------------------------------------------------
 
-      struct socket_buf { 
+      struct socket_buf {
           volatile int RcvWaitFlag;
           volatile int SndWaitFlag;
 	  volatile int DataEnd;
 	  volatile int DataBeg;
-	  char Data[SOCKET_BUF_SIZE - 4*sizeof(int)];  
+	  char Data[SOCKET_BUF_SIZE - 4*sizeof(int)];
       };
-      struct accept_data { 
+      struct accept_data {
           HANDLE Signal[4];
 	  HANDLE BufHnd;
       };
-      struct connect_data { 
+      struct connect_data {
 	  HANDLE Mutex;
 	  int    Pid;
       };
       socket_buf* RcvBuf;
       socket_buf* SndBuf;
-      HANDLE      Signal[4];	   
+      HANDLE      Signal[4];
       HANDLE      Mutex;
       HANDLE      BufHnd;
       int         Error;
       char*       Name;
 
-    public: 
+    public:
       virtual const char *addr() const { return Name; };
       virtual int         port() const { return 0; };
       virtual const char *remote_addr() const { return ""; };
@@ -123,17 +113,17 @@ class win_socket : public socket_t {
       bool   read(void* buf, size_t size, size_t *size_read = 0);
       bool   write(void const* buf, size_t size);
 
-      bool   is_ok(); 
-      bool   is_timeout(); 
+      bool   is_ok();
+      bool   is_timeout();
       bool   close();
       bool   shutdown();
       void      get_error_text(char* buf, size_t buf_size);
 
       socket_t* accept();
       bool   cancel_accept();
-      
-      local_win_socket(const char* address); 
-      local_win_socket(); 
+
+      local_win_socket(const char* address);
+      local_win_socket();
 
       ~local_win_socket();
   };

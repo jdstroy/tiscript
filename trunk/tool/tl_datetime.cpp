@@ -7,11 +7,12 @@
 //|
 //|
 #include <stdlib.h>
-#include <time.h> 
+#include <sys/time.h>
+#include <time.h>
 #include "tl_datetime.h"
 
-#ifdef WIN32
-#include <TCHAR.H> 
+#ifdef WINDOWS
+#include <TCHAR.H>
 #endif
 
 namespace tool
@@ -45,20 +46,22 @@ namespace tool
       GetSystemTime(&st);
     else
       GetLocalTime(&st);
-    
+
     SystemTimeToFileTime( &st, (FILETIME*)&dt._time);
-    
+
 #else
     struct timeval tv;
-    gettimeofday(&tv, NULL); 
-    dt = tv; // cvt needs to be implemented 
-#endif    
+    gettimeofday(&tv, NULL);
+    struct tm syst = utc? *gmtime( &tv.tv_sec ): *localtime ( &tv.tv_sec );
+    dt = syst;
+    dt.set_frac_time(tv.tv_usec / 1000, tv.tv_usec % 1000, 0 );
+#endif
 
     /*
     time_t t;
     ::time ( &t );
     struct tm syst = utc? *gmtime( &t ): *localtime ( &t );
-    
+
     dt = syst;
     */
     return dt;
@@ -223,7 +226,7 @@ namespace tool
     days_absolute     += 584754L;	//  adjust days from 1/1/0 to 01/01/1601
 
     // Calculate the day of week (mon=0...sun=6)
-    //   -2 because 1/1/0 is Sat.  
+    //   -2 because 1/1/0 is Sat.
     dst.day_of_week = (int) (( days_absolute - 2 ) % 7L );
 
     // Leap years every 4 yrs except centuries not multiples of 400.
@@ -565,7 +568,7 @@ namespace tool
   }
 
 
-  ustring date_time::locale_format(const wchar* fmt) const 
+  ustring date_time::locale_format(const wchar* fmt) const
   {
 #ifdef WIN32
     //tool::datetime_t ft;
@@ -576,7 +579,7 @@ namespace tool
     wchar str[64]; str[0] = 0;
     //uint flags = LOCALE_USER_DEFAULT;
     //if( !fmt ) flags |= DATE_SHORTDATE;
-      
+
     int n = GetDateFormatW(
       LOCALE_USER_DEFAULT,  // locale
       0,      // options
@@ -601,7 +604,7 @@ namespace tool
 
     wchar str[64]; str[0] = 0;
     uint flags = full? DATE_LONGDATE: DATE_SHORTDATE;
-      
+
     int n = GetDateFormatW(
       LOCALE_USER_DEFAULT,  // locale
       flags,  // options

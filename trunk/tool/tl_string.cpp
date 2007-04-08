@@ -748,13 +748,12 @@ namespace tool
   {
     if(us)
     {
-	    int uslen = int(::wcslen(us));
-      int slen = ::WideCharToMultiByte(CP_ACP,0, us, uslen,0,0,0,0 );
-      if(slen != 0) {
+      int slen = wcstombs(0, us, uint(-1));
+      if(slen != 0)
+      {
         my_data = new_data ( slen, 1 );
-        ::WideCharToMultiByte(CP_ACP,0, us, uslen,head(),slen,0,0 );
+        ::wcstombs(head(),us, slen );
         return;
-        //wcstombs ( chars (), s, slen );
       }
     }
     my_data = &null_data;
@@ -764,13 +763,18 @@ namespace tool
   {
     if(us && uslen)
     {
-      int slen = ::WideCharToMultiByte(CP_ACP,0, us, uslen,0,0,0,0 );
+      char mbc[MB_CUR_MAX];
+      int i, slen = 0;
+      const wchar *p = us;
+      for(i = 0; i < uslen; ++i)
+      {
+        int t = wctomb(mbc,us[i]);
+        slen += t > 0? t : 0;
+      }
       if(slen != 0)
       {
         my_data = new_data ( slen, 1 );
-        ::WideCharToMultiByte(CP_ACP,0, us, uslen,head(),slen,0,0 );
-        return;
-        //wcstombs ( chars (), s, slen );
+        wcstombs( head(), us, slen );
       }
     }
     my_data = &null_data;

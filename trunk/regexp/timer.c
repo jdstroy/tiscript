@@ -15,7 +15,6 @@
 struct try {
 	char *re, *str, *ans, *src, *dst;
 } tests[] = {
-#include "timer.t.h"
 { NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -44,7 +43,7 @@ char *argv[];
 		nexec = atoi(argv[2]);
 		nsub = atoi(argv[3]);
 	}
-	
+
 	progname = argv[0];
 	if (argc > 5) {
 		one.re = argv[4];
@@ -53,7 +52,7 @@ char *argv[];
 			one.ans = argv[6];
 		else
 			one.ans = "y";
-		if (argc > 7) {	
+		if (argc > 7) {
 			one.src = argv[7];
 			one.dst = "xxx";
 		} else {
@@ -144,7 +143,7 @@ int ncomp, nexec, nsub;
 	errseen = NULL;
 	for (i = nsub; i > 0; i--)
 		regsub(r, fields.src, dbuf);
-	if (errseen != NULL) {	
+	if (errseen != NULL) {
 		complain("regsub complaint", "");
 		free((char *)r);
 		return;

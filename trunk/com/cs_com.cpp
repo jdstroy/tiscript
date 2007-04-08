@@ -659,7 +659,7 @@ static void compile_code(CsCompiler *c,char *name, bool isPropertyMethod)
       {
 		    do_init_expr(c);
         // cannot use do_statement(c); here due to ',' parsing
-        putcbyte(c,BC_NOTHING);
+        // putcbyte(c,BC_NOTHING);
         putcbyte(c,BC_RETURN);
         UnwindStack(c,c->blockLevel); // ???
       }
@@ -1220,9 +1220,9 @@ static void UnwindTryStack(CsCompiler *c, int& retaddr)
 
     CsCompiler::TryCatchDef* ptcsi = c->tcStack;
     // order: innermost finally first
-    while( ptcsi ) 
+    while( ptcsi )
     {
-      if(ptcsi->inTry) 
+      if(ptcsi->inTry)
         putcbyte ( c, BC_EH_POP );
       putcbyte ( c, BC_S_CALL );
       ptcsi->finallyAddr = putcword(c,ptcsi->finallyAddr);
@@ -1492,14 +1492,14 @@ static void do_try(CsCompiler *c)
 
     /* start of the 'finally' code or the end of the statement */
     fixup(c, tcdef.finallyAddr, codeaddr(c));
-    
+
     c->tcStack = tcdef.prev;
 
     /* handle a 'finally' clause */
-    if (tkn == T_FINALLY) 
+    if (tkn == T_FINALLY)
     {
         frequire(c,'{');
-        putcbyte ( c, BC_PUSH );        
+        putcbyte ( c, BC_PUSH );
         do_block(c, 0);
         putcbyte ( c, BC_DROP );
     }
@@ -1855,7 +1855,7 @@ static void do_stream(CsCompiler *c)
 {
     /* compile the statements in the block */
     int tkn = 0;
-    while (tkn = CsToken(c))
+    while ((tkn = CsToken(c)))
       switch(tkn)
     {
         case T_VAR:
@@ -2263,7 +2263,7 @@ static void do_expr13(CsCompiler *c,PVAL *pv)
     int tkn,op;
     do_expr14(c,pv);
     //while ((tkn = CsToken(c)) == '*' || tkn == '/' || tkn == '%' || tkn == T_INSTANCEOF )
-    while (tkn = CsToken(c))
+    while ((tkn = CsToken(c)))
     {
         bool neg = false;
         switch (tkn)
@@ -2654,7 +2654,7 @@ static void do_function_local(CsCompiler *c, ATABLE **patable, int *pptr)
     putcword(c,make_lit_symbol(c,qn.local_name));
 */
 #ifdef _DEBUG
-    dprintf( "\nlocal function %s\n", qn.local_name );
+    dbg_printf( "\nlocal function %s\n", qn.local_name );
 #endif
 
 }
@@ -2687,7 +2687,7 @@ static void do_function(CsCompiler *c, bool isPropertyMethod)
     putcbyte(c,BC_GSETC);
     putcword(c,make_lit_symbol(c,qn.local_name));
 #ifdef _DEBUG
-    dprintf( "\nglobal function %s\n", qn.name );
+    dbg_printf( "\nglobal function %s\n", qn.name );
 #endif
 
 }

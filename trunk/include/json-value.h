@@ -1,12 +1,12 @@
 /*
  * Terra Informatica Sciter Engine
  * http://terrainformatica.com/sciter
- * 
- * JSON value class. 
- * 
+ *
+ * JSON value class.
+ *
  * The code and information provided "as-is" without
  * warranty of any kind, either expressed or implied.
- * 
+ *
  * (C) 2003-2006, Andrew Fedoniouk (andrew@terrainformatica.com)
  */
 
@@ -16,9 +16,9 @@
  * classes here:
  *
  * json::value - the value
- * json::string - wchar string with refcounted data 
+ * json::string - wchar string with refcounted data
  * json::named_value - key/value pair
- *  
+ *
  **/
 
 
@@ -40,12 +40,15 @@ namespace json
 
   struct named_value;
   class  string;
-   
+
   /// \class value
   /// \brief The value type, can hold values of bool, int, double, string(wchar_t) and array(value)
   /// value is also known as JSON value, see: http://json.org/
 
-  struct value 
+  struct array_data;
+  struct string_data;
+
+  struct value
   {
     friend struct array_data;
     friend struct string_data;
@@ -54,8 +57,8 @@ namespace json
   public:
 
     /// Type of the value.
-    typedef enum VALUETYPE 
-    { 
+    typedef enum VALUETYPE
+    {
       V_UNDEFINED = 0,  ///< empty
       V_BOOL = 1,       ///< bool
       V_INT = 2,        ///< int
@@ -67,7 +70,7 @@ namespace json
 
     value()                            :v_type(V_UNDEFINED) { data.l_val = 0; }
     value(const value& src) :v_type(V_UNDEFINED) { set(src); }
-    
+
     /// constructor
     explicit value(bool v)             :v_type(V_UNDEFINED) { set(v); }
     /// constructor
@@ -93,7 +96,7 @@ namespace json
     inline void  clear();
 
     /// set new value
-    inline void  set(const value& src); 
+    inline void  set(const value& src);
 
     /// assign utf8 encoded string
     void  set(const byte* utf8, size_t length);
@@ -118,7 +121,7 @@ namespace json
     {
       value vk(key); v2k(vk, val);
     }
-    
+
     ~value()  { clear(); }
 
     /// indicator
@@ -142,7 +145,7 @@ namespace json
     value& operator = (bool v) { set(v); return *this; }
     value& operator = (const value& v) { set(v); return *this; }
     value& operator = (const string& s) { set(s); return *this; }
-    
+
     //value& operator = (const std::vector<value>& a) { if(a.size() != 0) set(&a[0], a.size()); return *this; }
     //value& operator = (const std::wstring& s) { set(s.c_str()); return *this; }
 
@@ -158,7 +161,7 @@ namespace json
     bool                get(bool def_val) const { return (v_type == V_BOOL)? (data.i_val != 0): def_val; }
     /// fetcher
     const wchar_t*      get(const wchar_t* def_val) const;
-    /// get array size and n-th element (if any)        
+    /// get array size and n-th element (if any)
     int                 length() const;
     /// get n-th element of the array
     value               nth(int n) const;
@@ -171,7 +174,7 @@ namespace json
     /// set value to key in the map
 
 
-    const named_value*  get_first() const; 
+    const named_value*  get_first() const;
 
 
     // Joel's rewording of the gets above
@@ -189,12 +192,12 @@ namespace json
     const value operator []( const value& key ) const { assert(v_type == V_MAP); if(v_type == V_MAP) return  k2v( key ); return value(); }
     /// map read access
     const value operator []( const wchar_t* key ) const { assert(v_type == V_MAP); if(v_type == V_MAP) { value vkey(key); return k2v( vkey ); } return value(); }
-   
+
     /// converter
     string to_string() const;
 
     void emit(utf8::ostream& os) const;
-   
+
     /// converter
     static value from_string(const wchar_t* str)
     {
@@ -217,10 +220,10 @@ namespace json
     typedef void (*wiper_t)( void * );
 
   protected:
-   
+
     VALUETYPE      v_type;
-    
-    union data_slot 
+
+    union data_slot
     {
       int            i_val;
       double         r_val;
@@ -230,8 +233,8 @@ namespace json
       named_value*   m_val; // simple map of name/value pairs.
 
     } data;
-    
-    void init( const value& v )  { data.l_val = v.data.l_val; v_type = v.v_type; }  
+
+    void init( const value& v )  { data.l_val = v.data.l_val; v_type = v.v_type; }
 
   };
 
@@ -251,37 +254,37 @@ namespace json
     //~named_value() { assert(n_refs == 0);  if(next) next->release(); }
 
     void add_ref() { ++n_refs; }
-    void release() 
-    { 
-      if (--n_refs <= 0) 
+    void release()
+    {
+      if (--n_refs <= 0)
       {
         if(next) next->release();
-        wipe(this); 
+        wipe(this);
       }
     }
 
-    static named_value* find( named_value* root, const value& k ) 
+    static named_value* find( named_value* root, const value& k )
       { named_value* t = root; while(t) if( t->key == k ) return t; else t = t->next; return 0; }
 
     static bool get( const named_value* root, const value& k, value& v )
       { named_value* t = find( const_cast<named_value*>(root),k); if( t ) { v = t->val; return true; } return false; }
-    
+
     static void set( named_value* &root, const value& k, const value& v )
-    {   
-        named_value* t = find(root,k); 
-        if( !t ) 
+    {
+        named_value* t = find(root,k);
+        if( !t )
         {
           named_value* nt = (named_value*) malloc(sizeof(named_value));
           nt->wipe = &free;
           nt->add_ref();
           nt->next = t;
           nt->key = k;
-          root = t = nt; // ccoder's fix 
+          root = t = nt; // ccoder's fix
         }
         t->val = v;
     }
 
-    static size_t length(const named_value* seq) 
+    static size_t length(const named_value* seq)
     {
       size_t sz = 0;
       while( seq ) { ++sz; seq = seq->next; }
@@ -296,7 +299,7 @@ namespace json
     value::wiper_t  wipe;
     // value elements[] - go here
     value* elements() { return reinterpret_cast<value*>(this + 1); }
-    
+
     static array_data* allocate( const value* values, size_t n )
     {
       array_data* ad = (array_data*) malloc( sizeof(array_data) + n * sizeof(value) );
@@ -318,7 +321,7 @@ namespace json
       for( size_t i = 0; i < n; ++i ) { v[i].init(z); }
       return ad;
     }
-    
+
     void release()
     {
       if( --ref_count == 0 )
@@ -352,15 +355,15 @@ namespace json
 
     void add_ref() { ++n_refs; }
     void release() { if (--n_refs <= 0) wiper(this); }
-    
+
     static string_data* allocate(const wchar_t* lpsz) { string_data* pd = allocate(wcslen(lpsz)); wcscpy(pd->data(),lpsz); return pd; }
     static string_data* allocate(const wchar_t* lps, size_t n) { string_data* pd = allocate(n); wcscpy(pd->data(),lps); return pd; }
-    static string_data* allocate(size_t n) { 
-      string_data* pd = (string_data*) malloc( sizeof(string_data) + sizeof(wchar_t) * (n + 1) ); 
+    static string_data* allocate(size_t n) {
+      string_data* pd = (string_data*) malloc( sizeof(string_data) + sizeof(wchar_t) * (n + 1) );
               pd->wiper = &free;
               pd->length = n;
               pd->data()[n] = 0;
-              pd->n_refs = 1; 
+              pd->n_refs = 1;
               return pd;
             }
     static string_data* allocate_from_utf8( const byte* utf8, size_t length)
@@ -379,49 +382,51 @@ namespace json
   };
 
 
-  inline void  value::clear() 
-    { 
+  inline void  value::clear()
+    {
       switch(v_type)
       {
         case V_STRING: data.s_val->release(); break;
         case V_ARRAY:  data.a_val->release(); break;
         case V_MAP:    data.m_val->release(); break;
+        default: break;
       }
-      data.l_val = 0; v_type = V_UNDEFINED; 
+      data.l_val = 0; v_type = V_UNDEFINED;
     }
 
   inline const wchar_t* value::get(const wchar_t* def_val) const { return (v_type == V_STRING)? data.s_val->data(): def_val; }
 
-  inline void value::set(const byte* utf8, size_t length) 
-  { 
-    clear(); 
-    v_type = V_STRING; 
+  inline void value::set(const byte* utf8, size_t length)
+  {
+    clear();
+    v_type = V_STRING;
     if( utf8 && utf8[0] && length ) data.s_val = string_data::allocate_from_utf8(utf8,length);
     else { data.s_val = string_data::empty(); data.s_val->add_ref(); }
   }
-  inline void value::set(const wchar_t* src) { 
-    clear(); v_type = V_STRING; 
+  inline void value::set(const wchar_t* src) {
+    clear(); v_type = V_STRING;
     if( src && src[0] ) data.s_val = string_data::allocate(src);
     else { data.s_val = string_data::empty(); data.s_val->add_ref(); }
   }
-  inline void value::set(const wchar_t* src, size_t length) 
-  { 
-    clear(); v_type = V_STRING; 
+  inline void value::set(const wchar_t* src, size_t length)
+  {
+    clear(); v_type = V_STRING;
     if( src && src[0] ) data.s_val = string_data::allocate(src, length);
     else { data.s_val = string_data::empty(); data.s_val->add_ref(); }
   }
 
-  inline void value::set(const value& src) 
-    { 
+  inline void value::set(const value& src)
+    {
       if( this == &src ) return;
-      clear(); 
-      v_type = src.v_type; 
+      clear();
+      v_type = src.v_type;
       data.l_val = src.data.l_val;
       switch(v_type)
       {
         case V_STRING: data.s_val->add_ref(); break;
         case V_ARRAY:  data.a_val->add_ref(); break;
         case V_MAP:    data.m_val->add_ref(); break;
+        default: break;
       }
     }
 
@@ -444,22 +449,22 @@ namespace json
     }
 
 
-  inline void value::set_array(const value* v, size_t n) 
-  { 
-    clear(); 
-    v_type = V_ARRAY; 
-    data.a_val = v? array_data::allocate(v,n): array_data::allocate(n); 
+  inline void value::set_array(const value* v, size_t n)
+  {
+    clear();
+    v_type = V_ARRAY;
+    data.a_val = v? array_data::allocate(v,n): array_data::allocate(n);
   }
 
-  inline int value::length() const 
-  { 
+  inline int value::length() const
+  {
     if(v_type == V_ARRAY) return int(data.a_val->length);
     if(v_type == V_STRING) return int(data.s_val->length);
     if(v_type == V_MAP) return int(named_value::length(data.m_val));
     return 0;
   }
 
-  inline bool value::operator == ( const value& rs ) const { 
+  inline bool value::operator == ( const value& rs ) const {
       if(v_type != rs.v_type ) return false;
       if(data.l_val == rs.data.l_val ) return true;
       if( v_type == V_STRING )
@@ -468,13 +473,13 @@ namespace json
         return array_data::equal(data.a_val, rs.data.a_val);
       //if( v_type == V_MAP )
       //  return array_data::equal(data.a_val, rs.data.a_val);
-      return false; 
+      return false;
     }
 
   inline value value::nth(int n) const { return ( n >= 0 && n < length() )? data.a_val->elements()[n]: value(); }
-  inline void  value::nth(int n, const value& t) 
-  { 
-    if ( n >= 0 && n < length() ) data.a_val->elements()[n] = t; 
+  inline void  value::nth(int n, const value& t)
+  {
+    if ( n >= 0 && n < length() ) data.a_val->elements()[n] = t;
     else assert(false);
   }
 
@@ -488,22 +493,22 @@ namespace json
       case V_REAL:      { char buf[128]; sprintf(buf, "%f", get(0.0)); os << buf; } break;
       case V_STRING:    {
                           os << "\"";
-                          for(const wchar_t* pc = get(L""); *pc; ++pc) 
+                          for(const wchar_t* pc = get(L""); *pc; ++pc)
                             if( *pc == '"' ) os << "\\\""; else os << (char)*pc;
                           os << "\"";
                         } break;
-      case V_ARRAY:     
+      case V_ARRAY:
         {
-          int total = length(); 
-          os << '['; 
-          nth(0).emit(os);            
+          int total = length();
+          os << '[';
+          nth(0).emit(os);
           for( int n = 1; n < total; ++n ) { os << ","; nth(n).emit(os); }
-          os << ']'; 
+          os << ']';
         }  break;
-      case V_MAP:     
+      case V_MAP:
         {
           const json::named_value* pnv = get_first();
-          os << '{'; 
+          os << '{';
           while(pnv)
           {
             pnv->key.emit(os);
@@ -513,12 +518,12 @@ namespace json
             else break;
             pnv = pnv->next;
           }
-          os << '}'; 
+          os << '}';
         } break;
     }
   }
 
-  class string 
+  class string
   {
     friend struct value;
     string_data* psd;
@@ -531,21 +536,21 @@ namespace json
     string(const wchar_t* s, size_t sz):psd(0) { if(s && sz) init(string_data::allocate(s,sz)); }
     string(string_data* ps):psd(0) { init(ps); }
     string(const string& s):psd(0) { init(s.psd); }
-    
+
     string(pod::wchar_buffer& wcb):psd(0) { if(wcb.length()) init(string_data::allocate(wcb.data(),wcb.length())); }
-    
+
     string& operator = (const string& v) { clear(); init(v.psd); return *this; }
     string& operator = (const wchar_t* s) { clear(); if(s) init(string_data::allocate(s)); return *this; }
-       
+
     ~string() { clear(); }
 
     const wchar_t*  chars() const     { return psd? psd->data():L""; }
-    int             length() const    { return psd? int(psd->length):0; } 
+    int             length() const    { return psd? int(psd->length):0; }
     operator  const wchar_t*() const  { return chars(); }
   };
 
   inline value::value(const string& s) :v_type(V_UNDEFINED) { set(s); }
-  inline void value::set(const string& s) { clear(); v_type = V_STRING; data.s_val = s.psd; data.s_val->add_ref(); }  
+  inline void value::set(const string& s) { clear(); v_type = V_STRING; data.s_val = s.psd; data.s_val->add_ref(); }
 
   inline string value::to_string() const
   {
@@ -553,9 +558,10 @@ namespace json
     {
       case V_UNDEFINED: return L"{undefined}";
       case V_BOOL:      return get(false)? L"true": L"false";
-      case V_INT:       { wchar_t buf[128]; swprintf(buf, L"%d", get(0)); return buf; }
-      case V_REAL:      { wchar_t buf[128]; swprintf(buf, L"%f", get(0.0)); return buf; }
+      case V_INT:       return string( aux::itow(get(0)) );
+      case V_REAL:      return string( aux::ftow(get(0.0)) );
       case V_STRING:    return string( data.s_val );
+      default: break;
     }
     return string();
   }
@@ -570,7 +576,7 @@ typedef struct json::value JSON_VALUE;
   typedef struct _JSON_VALUE
   {
     VALUETYPE      v_type;
-    union data_slot 
+    union data_slot
     {
       int            i_val;
       double         r_val;

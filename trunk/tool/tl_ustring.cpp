@@ -12,10 +12,10 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include "tl_ustring.h"
+#include "snprintf.h"
+#include "wctype.h"
 
 #include <stdio.h>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -34,10 +34,11 @@ ustring::ustring(const char *s)  : my_data ( &null_data )
   if(!s)
     return;
   int slen = int(strlen(s));
-  int uslen = MultiByteToWideChar(CP_ACP,0,s,int(slen),0,0); //mbstowcs( NULL, s, slen );//
+  //int uslen = MultiByteToWideChar(CP_ACP,0,s,int(slen),0,0);
+  int uslen = mbstowcs( 0, s, slen );
   my_data = new_data(uslen);
-  //mbstowcs( head(), s, uslen );
-  MultiByteToWideChar(CP_ACP,0,s,slen,head(),uslen);
+  mbstowcs( head(), s, uslen );
+  //MultiByteToWideChar(CP_ACP,0,s,slen,head(),uslen);
   my_data->ref_count = 1;
 }
 
@@ -45,19 +46,27 @@ ustring::ustring(const string &s)  : my_data ( &null_data )
 {
   if(s.length() == 0)
     return;
-  int uslen = MultiByteToWideChar(CP_ACP,0,s,s.length(),0,0); //mbstowcs( NULL, s, slen );//
+  //int uslen = MultiByteToWideChar(CP_ACP,0,s,s.length(),0,0); //mbstowcs( NULL, s, slen );//
+  int uslen = mbstowcs( 0, s, s.length() );
   my_data = new_data(uslen);
-  //mbstowcs( head(), s, uslen );
-  MultiByteToWideChar(CP_ACP,0,s,s.length(),head(),uslen);
+  mbstowcs( head(), s, uslen );
+  //MultiByteToWideChar(CP_ACP,0,s,s.length(),head(),uslen);
   my_data->ref_count = 1;
 }
 
 ustring ustring::cvt(int codepage, const char *s, size_t slen)
 {
   assert(s);
+#ifdef WINDOWS
   int uslen = MultiByteToWideChar(codepage,0,s,int(slen),0,0);
   ustring rs(wchar('\0'),uslen);
   MultiByteToWideChar(codepage,0,s,int(slen),rs.head(),uslen);
+#else
+#pragma TODO("codepage needs to be implemented")
+  int uslen = mbstowcs( 0, s, slen );
+  ustring rs(wchar('\0'),uslen);
+  mbstowcs( rs.head(), s, slen );
+#endif
   return rs;
 }
 
@@ -426,7 +435,7 @@ ustring & ustring::printf(const wchar *fmt,...)
   wchar buffer[2049];
   va_list args;
   va_start (args, fmt);
-  int len = _vsnwprintf( buffer, 2048, fmt, args );
+  int len = do_w_vsnprintf( buffer, 2048, fmt, args );
   va_end (args);
   buffer[2048] = 0;
 
@@ -443,7 +452,7 @@ ustring ustring::format(const wchar *fmt,...)
   wchar buffer[2049];
   va_list args;
   va_start (args, fmt);
-  int len = _vsnwprintf( buffer, 2048, fmt, args );
+  do_w_vsnprintf( buffer, 2048, fmt, args );
   va_end (args);
   buffer[2048] = 0;
   return buffer;
@@ -464,11 +473,11 @@ ustring& ustring::to_upper()
 {
     make_unique();
 
-    _wcsupr(head());
+    //_wcsupr(head());
 
-    //for (register wchar *p = head(); *p; p++)
-    //    if (islower(*p))
-    //        *p = toupper(*p);
+    for (register wchar *p = head(); *p; p++)
+        if (iswlower(*p))
+            *p = towupper(*p);
 
     return *this;
 }
@@ -478,10 +487,10 @@ ustring& ustring::to_lower()
 {
     make_unique();
 
-    _wcslwr(head());
-    //for (register wchar *p = head(); *p; p++)
-    //    if (isupper(*p))
-    //        *p = tolower(*p);
+    //_wcslwr(head());
+    for (register wchar *p = head(); *p; p++)
+        if (iswupper(*p))
+            *p = towlower(*p);
 
     return *this;
 }

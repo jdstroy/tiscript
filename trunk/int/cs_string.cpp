@@ -8,8 +8,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cs.h"
+#include <wctype.h>
 
-namespace tis 
+namespace tis
 {
 
 /* method handlers */
@@ -114,11 +115,11 @@ void CsInitString(VM *c)
     c->stringObject = CsEnterType(CsGlobalScope(c),"String",&CsStringDispatch);
     CsEnterMethods(c,c->stringObject,methods);
     CsEnterVPMethods(c,c->stringObject,properties);
-    
+
     //CsSetCObjectPrototype(c->stringObject,CsMakeObject(c,c->undefinedValue));
     //CsEnterMethods(c,CsCObjectPrototype(c->stringObject),prototype_methods);
     //CsEnterVPMethods(c,CsCObjectPrototype(c->stringObject),prototype_properties);
-     
+
 }
 
 /* CSF_ctor - built-in method 'initialize' */
@@ -255,7 +256,7 @@ static value CSF_indexOf(VM *c)
     wchar *str,*str2, *p;
     int len, len2;
     int startIndex = 0;
-    
+
     /* parse the arguments */
     CsParseArguments(c,"S#*S#|i",&str,&len,&str2,&len2, &startIndex);
 
@@ -269,7 +270,7 @@ static value CSF_indexOf(VM *c)
 
     if (!p)
         return CsMakeInteger(c,-1);
-    
+
     /* return the index of the substring */
     return CsMakeInteger(c,p - str);
 }
@@ -310,7 +311,7 @@ static value CSF_trim(VM *c)
 
     if(flags == s_all || flags == s_left)
       for (; start < end; ++start)
-        if (!iswspace(*start)) 
+        if (!iswspace(*start))
           break;
 
     if(flags == s_all || flags == s_right)
@@ -320,8 +321,8 @@ static value CSF_trim(VM *c)
         else
           end = p;
 
-    tool::wchars r(start, end); 
-        
+    tool::wchars r(start, end);
+
     if( r.length == len )
       return CsGetArg(c,1); // return this;
     return CsMakeString(c,r);
@@ -338,11 +339,11 @@ static value CSF_htmlEscape(VM *c)
 
     /* parse the arguments */
     CsParseArguments(c,"S#*",&str,&len);
-   
+
     const wchar* cpstart = str;
     const wchar* cp = cpstart;
     const wchar* cpend = str + len;
-    
+
 
     while( cp < cpend )
     {
@@ -352,11 +353,11 @@ static value CSF_htmlEscape(VM *c)
         buf.push( cpstart, cp - cpstart );
         while( cp < cpend )
         {
-          switch(*cp) 
+          switch(*cp)
           {
               case '<': buf.push(L"&lt;", 4); break;
               case '>': buf.push(L"&gt;", 4); break;
-              case '&': buf.push(L"&amp;", 5); break; 
+              case '&': buf.push(L"&amp;", 5); break;
               case '"': buf.push(L"&quot;", 6); break;
               case '\'': buf.push(L"&apos;", 6); break;
               default: buf.push(*cp); break;
@@ -377,7 +378,7 @@ inline wchar parse_entity( const wchar* cp,  const wchar* cpend, const wchar* &c
   for(int n = 2; n < last; ++n )
     if( cp[n] == ';' )
     {
-      cpout = &cp[n+1]; 
+      cpout = &cp[n+1];
       return tool::html_unescape(tool::string(cp,n));
     }
   return 0;
@@ -395,7 +396,7 @@ static value CSF_htmlUnescape(VM *c)
     const wchar* cpstart = str;
     const wchar* cp = cpstart;
     const wchar* cpend = str + len;
-    
+
     while( cp < cpend )
     {
       if( *cp == '&' )
@@ -408,7 +409,7 @@ static value CSF_htmlUnescape(VM *c)
           {
             const wchar* cpnext = cp + 1;
             wchar xc = parse_entity( cp + 1,  cpend, cpnext );
-            if(xc) 
+            if(xc)
             {
               buf.push( xc );
               cp = cpnext;
@@ -481,14 +482,14 @@ static value CSF_toString(VM *c)
     return obj;
 }
 
-static wchar *wcsrnstr(const wchar *sbStr, size_t sbStrLen, const wchar *sbSub) 
+static wchar *wcsrnstr(const wchar *sbStr, size_t sbStrLen, const wchar *sbSub)
 {
   wchar ch, *p, *pSub = (wchar *)sbSub;
   int wLen;
   ch = *pSub++;
   if (ch == '\0') return (wchar *)sbStr; // arbitrary return (undefined)
   wLen = (int)wcslen(pSub);
-  for (p=(wchar *)sbStr + sbStrLen - 1; p >= sbStr; --p) 
+  for (p=(wchar *)sbStr + sbStrLen - 1; p >= sbStr; --p)
   {
      if (*p == ch && wcsncmp(p+1, pSub, wLen) == 0) return p;  // found
   }
@@ -516,7 +517,7 @@ static value CSF_lastIndexOf(VM *c)
 
     if (!p)
         return CsMakeInteger(c,-1);
-    
+
     /* return the index of the substring */
     return CsMakeInteger(c,p - str);
 
@@ -533,7 +534,7 @@ static value CSF_localeCompare(VM *c)
 
     if ( !str || !str2)
         return c->undefinedValue;
-//#if defined(PLATFORM_WINCE)        
+//#if defined(PLATFORM_WINCE)
     return CsMakeInteger(c,wcscmp(str,str2));
 //#else
 //	return CsMakeInteger(c,wcscoll(str,str2));
@@ -546,7 +547,7 @@ static value CSF_slice(VM *c)
 {
     int len,start,end = -1;
     wchar *str;
-    
+
     /* parse the arguments */
     CsParseArguments(c,"S#*i|i",&str,&len,&start,&end);
 
@@ -555,7 +556,7 @@ static value CSF_slice(VM *c)
         if (start > len)
             return c->undefinedValue;
     }
-    
+
     /* handle indexing from the right */
     else if (start < 0) {
         if ((start = len + start) < 0)
@@ -571,9 +572,9 @@ static value CSF_slice(VM *c)
     else if (end > len)
         end = len;
 
-    if( start > end ) 
+    if( start > end )
       return CsMakeFilledString(c,0,0);
-    
+
     /* return the substring */
     return CsMakeCharString(c,str + start, end - start);
 }
@@ -594,13 +595,13 @@ value CsStringSlice(VM *c, value s, int start, int end)
 {
     int len = CsStringSize(s);
     wchar *str = CsStringAddress(s);
-    
+
     /* handle indexing from the left */
     if (start > 0) {
         if (start > len)
             return c->undefinedValue;
     }
-    
+
     /* handle indexing from the right */
     else if (start < 0) {
         if ((start = len + start) < 0)
@@ -617,7 +618,7 @@ value CsStringSlice(VM *c, value s, int start, int end)
         end = len;
 
     if( start > end ) tool::swap(start,end);
-    
+
     /* return the substring */
     return CsMakeCharString(c,str + start, end - start);
 }
@@ -629,7 +630,7 @@ static value CSF_substring(VM *c)
 {
     int len,start,end = -1;
     wchar *str;
-    
+
     /* parse the arguments */
     CsParseArguments(c,"S#*i|i",&str,&len,&start,&end);
 
@@ -638,7 +639,7 @@ static value CSF_substring(VM *c)
         if (start > len)
             return c->undefinedValue;
     }
-    
+
     /* handle indexing from the right */
     else if (start < 0) {
         if ((start = len + start) < 0)
@@ -655,7 +656,7 @@ static value CSF_substring(VM *c)
         end = len;
 
     if( start > end ) tool::swap(start,end);
-    
+
     /* return the substring */
     return CsMakeCharString(c,str + start, end - start);
 }
@@ -665,7 +666,7 @@ static value CSF_substr(VM *c)
 {
     int len,i,cnt = -1;
     wchar *str;
-    
+
     /* parse the arguments */
     CsParseArguments(c,"S#*i|i",&str,&len,&i,&cnt);
 
@@ -674,7 +675,7 @@ static value CSF_substr(VM *c)
         if (i > len)
             return c->undefinedValue;
     }
-    
+
     /* handle indexing from the right */
     else if (i < 0) {
         if ((i = len + i) < 0)
@@ -687,11 +688,11 @@ static value CSF_substr(VM *c)
         cnt = len - i;
     }
     else if (i + cnt > len)
-        cnt = len - i; 
+        cnt = len - i;
 
     if( cnt < 0 )
         return c->undefinedValue;
-    
+
     /* return the substring */
     return CsMakeCharString(c,str + i,cnt);
 }
@@ -890,8 +891,9 @@ value CsMakeFilledString(VM *c, wchar fill, int_t size)
     wchar *p = CsStringAddress(newo);
     CsSetDispatch(newo,&CsStringDispatch);
     CsSetStringSize(newo,size);
-    wcsnset(p,fill,size);
-    p[size] = '\0'; /* in case we need to use it as a C string */
+    for(int n = 0; n < size; ++n)
+      *p++ = fill;
+    *p = '\0'; /* in case we need to use it as a C string */
     return newo;
 }
 

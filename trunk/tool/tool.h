@@ -16,6 +16,8 @@
 
 //#include <new.h>
 
+#include "assert.h"
+
 #include "tl_basic.h" // OS dependent
 #include "tl_slice.h"
 #include "tl_array.h"
@@ -27,19 +29,20 @@
 #include "tl_datetime.h" // OS dependent
 #include "tl_ternary_tree.h"
 #include "tl_url.h"
-#include "tl_mm_file.h"
+//#include "tl_mm_file.h"
 #include "tl_base64.h"
 #include "tl_pool.h"
 #include "tl_value.h"
-#include "tl_sync.h"  // OS dependent
+//#include "tl_sync.h"  // OS dependent
 #include "tl_slice.h"
-#include "tl_pool.h"
 
 #include "tl_filesystem.h" // OS dependent
 
+#include "snprintf.h"
+
 //using namespace tool;
 
-namespace tool 
+namespace tool
 {
 
 #if defined(UNICODE)

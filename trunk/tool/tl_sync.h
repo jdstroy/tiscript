@@ -13,110 +13,111 @@
 
 #include "tl_basic.h"
 
-#ifndef _WIN32_WCE
-  //#include <process.h>
+#ifdef WIN32
+  #define WIN32_LEAN_AND_MEAN
+  #include <windows.h>
 #else
-  //#include <windows.h>
-  //#define volatile 
+  #include <pthread.h>
 #endif
 
 #include "tl_array.h"
 
-namespace tool 
+namespace tool
 {
 
 #ifdef WIN32
-class mutex { 
+class mutex {
     CRITICAL_SECTION cs;
  public:
-    void lock() { 
+    void lock() {
 	    EnterCriticalSection(&cs);
-    } 
+    }
     void unlock() {
 	    LeaveCriticalSection(&cs);
-    } 
-    mutex() { 
+    }
+    mutex() {
 	    InitializeCriticalSection(&cs);
-    }   
-    ~mutex() { 
+    }
+    ~mutex() {
 	    DeleteCriticalSection(&cs);
     }
 };
 
-struct event 
-{ 
+struct event
+{
     HANDLE h;
 
-    event() { 
+    event() {
 	    h = CreateEvent(NULL, FALSE, FALSE, NULL);
     }
-    ~event() { 
+    ~event() {
 	    CloseHandle(h);
     }
-    void signal() { 
+    void signal() {
 	    SetEvent(h);
     }
-    void pulse() { 
+    void pulse() {
 	    PulseEvent(h);
     }
 
-    void wait(mutex& m) { 
+    void wait(mutex& m) {
 	    m.unlock();
 	    WaitForSingleObject(h, INFINITE);
 	    m.lock();
     }
-    void wait() { 
+    void wait() {
 	    WaitForSingleObject(h, INFINITE);
     }
-    
+
 };
 
 #else
 
-class mutex { 
+class mutex {
     int             count;
     pthread_t       owner;
     pthread_mutex_t cs;
 
     friend class event_t;
  public:
-    void lock() { 
-	pthread_t self = pthread_self();
-	if (owner != self) { 
-	    pthread_mutex_lock(&cs); 
-	    owner = self;
-	}
-	count += 1;
+    inline void lock()
+    {
+        pthread_t _self = pthread_self();
+        if (owner != _self) {
+            pthread_mutex_lock(&cs);
+            owner = _self;
+        }
+        count += 1;
     }
-    void unlock() { 
-	assert(pthread_self() == owner);
-	if (--count == 0) {
-	    owner = 0;
-	    pthread_mutex_unlock(&cs);
-	} 
+    void unlock() {
+        assert(pthread_self() == owner);
+        if (--count == 0) {
+            owner = 0;
+            pthread_mutex_unlock(&cs);
+        }
     }
-    mutex() { 
-	pthread_mutex_init(&cs, NULL);
-    }   
-    ~mutex() { 
-	pthread_mutex_destroy(&cs);
+    mutex() {
+        pthread_mutex_init(&cs, NULL);
+    }
+    ~mutex() {
+        pthread_mutex_destroy(&cs);
     }
 };
 
-class event { 
+class event {
     pthread_cond_t cond;
 
    public:
-    event() { 
+    event() {
 	pthread_cond_init(&cond, NULL);
     }
-    ~event() { 
+    ~event() {
 	pthread_cond_destroy(&cond);
     }
-    void signal() { 
+    void signal() {
 	pthread_cond_signal(&cond);
     }
-    void wait(mutex_t& m) { 
+    void wait(mutex_t& m) {
 	pthread_t self = pthread_self();
 	assert(m.owner == self && m.count == 1);
 	m.count = 0;
@@ -129,23 +130,23 @@ class event {
 
 #endif
 
-class critical_section { 
+class critical_section {
     mutex& _m;
   public:
     critical_section(mutex& m) : _m(m) {
 	    _m.lock();
     }
-    ~critical_section() { 
+    ~critical_section() {
 	    _m.unlock();
     }
 };
 
-struct task 
+struct task
 {
   task(){}
   virtual ~task(){}
   virtual void exec() = 0;
-  
+
 };
 
 class thread_pool
@@ -157,7 +158,7 @@ private:
     event           got_something;
     locked::counter terminate;
     locked::counter active;
-    
+
 public:
     thread_pool(int n_pool_size = 5):
         terminate(0),active(0)
@@ -166,11 +167,11 @@ public:
         for(int i = 0; i < n_pool_size; i++)
         {
             //thread_handles.push((HANDLE)_beginthreadex(NULL, 0, thread, this, 0, &threadID));
-            thread_handles.push(CreateThread(NULL, 0, thread, this, 0, &threadID)); 
-            locked::inc(active);    
+            thread_handles.push(CreateThread(NULL, 0, thread, this, 0, &threadID));
+            locked::inc(active);
         }
     }
-    
+
     ~thread_pool()
     {
         foreach(n, thread_handles) CloseHandle(thread_handles[n]);
@@ -204,12 +205,12 @@ public:
          ::Sleep(0);
          --attempts;
        }
-       
+
     }
 
-    int tasks_waiting() { 
+    int tasks_waiting() {
       critical_section cs(guard);
-      return tasks.size(); 
+      return tasks.size();
     }
 
 protected:
@@ -250,11 +251,11 @@ protected:
     unsigned int  elapse;			// "Sleep time" in milliseconds
     bool          is_active;
     mutex         lock;  // thread synchronization
-    
+
 public:
   timed():is_active(false),elapse(10) {}
   virtual ~timed(){}
-    
+
     void start (unsigned int period)
     {
       critical_section cs(lock);
@@ -263,8 +264,8 @@ public:
           return;
 
       // Start the thread
-      DWORD threadId;    
-      HANDLE threadHandle = CreateThread (NULL, 0x10000, thread_f, this, 0, &threadId);    
+      DWORD threadId;
+      HANDLE threadHandle = CreateThread (NULL, 0x10000, thread_f, this, 0, &threadId);
       //SetThreadPriority(threadHandle,THREAD_PRIORITY_TIME_CRITICAL); // this is optional
       is_active = true;
     }
@@ -275,7 +276,7 @@ public:
       is_active = false;
     }
 
-    bool is_ticking() { return is_active; } 
+    bool is_ticking() { return is_active; }
 
     void set_delay(unsigned int ms) { elapse = ms; }
 

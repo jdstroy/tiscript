@@ -14,6 +14,7 @@
 //#include <istream>
 //#include <ostream>
 #include <ctype.h>
+#include <wchar.h>
 #include <string.h>
 #include "tl_config.h"
 #include "tl_basic.h"
@@ -25,9 +26,7 @@
 
 #if !defined(_WIN32)
 #define stricmp	strcasecmp
-//#else
-//#define WIN32_LEAN_AND_MEAN
-//#include <windows.h>
+#include <cstdlib>
 #endif
 
 namespace tool
@@ -43,7 +42,7 @@ namespace tool
   inline bool streqi(const char* s, const char* s1)
   {
     if( s && s1 )
-      return _stricmp(s,s1) == 0;
+      return stricmp(s,s1) == 0;
     return false;
   }
 
@@ -161,13 +160,13 @@ namespace tool
     string &printf ( const char *fmt, ... );
 
     static string format ( const char *fmt, ... );
-    // format to roman number 
+    // format to roman number
     static string roman(dword num,bool ucase);
     // format to abc number
     static string alpha(dword num, bool ucase);
 
     void inherit(const string& src) { if(src.length()) *this = src; }
-    
+
     bool defined() const { return my_data != &null_data; }
     bool undefined() const { return my_data == &null_data; }
 
@@ -193,7 +192,7 @@ namespace tool
     slice<char>  operator()() const { return slice<char>(head(),length()); }
     slice<char>  operator()(int s) const { return slice<char>(head()+s,length()-s); }
     slice<char>  operator()(int s, int e) const { return slice<char>(head()+s,min(length(),e)-s); }
-   
+
     class tokenz
     {
       char   delimeter;
@@ -213,19 +212,19 @@ namespace tool
         start = p = text;
         end = tok();
       }
-      bool next(string& v) 
-      {  
+      bool next(string& v)
+      {
         if(start && *start)
         {
           v.set(start,int(end-start));
-          start = p; 
+          start = p;
           end = tok();
           return true;
         }
         return false;
       }
     };
-    
+
 
 #ifndef NO_ARRAY
     //DEPRECATED!
@@ -265,9 +264,9 @@ namespace tool
 
     void release_data ()
     {
-      if ( my_data != &null_data ) 
+      if ( my_data != &null_data )
       {
-        if( --my_data->ref_count == 0 ) 
+        if( --my_data->ref_count == 0 )
         {
           byte *pb = (byte *) my_data;
           delete[] pb;
@@ -275,17 +274,17 @@ namespace tool
       }
     }
 
-    
+
     // tool::value support
     static void release_data (data* dta);
     data* get_data() const;
-    // tool::value support end 
+    // tool::value support end
 
     void make_unique ();
 
     char *head ();
     const char *head () const;
-    
+
     string& replace_substr ( const char *s, int s_len, int index, int len );
     string& insert ( const char *s, int s_length, int index );
 
@@ -358,7 +357,7 @@ namespace tool
     return ( strcmp ( s1, s2.head() ) != 0 );
   }
 
-  inline void 
+  inline void
     swap ( string &s1, string &s2 )
   {
     string::data *tmp = s1.my_data;
@@ -611,7 +610,7 @@ namespace tool
     if(s)
     {
       int sz = int(strlen(s));
-      if(sz) 
+      if(sz)
       {
         int old_length = length();
         set_length(old_length + sz, true);
@@ -717,8 +716,8 @@ namespace tool
 
   struct string_ignore_case
   {
-    static unsigned int hash(const string& e) 
-    { 
+    static unsigned int hash(const string& e)
+    {
        unsigned int h = 0, g;
        const char *pc = (const char *) e;
        while ( *pc )
@@ -730,13 +729,13 @@ namespace tool
         }
        return h;
     }
-    static bool equal(const string& l, const string& r) 
-    { 
-      return l.equals(r,true); 
+    static bool equal(const string& l, const string& r)
+    {
+      return l.equals(r,true);
     }
-    static string create(const string& key) 
-    { 
-      return key; 
+    static string create(const string& key)
+    {
+      return key;
     }
 
   };

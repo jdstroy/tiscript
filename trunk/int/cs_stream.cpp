@@ -119,7 +119,7 @@ bool stream::printf(const wchar *fmt,...)
     wchar buf[1024];
     va_list ap;
     va_start(ap,fmt);
-    _vsnwprintf(buf,1024,fmt,ap);
+    do_w_vsnprintf(buf,1024,fmt,ap);
     va_end(ap);
     buf[ 1023 ] = 0;
     return put_str(buf);
@@ -227,7 +227,7 @@ stream *OpenFileStream(VM *c,const wchar *fname, const wchar *mode)
 
     bool writeable = wcschr(buf,'w') || wcschr(buf,'a');
 
-    FILE *fp = _wfopen(fname,buf);
+    FILE *fp = fopen(aux::w2a(fname),aux::w2a(buf));
     if (fp)
     {
       if(utfstream)

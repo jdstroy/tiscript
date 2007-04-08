@@ -8,7 +8,7 @@
 #include "cs.h"
 #include <limits.h>
 
-namespace tis 
+namespace tis
 {
 
 
@@ -34,7 +34,7 @@ static vp_method properties[] = {
 VP_METHOD_ENTRY( 0,                0,					0					)
 };
 
-static constant constants[] = 
+static constant constants[] =
 {
   CONSTANT_ENTRY("MAX"    , int_value(INT_MAX     )),
   CONSTANT_ENTRY("MIN"    , int_value(INT_MIN     )),
@@ -82,10 +82,10 @@ static value minimum( VM *c, value *argv, int argc )
       if (!CsIntegerP(arg))
         CsUnexpectedTypeError(c,arg,"integer");
       gotone = true;
-      int_t t = CsIntegerValue(arg);       
+      int_t t = CsIntegerValue(arg);
       if( t < r ) r = t;
     }
-    return gotone? CsMakeInteger(c,r): c->undefinedValue; 
+    return gotone? CsMakeInteger(c,r): c->undefinedValue;
 }
 
 static value maximum( VM *c, value *argv, int argc )
@@ -103,23 +103,23 @@ static value maximum( VM *c, value *argv, int argc )
       if (!CsIntegerP(arg))
         CsUnexpectedTypeError(c,arg,"integer");
       gotone = true;
-      int_t t = CsIntegerValue(arg);       
+      int_t t = CsIntegerValue(arg);
       if( t > r ) r = t;
     }
-    return gotone? CsMakeInteger(c,r): c->undefinedValue; 
+    return gotone? CsMakeInteger(c,r): c->undefinedValue;
 }
 
 
 static value CSF_min(VM *c)
 {
-    value *argv = c->argv - 2; 
+    value *argv = c->argv - 2;
     int argc = c->argc - 2;
 
     return minimum(c,argv - argc, argc);
 }
 static value CSF_max(VM *c)
 {
-   value *argv = c->argv - 2; 
+   value *argv = c->argv - 2;
    int argc = c->argc - 2;
 
    return maximum(c,argv - argc, argc);
@@ -129,23 +129,23 @@ static value CSF_max(VM *c)
 static value CSF_toString(VM *c)
 {
     int radix = 10;
-    wchar buf[100],*fmt;
+    char buf[100],*fmt;
     value obj;
     CsParseArguments(c,"V=*|i",&obj,&CsIntegerDispatch,&radix);
     switch (radix) {
     case 8:
-        fmt = L"%lo";
+        fmt = "%lo";
         break;
     case 10:
-        fmt = L"%ld";
+        fmt = "%ld";
         break;
     case 16:
-        fmt = L"%lx";
+        fmt = "%lx";
         break;
     default:
         return c->undefinedValue;
     }
-    swprintf(buf,fmt,(int)CsIntegerValue(obj));
+    sprintf(buf,fmt,(int)CsIntegerValue(obj));
     return CsMakeCString(c,buf);
 }
 
@@ -212,7 +212,7 @@ static int_t IntegerHash(value obj)
   return tool::hash(CsIntegerValue(obj));
 }
 
-/* CsMakeInteger - make a new integer value 
+/* CsMakeInteger - make a new integer value
 value CsMakeInteger(VM *c,int_t val)
 {
     if (CsSmallIntegerValueP(val))

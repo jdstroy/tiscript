@@ -12,7 +12,7 @@
 #include <math.h>
 #include "cs.h"
 
-namespace tis 
+namespace tis
 {
 
 /* method handlers */
@@ -41,7 +41,7 @@ static vp_method properties[] = {
 VP_METHOD_ENTRY( 0,                0,					0					)
 };
 
-static constant constants[] = 
+static constant constants[] =
 {
   CONSTANT_ENTRY("MAX"    , float_value(HUGE_VAL   )),
   CONSTANT_ENTRY("MIN"    , float_value(-HUGE_VAL  )),
@@ -92,7 +92,7 @@ static value CSF_isNaN(VM *c)
     value obj;
     CsParseArguments(c,"V=*",&obj,&CsFloatDispatch);
     float_t fv = CsFloatValue(obj);
-    return _isnan( fv )? c->trueValue: c->falseValue;
+    return isnan( fv )? c->trueValue: c->falseValue;
 }
 
 /* CSF_isFinite - built-in method 'isFinite' */
@@ -101,7 +101,7 @@ static value CSF_isFinite(VM *c)
     value obj;
     CsParseArguments(c,"V=*",&obj,&CsFloatDispatch);
     float_t fv = CsFloatValue(obj);
-    return _finite( fv )? c->trueValue: c->falseValue;
+    return finite( fv )? c->trueValue: c->falseValue;
 }
 
 static value minimum( VM *c, value *argv, int argc )
@@ -121,10 +121,10 @@ static value minimum( VM *c, value *argv, int argc )
       else if (!CsFloatP(arg))
         CsUnexpectedTypeError(c,arg,"float");
       gotone = true;
-      float_t t = CsFloatValue(arg);       
+      float_t t = CsFloatValue(arg);
       if( t < r ) r = t;
     }
-    return gotone? CsMakeFloat(c,r): c->undefinedValue; 
+    return gotone? CsMakeFloat(c,r): c->undefinedValue;
 }
 
 static value maximum( VM *c, value *argv, int argc )
@@ -144,22 +144,22 @@ static value maximum( VM *c, value *argv, int argc )
       else if (!CsFloatP(arg))
         CsUnexpectedTypeError(c,arg,"float");
       gotone = true;
-      float_t t = CsFloatValue(arg);       
+      float_t t = CsFloatValue(arg);
       if( t > r ) r = t;
     }
-    return gotone? CsMakeFloat(c,r): c->undefinedValue; 
+    return gotone? CsMakeFloat(c,r): c->undefinedValue;
 }
 
 static value CSF_min(VM *c)
 {
-    value *argv = c->argv - 2; 
+    value *argv = c->argv - 2;
     int argc = c->argc - 2;
 
     return minimum(c,argv - argc, argc);
 }
 static value CSF_max(VM *c)
 {
-   value *argv = c->argv - 2; 
+   value *argv = c->argv - 2;
    int argc = c->argc - 2;
 
    return maximum(c,argv - argc, argc);

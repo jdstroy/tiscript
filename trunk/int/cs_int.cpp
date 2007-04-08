@@ -311,7 +311,7 @@ value CsSendMessage(VM *c,value obj, value selector,int argc,...)
 value CsSendMessage(CsScope *scope,value obj, value selector,int argc,...)
 {
     VM *c = scope->c;
-    
+
     va_list ap;
     int n;
 
@@ -427,7 +427,7 @@ json::value CsSendMessageByNameJSON(VM *c,value obj, const char *sname,int argc,
       if( !CsMethodP(method))
       {
         //tag = method;
-        if( optional ) 
+        if( optional )
           return json::value();
         else
           CsThrowKnownError(c, CsErrUnexpectedTypeError, sname );
@@ -579,7 +579,7 @@ static bool Execute(VM *c)
             c->pc = c->cbase + off;
             break;
         case BC_SWITCH:
-#ifdef _DEBUG            
+#ifdef _DEBUG
           if( c->val == int_value(-1))
             c->val = c->val;
 #endif
@@ -621,18 +621,18 @@ static bool Execute(VM *c)
             UnaryOp(c,'-');
             break;
         case BC_ADD:
-            if (CsStringP(c->val)) 
+            if (CsStringP(c->val))
             {
                 p1 = CsPop(c);
-                if (!CsStringP(p1)) 
+                if (!CsStringP(p1))
                   c->val = ConcatenateStrings(c,CsToString(c,p1),c->val);
                 else
                   c->val = ConcatenateStrings(c,p1,c->val);
             }
-            else if (CsStringP(CsTop(c))) 
+            else if (CsStringP(CsTop(c)))
             {
                 p1 = CsPop(c);
-                if (!CsStringP(c->val)) 
+                if (!CsStringP(c->val))
                   c->val = ConcatenateStrings(c,p1,CsToString(c,c->val));
                 else
                 c->val = ConcatenateStrings(c,p1,c->val);
@@ -1174,7 +1174,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
 {
     int rflag,rargc,oargc,targc,n;
     value method = c->sp[argc];
-    BYTE *cbase,*pc;
+    byte *cbase,*pc;
     int oldArgC = c->argc;
     CallFrame *frame;
     value code;
@@ -1201,7 +1201,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     /* parse the argument frame instruction */
     rflag = *pc++ == BC_AFRAMER;
 
-    if (rflag) 
+    if (rflag)
     {
       if( CsCollectGarbageIf(c,2048) ) // we need to allocate array below, so this hack, well - sort of
       {
@@ -1214,7 +1214,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
       }
     }
 
-    rargc = *pc++; 
+    rargc = *pc++;
     oargc = *pc++;
     targc = rargc + oargc;
 
@@ -1530,7 +1530,7 @@ bool CsEql(value obj1,value obj2)
         else
             return false;
     }
-    else*/ 
+    else*/
     if (CsFloatP(obj1)) {
         if (CsFloatP(obj2))
             return CsFloatValue(obj1) == CsFloatValue(obj2);
@@ -1574,9 +1574,9 @@ value CsToBoolean(VM* c, value obj)
 /* CsEql - compare two objects for equality */
 bool CsEqualOp(VM* c, value obj1,value obj2)
 {
-    if ( CsIntegerP(obj1) || CsIntegerP(obj2)) 
+    if ( CsIntegerP(obj1) || CsIntegerP(obj2))
         return CsToInteger(c,obj1) == CsToInteger(c,obj2);
-    else if (CsFloatP(obj1) || CsFloatP(obj2)) 
+    else if (CsFloatP(obj1) || CsFloatP(obj2))
         return CsToFloat(c,obj1) == CsToFloat(c,obj2);
     else if (CsStringP(obj1) || CsStringP(obj2))
         return CompareStrings(CsToString(c,obj1),CsToString(c,obj2)) == 0;
@@ -1593,9 +1593,9 @@ bool CsEqualOp(VM* c, value obj1,value obj2)
 /* CsCompareObjects - compare two objects */
 int CsCompareObjects(VM *c,value obj1,value obj2, bool suppressError)
 {
-    if ( CsIntegerP(obj1) || CsIntegerP(obj2)) 
+    if ( CsIntegerP(obj1) || CsIntegerP(obj2))
         return to_int(CsToInteger(c,obj1)) - to_int(CsToInteger(c,obj2));
-    else if (CsFloatP(obj1) || CsFloatP(obj2)) 
+    else if (CsFloatP(obj1) || CsFloatP(obj2))
     {
         float_t diff = to_float(CsToFloat(c,obj1)) - to_float(CsToFloat(c,obj2));
         return diff < 0 ? -1 : diff == 0 ? 0 : 1;

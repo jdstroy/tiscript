@@ -10,7 +10,7 @@
 #include <string.h>
 #include "cs.h"
 
-namespace tis 
+namespace tis
 {
 
 
@@ -35,27 +35,28 @@ value length_string( VM *c, tool::value::unit_type type )
     CsParseArguments(c,"**V",&v);
     //html::block* self = block_ptr(c,obj);
 
-    wchar bf[64];
-    tool::wchars str; str.start = bf;
-    const wchar* units = L"";
+    char bf[64];
+    tool::chars str; str.start = bf;
+    const char* units = "";
 
     switch(type)
     {
-      case tool::value::em: units = L"em"; break;
-      case tool::value::ex: units = L"ex"; break;
-      case tool::value::pr: units = L"pr"; break;
-      case tool::value::sp: units = L"sp"; break; 
-      case tool::value::px: units = L"px"; break;
-      case tool::value::in: units = L"in"; break;
-      case tool::value::cm: units = L"cm"; break;
-      case tool::value::mm: units = L"mm"; break;
-      case tool::value::pt: units = L"pt"; break;
-      case tool::value::pc: units = L"pc"; break;
+      case tool::value::em: units = "em"; break;
+      case tool::value::ex: units = "ex"; break;
+      case tool::value::pr: units = "pr"; break;
+      case tool::value::sp: units = "sp"; break;
+      case tool::value::px: units = "px"; break;
+      case tool::value::in: units = "in"; break;
+      case tool::value::cm: units = "cm"; break;
+      case tool::value::mm: units = "mm"; break;
+      case tool::value::pt: units = "pt"; break;
+      case tool::value::pc: units = "pc"; break;
+      default: break;
     }
     if( CsIntegerP(v) )
-      str.length = swprintf(bf,L"%d%s",CsIntegerValue(v), units);
+      str.length = sprintf(bf,"%d%s",CsIntegerValue(v), units);
     else if( CsFloatP(v) )
-      str.length = swprintf(bf,L"%f%s",CsFloatValue(v), units);
+      str.length = sprintf(bf,"%f%s",CsFloatValue(v), units);
     else
     {
       CsThrowKnownError(c, CsErrUnexpectedTypeError, v, "only integer or float");
@@ -397,7 +398,7 @@ value CsTypeOf(VM *c, value val)
 {
     //char *str = "undefined";
     dispatch *d;
-        
+
     if(val == c->undefinedValue)
       return symbol_value(S_UNDEFINED);
     if(val == c->nothingValue)
@@ -408,7 +409,7 @@ value CsTypeOf(VM *c, value val)
 
     if(val == c->nullValue)
       return symbol_value(S_OBJECT); // #11.4.3
-    
+
     d = CsGetDispatch(val);
     if(d == &CsIntegerDispatch)
       return symbol_value(S_INTEGER);
@@ -430,7 +431,7 @@ value CsTypeOf(VM *c, value val)
     return CsInternCString(c,d->typeName);
 }
 
-  
+
   value value_to_value(VM *c, const json::value& v)
   {
     switch(v.type())
@@ -438,7 +439,7 @@ value CsTypeOf(VM *c, value val)
       case json::value::V_UNDEFINED:  return c->nullValue;
       case json::value::V_BOOL:       return v.get(false)? c->trueValue:c->falseValue;
       case json::value::V_INT:        return CsMakeInteger(c, v.get(0));
-      case json::value::V_REAL:       return CsMakeFloat(c, v.get(0.0));     
+      case json::value::V_REAL:       return CsMakeFloat(c, v.get(0.0));
       case json::value::V_STRING:     return string_to_value(c,v.get(L""));
       case json::value::V_ARRAY:
         {
@@ -453,7 +454,7 @@ value CsTypeOf(VM *c, value val)
       case json::value::V_MAP:
         {
           value vo = CsMakeObject(c, c->undefinedValue);
-          const json::named_value* tuple = v.get_first(); 
+          const json::named_value* tuple = v.get_first();
           CsPush(c,vo);
           int n = 0;
           while(tuple)
@@ -484,7 +485,7 @@ value CsTypeOf(VM *c, value val)
     }
   };
 
-  
+
   json::value value_to_value(VM *c, value v)
   {
     if( CsStringP(v) )
