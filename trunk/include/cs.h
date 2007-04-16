@@ -394,13 +394,13 @@ inline value    CsMakeBoolean(VM* c, bool b)    { return b? c->trueValue : c->fa
 
 
 /* get the global scope */
-inline CsScope* CsGlobalScope(VM* c)
+inline CsScope* CsGlobalScope(const VM* c)
 {
-  return  &c->globalScope;
+  return  const_cast<CsScope*>(&c->globalScope);
 }
-inline CsScope* CsCurrentScope(VM* c)
+inline CsScope* CsCurrentScope(const VM* c)
 {
-  return  &c->currentScope;
+  return const_cast<CsScope*>(&c->currentScope);
 }
 
 
@@ -536,6 +536,7 @@ inline  dispatch*   CsGetDispatch(value o) {
                       printf("sizeof float_t %d\n", sizeof(float_t));
                       printf("invalid value %x %x\n", hidword(o), lodword(o));
                       assert(0);
+                      exit(-1);
 #endif
                       return 0;
                     }
