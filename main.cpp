@@ -85,15 +85,16 @@ static int sourceType(const char* t)
 // main - the main routine
 int main(int argc,char **argv)
 {
-	bool interactiveP = true;
+	  bool interactiveP = true;
     int  forceType = 0;
-
+   
     tis::VM vm;
+           
     // setup standard i/o on console
     vm.standardInput = &console;
     vm.standardOutput = &console;
     vm.standardError = &console;
-
+  
     try
     {
         char *inputName = 0,*outputName = 0;
@@ -163,8 +164,9 @@ int main(int argc,char **argv)
 
     /* read/eval/print loop */
     if (interactiveP)
+    {
         ReadEvalPrint(&vm);
-
+    }
     /* return successfully */
 
 //FINISH:
