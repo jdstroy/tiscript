@@ -345,9 +345,9 @@ bool CsGlobalValue(CsScope *scope,value sym,value *pValue)
 */
 
 /* CsSetGlobalValue - set the value of a global symbol */
-void CsSetGlobalValue(CsScope *scope,value sym,value value)
+void CsSetGlobalValue(CsScope *scope,value sym,value val)
 {
-    CsSetProperty(scope->c,CsScopeObject(scope),sym,value);
+    CsSetProperty(scope->c,CsScopeObject(scope),sym,val);
 }
 
 void CsCreateGlobalConst(CsScope *scope,value sym,value val)
