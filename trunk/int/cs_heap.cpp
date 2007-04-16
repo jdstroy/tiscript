@@ -52,12 +52,13 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
 //VM *CsMakeInterpreter(long size,long expandSize,long stackSize)
 {
     /* initialize */
+    
     memset( static_cast<_VM*>(this),0, sizeof(_VM));
     this->expandSize = expandSize;
     this->ploader = this;
 
     this->features = features;
-
+    
     /* make the initial old memory space */
     if ((this->oldSpace = NewMemorySpace(this,size)) == NULL)
     {
@@ -84,11 +85,11 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     this->stackTop = this->stack + stackSize;
     this->fp = (CsFrame *)this->stackTop;
     this->sp = this->stackTop;
-
+    
     /* make the symbol table */
     //this->symbols = CsMakeObject(this,this->undefinedValue);
 
-    /* make the undefined symbol */
+     /* make the undefined symbol */
     this->undefinedValue = CsMakeSymbol(this,"undefined",9);
 
     /* make the null symbol */
@@ -114,8 +115,9 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     this->scopes = &this->currentScope;
 
 	/* enter undefined into the symbol table */
-    CsSetGlobalValue(CsCurrentScope(this),this->undefinedValue,this->undefinedValue);
-    CsSetGlobalValue(CsCurrentScope(this),this->nothingValue,this->nothingValue);
+	  CsScope *cs = CsCurrentScope(this);
+    CsSetGlobalValue(cs,this->undefinedValue,this->undefinedValue);
+    CsSetGlobalValue(cs,this->nothingValue,this->nothingValue);
 
     /* make the true and false symbols */
     this->trueValue = CsInternCString(this,"true");
