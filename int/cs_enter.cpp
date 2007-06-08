@@ -66,7 +66,7 @@ value CsEnterObject(CsScope *scope,char *name,value proto,c_method *methods, vp_
 
 
 /* CsEnterCObjectType - add a built-in cobject type to the symbol table */
-dispatch *CsEnterCObjectType(CsScope *scope,dispatch *proto,char *typeName,c_method *methods,vp_method *properties, constant *constants, long size)
+dispatch *CsEnterCObjectType(CsScope *scope,dispatch *proto,const char *typeName,c_method *methods,vp_method *properties, constant *constants, long size)
 {
     VM *c = scope->c;
     dispatch *d;
@@ -85,7 +85,7 @@ dispatch *CsEnterCObjectType(CsScope *scope,dispatch *proto,char *typeName,c_met
 }
 
 /* CsEnterCPtrObjectType - add a built-in pointer cobject type to the symbol table */
-dispatch *CsEnterCPtrObjectType(CsScope *scope,dispatch *proto,char *typeName,c_method *methods,vp_method *properties, constant *constants)
+dispatch *CsEnterCPtrObjectType(CsScope *scope,dispatch *proto,const char *typeName,c_method *methods,vp_method *properties, constant *constants)
 {
     VM *c = scope->c;
     dispatch *d;
