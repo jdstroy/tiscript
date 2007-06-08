@@ -583,7 +583,11 @@ namespace aux
   public:
     ftoa(double d, const char* units = "", int fractional_digits = 1)
     {
+#ifdef WIN32
+      _snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
+#else
       snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
+#endif
       buffer[63] = 0;
     }
     operator const char*() { return buffer; }
@@ -600,8 +604,8 @@ namespace aux
     ftow(double d, const wchar_t* units = L"", int fractional_digits = 1)
     {
       //char cbuf[64];
-#ifdef WIN32      
-      snwprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+#ifdef WIN32
+      _snwprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
 #else      
       swprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
 #endif      
