@@ -9,6 +9,7 @@
 
 
 #include <stdlib.h>
+#include <limits.h>			  // apkbox: for MB_LEN_MAX
 #include <string.h>
 #include <ctype.h>
 #include <stdarg.h>
@@ -763,7 +764,8 @@ namespace tool
   {
     if(us && uslen)
     {
-      char mbc[MB_CUR_MAX];
+	  // apkbox: fix: MB_CUR_MAX not required to be constant
+      char mbc[MB_LEN_MAX];
       int i, slen = 0;
       const wchar *p = us;
       for(i = 0; i < uslen; ++i)
