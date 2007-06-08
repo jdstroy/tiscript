@@ -46,6 +46,7 @@
  */
 
 #include <stdlib.h>
+#include <limits.h>			  // apkbox: for MB_LEN_MAX
 #include <stdarg.h>
 #include <string.h>
 #include <wchar.h>
@@ -645,7 +646,8 @@ static void fmtstr_m_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, si
 	}
 	while (*value && (cnt < max))
       {
-        char mbchars[MB_CUR_MAX];
+	  // apkbox: fix: MB_CUR_MAX not required to be constant
+        char mbchars[MB_LEN_MAX];
         int  n, nmbchars = 0;
         nmbchars = wctomb( mbchars, *value++ );
         for (n = 0; n < nmbchars; ++n ) {
