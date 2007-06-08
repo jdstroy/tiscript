@@ -260,7 +260,7 @@ void CsCObjectScan(VM *c,value obj)
 dispatch *CsMakeCObjectType(
      VM *c,
      dispatch *proto,
-     char *typeName,
+     const char *typeName,
      c_method *methods,
      vp_method *properties,
      constant *constants,
@@ -289,7 +289,7 @@ dispatch *CsMakeCObjectType(
 }
 
 /* CsMakeCPtrObjectType - make a new cobject type */
-dispatch *CsMakeCPtrObjectType(VM *c,dispatch *proto,char *typeName,c_method *methods,vp_method *properties, constant *constants)
+dispatch *CsMakeCPtrObjectType(VM *c,dispatch *proto,const char *typeName,c_method *methods,vp_method *properties, constant *constants)
 {
     dispatch *d = CsMakeCObjectType(c,proto,typeName,methods,properties,constants, sizeof(CsCPtrObject) - sizeof(c_object));
     if (d) d->newInstance = CPtrObjectNewInstance;
