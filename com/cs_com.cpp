@@ -188,7 +188,11 @@ struct qualified_name
     {
       strncpy(local_name, localName, TKNSIZE);
       if(prev_name)
+#ifdef WIN32
+	    _snprintf(name, TKNSIZE*2 , "%s.%s", prev_name, localName);
+#else
         snprintf(name, TKNSIZE*2 , "%s.%s", prev_name, localName);
+#endif
       else
         strncpy(name, localName, TKNSIZE*2);
     }
