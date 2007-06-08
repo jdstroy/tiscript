@@ -55,6 +55,8 @@
 	#endif
 
     #define muldiv MulDiv
+	#define finite	_finite
+	#define isnan	_isnan
 
 #elif defined(PLATFORM_WINCE)
 
