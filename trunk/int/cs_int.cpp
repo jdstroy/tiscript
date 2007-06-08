@@ -182,6 +182,25 @@ value CsCallFunctionByName(CsScope *scope,char *fname,int argc,...)
     return result;
 }
 
+/* CsCallFunctionByName - call a function by name */
+value CsCallFunctionByNameV(CsScope *scope, const char *fname, int argc, va_list ap)
+{
+    VM *c = scope->c;
+    value fun,result;
+
+	/* get the symbol value */
+	CsCPush(c,CsInternCString(c,fname));
+	if (!CsGlobalValue(scope,CsTop(c),&fun))
+	    CsThrowKnownError(c,CsErrUnboundVariable,CsTop(c));
+	CsDrop(c,1);
+
+    /* call the function */
+    result = ExecuteCall(scope,fun,argc,ap);
+
+    /* return the result */
+    return result;
+}
+
 /* ExecuteCall - execute a function call */
 static value ExecuteCall(CsScope *scope,value fun,int argc,va_list ap)
 {
@@ -352,11 +371,20 @@ value CsSendMessage(CsScope *scope,value obj, value selector,int argc,...)
 }
 
 
-
 /* CsSendMessageByName - send a message to an obj by name */
-value CsSendMessageByName(VM *c,value obj,char *sname,int argc,...)
+value CsSendMessageByName(VM *c,value obj, const char *sname,int argc,...)
 {
     va_list ap;
+	va_start( ap, argc );
+	value val = CsSendMessageByNameV(c,obj,sname,argc,ap);
+	va_end(ap);
+    return val;
+}
+
+
+/* CsSendMessageByName - send a message to an obj by name */
+value CsSendMessageByNameV(VM *c,value obj, const char *sname,int argc, va_list ap)
+{
     int n;
 
     /* save the interpreter state */
@@ -375,7 +403,6 @@ value CsSendMessageByName(VM *c,value obj,char *sname,int argc,...)
 	    CsPush(c,obj); /* _next */
 
 	    /* push the arguments */
-        va_start(ap,argc);
         for (n = argc; --n >= 0; )
             CsPush(c,va_arg(ap,value));
         va_end(ap);
