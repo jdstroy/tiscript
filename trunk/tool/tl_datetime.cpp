@@ -7,7 +7,9 @@
 //|
 //|
 #include <stdlib.h>
+#if !defined( WIN32 )
 #include <sys/time.h>
+#endif
 #include <time.h>
 #include "tl_datetime.h"
 
