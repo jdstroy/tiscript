@@ -104,19 +104,13 @@ void CsThrowKnownError(VM *c,int code,...)
         
 }
 
-void CsThrowError(VM *c,const char* msg,...)
+void CsThrowErrorV(VM *c,const char* msg,va_list ap)
 {
     value message, err;
     
-    va_list ap;
-    va_start(ap,msg);
-    //(*c->errorHandler)(c,code,ap);
-
-
     string_stream s(256);
     
     CsStreamError(c,&s, 256, ap);
-    va_end(ap);
     
     message = s.string_o(c);
     
@@ -128,6 +122,14 @@ void CsThrowError(VM *c,const char* msg,...)
     
     THROW_ERROR(256);
         
+}
+
+void CsThrowError(VM *c,const char* msg,...)
+{
+    va_list ap;
+    va_start(ap,msg);
+	CsThrowErrorV(c,msg,ap);
+	va_end(ap);
 }
 
 
