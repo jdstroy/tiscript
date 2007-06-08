@@ -110,7 +110,8 @@ typedef tool::datetime_t datetime_t;
 template<typename T>
   inline T* ptr( const value& v )
   {
-    return (T*)(void*)(uint32)(v);
+//	return (T*)(void*)(uint32)(v);
+    return (T*)(void*)(intptr_t)(v);
   }
 
 struct header;
@@ -805,9 +806,9 @@ inline void  CsSetCObjectValue(value o,void* v) { ptr<CsCPtrObject>(o)->ptr = v;
 
 
 int CsCObjectP(value val);
-dispatch *CsMakeCObjectType(VM *c,dispatch *proto,char *typeName,c_method *methods,vp_method *properties, constant *constants, long size);
+dispatch *CsMakeCObjectType(VM *c,dispatch *proto,const char *typeName,c_method *methods,vp_method *properties, constant *constants, long size);
 value CsMakeCObject(VM *c,dispatch *d);
-dispatch *CsMakeCPtrObjectType(VM *c,dispatch *proto,char *typeName,c_method *methods,vp_method *properties, constant *constants = 0);
+dispatch *CsMakeCPtrObjectType(VM *c,dispatch *proto,const char *typeName,c_method *methods,vp_method *properties, constant *constants = 0);
 value CsMakeCPtrObject(VM *c,dispatch *d,void *ptr);
 void CsEnterCObjectMethods(VM *c,dispatch *d,c_method *methods,vp_method *properties, constant *constants = 0);
 bool CsGetVirtualProperty(VM *c,value obj,value proto,value tag,value *pValue);
@@ -1388,6 +1389,7 @@ value CsCompileDataExpr(CsScope *scope);
 
 value CsCallFunction(CsScope *scope,value fun,int argc,...);
 value CsCallFunctionByName(CsScope *scope,char *fname,int argc,...);
+value CsCallFunctionByNameV(CsScope *scope, const char *fname,int argc, va_list ap);
 
 struct vargs
 {
@@ -1402,7 +1404,8 @@ value CsCallFunction(CsScope *scope,value fun, vargs& args);
 //value CsSendMessage(VM *c,value obj, value cls, value selector,int argc,...);
 value       CsSendMessage(CsScope *scope, value obj, value selectorOrMethod,int argc,...);
 value       CsSendMessage(VM *c,value obj, value selectorOrMethod,int argc,...);
-value       CsSendMessageByName(VM *c,value obj,char *sname,int argc,...);
+value       CsSendMessageByName(VM *c,value obj, const char *sname,int argc,...);
+value       CsSendMessageByNameV(VM *c,value obj, const char *sname,int argc, va_list ap);
 json::value CsSendMessageByNameJSON(VM *c,value obj, const char *sname,int argc, json::value* argv, bool optional);
 
 value       CSF_eval(VM *c);
@@ -1427,21 +1430,21 @@ value CsEnterObject(CsScope *scope,char *name,value proto,c_method *methods, vp_
 
 dispatch *CsEnterCObjectType(CsScope *scop,
      dispatch *proto,
-     char *typeName,
+     const char *typeName,
      c_method *methods,
      vp_method *properties,
      constant *constants,
      long size);
 dispatch *CsEnterCPtrObjectType(CsScope *scop,
      dispatch *proto,
-     char *typeName,
+     const char *typeName,
      c_method *methods,
      vp_method *properties,
      constant *constants = 0
      );
 dispatch *CsEnterFixedVectorType(CsScope *scop,
      dispatch *proto,
-     char *typeName,
+     const char *typeName,
      c_method *methods,
      vp_method *properties,
      int size);
@@ -1454,7 +1457,8 @@ void CsEnterProperty(VM *c,value obj, const char *selector,value value);
 void CsEnterConstants(VM *c, value obj, constant* constants);
 
 /* cs_parse.c prototypes */
-int       CsParseArguments(VM *c,char *fmt,...);
+int       CsParseArguments(VM *c,const char *fmt,...);
+int       CsParseArguments(VM *c, const char *fmt, va_list va );
 
 /* cs_heap.c prototypes */
 CsScope *CsMakeScope(VM *c,CsScope *proto);
@@ -1466,7 +1470,7 @@ bool CsCollectGarbageIf(VM *c, size_t threshold = 0); // ... if it is enough gar
 void CsDumpHeap(VM *c);
 void CsDumpScopes(VM *c);
 void CsDumpObject(VM *c, value obj);
-dispatch *CsMakeDispatch(VM *c,char *typeName,dispatch *prototype);
+dispatch *CsMakeDispatch(VM *c, const char *typeName,dispatch *prototype);
 void CsFreeDispatch(VM *c,dispatch *d);
 bool CsProtectPointer(VM *c,value *pp);
 bool CsUnprotectPointer(VM *c,value *pp);
@@ -1613,6 +1617,7 @@ extern dispatch CsErrorDispatch;
 
 
 void CsThrowKnownError(VM *c,int code,...);
+void CsThrowErrorV(VM *c,const char* msg,va_list ap);
 void CsThrowError(VM *c,const char* msg,...);
 //void CsShowError(VM *c,int code,va_list ap);
 char *CsGetErrorText(int code);
