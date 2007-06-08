@@ -405,7 +405,7 @@ value CsAllocate(VM *c,size_t size)
 }
 
 /* CsMakeDispatch - make a new type pdispatch */
-dispatch *CsMakeDispatch(VM *c,char *typeName,dispatch *prototype)
+dispatch *CsMakeDispatch(VM *c, const char *typeName,dispatch *prototype)
 {
     int totalSize = sizeof(dispatch) + strlen(typeName) + 1;
     dispatch *d;
