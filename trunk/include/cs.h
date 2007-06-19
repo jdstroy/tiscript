@@ -475,16 +475,21 @@ struct dispatch {
     int_t (*hash)(value obj);
     get_item_t getItem;
     set_item_t setItem;
+
     get_next_element_t getNextElement;
     add_constant_t      addConstant;
 
     dispatch**      interfaces;
     value obj;
     long dataSize;
-	  destructor_t  destroy;
+    destructor_t  destroy;
     void *        destroyParam;
     dispatch *proto;
     dispatch *next;
+
+	// apkbox: added at the end to avoid patching all standard object's
+	// dispatches and possibly breaking code
+    void *     itemParam;
 };
 
 extern dispatch CsIntegerDispatch;
@@ -937,19 +942,19 @@ extern dispatch CsVPMethodDispatch;
 
 struct vp_method: public header
 {
-    char *name;
+    const char *name;
     vp_get_t get_handler;
     vp_set_t set_handler;
     void*    tag;
     vp_method():name(0),get_handler(0),set_handler(0), tag(0) {}
-    vp_method(char *n,vp_get_t gh, vp_set_t sh)
+    vp_method( const char *n,vp_get_t gh, vp_set_t sh)
     {
         name = n; tag = 0;
         get_handler = gh; set_handler = sh;
         pdispatch = &CsVPMethodDispatch;
     }
 
-    vp_method(char *n,vp_get_ext_t gh, vp_set_ext_t sh, void* t)
+    vp_method(const char *n,vp_get_ext_t gh, vp_set_ext_t sh, void* t)
         {
             name = (n);
             tag = (t);
@@ -980,7 +985,7 @@ struct vp_method: public header
 };
 
 inline  bool     CsVPMethodP(value o)           { return CsIsType(o,&CsVPMethodDispatch); }
-inline  char*    CsVPMethodName(value o)        { return ptr<vp_method>(o)->name; }
+inline  const char*    CsVPMethodName(value o)        { return ptr<vp_method>(o)->name; }
 //inline  vp_get_t CsVPMethodGetHandler(value o)  { return ptr<vp_method>(o)->getHandler; }
 //inline  vp_set_t CsVPMethodSetHandler(value o)  { return ptr<vp_method>(o)->setHandler; }
 //value CsMakeVPMethod(VM *c,char *name,vp_get_t getHandler,vp_set_t setHandler);
