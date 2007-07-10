@@ -38,7 +38,7 @@ struct console_stream: public tis::stream
   virtual int  get() { int c = getchar(); return c != EOF? to_wchar(c) : int(EOS); }
   virtual bool put(int ch)
   {
-    char bf[MB_CUR_MAX];
+    char bf[MB_LEN_MAX];
     int n = to_char(ch,bf);
     for( int i = 0; i < n; ++i ) putchar(bf[i]);
     return true;
