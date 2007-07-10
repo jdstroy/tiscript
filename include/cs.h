@@ -17,6 +17,11 @@
 //struct regexp;
 //#define snprintf _snprintf
 
+/* Visual C 6 doesn't define intptr_t */
+#if _MSC_VER < 1400
+typedef __int64 intptr_t;
+#endif
+
 namespace tis
 {
 

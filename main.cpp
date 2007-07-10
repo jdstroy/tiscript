@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <limits.h>
 #include "cs.h"
 #include "cs_com.h"
 
