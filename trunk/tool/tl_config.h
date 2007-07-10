@@ -126,7 +126,12 @@ namespace locked
   inline long dec(counter& v)               {    return InterlockedDecrement(&v);  }
   inline long set(counter &v, long nv)      {    return InterlockedExchange(&v, nv);  }
 #elif defined(PLATFORM_DESKTOP)
+  /* Visual Studio 6 has a different signature */
+  #if _MSC_VER < 1400
+  typedef long counter;
+  #else
   typedef volatile long counter;
+  #endif
   inline long inc(counter& v)               {    return InterlockedIncrement(&v);  }
   inline long dec(counter& v)               {    return InterlockedDecrement(&v);  }
   inline long set(counter& v, long nv)      {    return InterlockedExchange(&v, nv);  }
