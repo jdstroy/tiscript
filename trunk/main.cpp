@@ -86,7 +86,7 @@ static int sourceType(const char* t)
 // main - the main routine
 int main(int argc,char **argv)
 {
-	  bool interactiveP = true;
+    bool interactiveP = true;
     int  forceType = 0;
    
     tis::VM vm;
@@ -108,7 +108,7 @@ int main(int argc,char **argv)
           {
                 switch (argv[i][1])
                 {
-			          case '?':
+                case '?':
                     Usage();
                     break;
                 case 'c':   /* compile source file */
@@ -152,8 +152,8 @@ int main(int argc,char **argv)
                 }
             }
             else {
-                LoadFile(&vm,argv[i],forceType);
                 interactiveP = false;
+                LoadFile(&vm,argv[i],forceType);
             }
         }
     }
