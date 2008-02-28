@@ -12,7 +12,7 @@ TIScript has following major modules:
 
 = Persistent data base (OODB) =
 
-Databases (persistent storages) is presented in the script by two runtime classes: [http://www.terrainformatica.com/tiscript/Storage.htm Storage] and [http://www.terrainformatica.com/tiscript/Index.htm Index]
+Database (persistent storage) is presented in the script by two runtime classes: [http://www.terrainformatica.com/tiscript/Storage.htm Storage] and [http://www.terrainformatica.com/tiscript/Index.htm Index]
 
 Each instance of the `Storage` has property `root` (rw) that can be either `object` or `array`. 
 
