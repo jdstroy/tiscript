@@ -1,0 +1,23 @@
+#summary TIScript, Big Picture.
+
+= Source code organization =
+
+TIScript has following major modules:
+
+  # compiler, (`cs_com.cpp`) that takes sequence of tokens from tokenizer (`cs_scn.cpp`),   produces byte codes.
+  # virtual machine (VM) that interprets (`cs_int.cpp`) sequence of byte codes.
+  # heap manager (`cs_heap.cs`) that is an implementation of copyable GC - uses two "halves" - two memory blocks.
+  # persistent DB engine (`cs_persistent.cpp`, `cs_storage.cpp`) that is integrated with the GC.
+  # and implementation of various runtime classes like `String`, `Array`, `RegExp`, `Integer`, `Float`, etc.
+
+= Persistent DataBase (OODB) idea =
+
+Database is presented in the script by two runtime classes: `Storage` and `Index`
+
+Each instance of the `Storage` has property `root` (rw) that can be either `object` or `array`. 
+
+All objects that are reachable from the `root` are persistent. Physical writing of data to the disk occurs when:
+  * `storage.commit()` is called or
+  * as a result of garbage collection - when there is not enough memory for allocation of some object.
+
+ 
