@@ -8,7 +8,7 @@ TIScript has following major modules:
   # virtual machine (VM) that interprets (`cs_int.cpp`) sequence of byte codes.
   # heap manager (`cs_heap.cs`) that is an implementation of copyable GC - uses two "halves" - two memory blocks.
   # persistent DB engine (`cs_persistent.cpp`, `cs_storage.cpp`) that is integrated with the GC.
-  # and implementation of various runtime classes like `String`, `Array`, `RegExp`, `Integer`, `Float`, etc.
+  # and implementation of various runtime classes like `String` (`cs_string.cpp`), `Array` (`cs_vector.cpp`), `RegExp` (`cs_regexp.cpp`), `Integer` (`cs_integer.cpp`), `Float` (`cs_float.cpp`),`Math` (`cs_math.cpp`), etc.
 
 = Persistent data base (OODB) =
 
