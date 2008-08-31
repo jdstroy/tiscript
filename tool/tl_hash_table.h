@@ -20,7 +20,7 @@
 namespace tool
 {
 
-  template <typename c_key> inline unsigned int hash ( const c_key &the_key ) {  return the_key.hash();  }
+  //template <typename c_key> inline unsigned int hash ( const c_key &the_key ) {  return the_key.hash();  }
 
   template <typename c_key> inline bool eq ( const c_key &key1, const c_key &key2 ) { return key1 == key2; }
 
@@ -32,8 +32,7 @@ namespace tool
     return strcmp(key1,key2) == 0;
   }
 
-
-  template <class c_key,class c_element>
+  template <typename c_key, typename c_element>
   class hash_table
   {
   public:

@@ -78,9 +78,20 @@ namespace tis
 #define T_SET           312
 #define T_INCLUDE       313
 #define T_LIKE          314
-#define T_DEBUG         315
+#define T_YIELD         315
 
-#define _TMAX           315
+#define T_USHL          316     /* '<<<' */
+#define T_USHR          317     /* '>>>' */
+#define T_USHLEQ        318     /* '<<<=' */
+#define T_USHREQ        319     /* '>>>=' */
+
+#define T_CAR           320     /* '~/' */
+#define T_CDR           321     /* '~%' */
+#define T_RCAR          322     /* '/~' */
+#define T_RCDR          323     /* '%~' */
+
+#define T_DEBUG         324
+#define _TMAX           T_DEBUG
 
 /* argument structure */
 typedef struct argument ARGUMENT;
@@ -165,7 +176,7 @@ struct CsCompiler {
     SWENTRY sstack[SSIZE],*ssp,*ssbase; /* compiler - switch stack */
     byte *codebuf;                      /* compiler - code buffer */
     byte *cbase,*cptr,*ctop;            /* compiler - code buffer positions */
-    value literalbuf;                 /* compiler - literal buffer */
+    pvalue literalbuf;                 /* compiler - literal buffer */
     long lbase,lptr,ltop;               /* compiler - literal buffer positions */
     bool emitLineNumbersP;              /* compiler - true to emit line number opcodes */
     LineNumberBlock *lineNumbers;       /* compiler - line number table entries */

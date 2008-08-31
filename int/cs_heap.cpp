@@ -47,18 +47,32 @@ void VM::destroy(VM* pvm)
 }
 */
 
+void finalize()
+{
+  symbol_table().clear();
+}
+
+value VM::undefinedValue = 0;        /* undefined value */
+value VM::nullValue = 0;             /* null value */
+value VM::trueValue = 0;             /* true value */
+value VM::falseValue = 0;            /* false value */
+value VM::nothingValue = 0;          /* internal 'nothing' value */
+
+
 //void finalize();
 VM::VM(unsigned int features, long size,long expandSize,long stackSize)
 //VM *CsMakeInterpreter(long size,long expandSize,long stackSize)
 {
     /* initialize */
-    
     memset( static_cast<_VM*>(this),0, sizeof(_VM));
     this->expandSize = expandSize;
     this->ploader = this;
 
+    this->pins.next = &this->pins;
+    this->pins.prev = &this->pins;
+
     this->features = features;
-    
+
     /* make the initial old memory space */
     if ((this->oldSpace = NewMemorySpace(this,size)) == NULL)
     {
@@ -85,18 +99,21 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     this->stackTop = this->stack + stackSize;
     this->fp = (CsFrame *)this->stackTop;
     this->sp = this->stackTop;
-    
+
     /* make the symbol table */
     //this->symbols = CsMakeObject(this,this->undefinedValue);
 
-     /* make the undefined symbol */
-    this->undefinedValue = CsMakeSymbol(this,"undefined",9);
-
-    /* make the null symbol */
-    this->nullValue = CsMakeSymbol(this,"null",4);
-
-    /* make the nothing symbol */
-    this->nothingValue = CsMakeSymbol(this,"nothing",7);
+    if(!undefinedValue)
+    {
+      /* make the undefined symbol */
+      undefinedValue = CsMakeSymbol(this,"undefined",9);
+      /* make the null symbol */
+      nullValue = CsMakeSymbol(this,"null",4);
+      /* make the nothing symbol */
+      nothingValue = CsMakeSymbol(this,"nothing",7);
+      falseValue = CsMakeSymbol(this,"false",5);
+      trueValue = CsMakeSymbol(this,"true",4);
+    }
 
 	  /* fixup the symbol table */
 	  //CsSetObjectClass(this->symbols,this->undefinedValue);
@@ -114,18 +131,21 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     this->currentScope.next = this->scopes;
     this->scopes = &this->currentScope;
 
+    
 	/* enter undefined into the symbol table */
-	  CsScope *cs = CsCurrentScope(this);
-    CsSetGlobalValue(cs,this->undefinedValue,this->undefinedValue);
-    CsSetGlobalValue(cs,this->nothingValue,this->nothingValue);
+    CsSetGlobalValue(CsCurrentScope(this),this->undefinedValue,this->undefinedValue);
+    CsSetGlobalValue(CsCurrentScope(this),this->nothingValue,this->nothingValue);
 
     /* make the true and false symbols */
-    this->trueValue = CsInternCString(this,"true");
+    //this->trueValue = CsInternCString(this,"true");
     CsSetGlobalValue(CsCurrentScope(this),this->trueValue,this->trueValue);
-    this->falseValue = CsInternCString(this,"false");
+    //this->falseValue = CsInternCString(this,"false");
     CsSetGlobalValue(CsCurrentScope(this),this->falseValue,this->falseValue);
 
     this->prototypeSym = CsInternCString(this,"prototype");
+
+    /* initialize the interpreter */
+    InitInterpreter(this);
 
     /* create the base of the obj heirarchy */
     CsInitObject(this);
@@ -154,8 +174,6 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
 
     CsInitSystem(this);
 
-    /* initialize the interpreter */
-    InitInterpreter(this);
 
     /* initialize the standard i/o streams */
     this->standardInput = &null_stream;
@@ -183,7 +201,7 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
 VM::~VM()
 {
     //CsMemorySpace *space,*nextSpace;
-    CsProtectedPtrs *p,*nextp;
+    //CsProtectedPtrs *p,*nextp;
     dispatch *d,*nextd;
     CsScope *s,*nexts;
 
@@ -191,7 +209,10 @@ VM::~VM()
       CsUnuseEval(this);
 
     /* destroy cobjects */
-    /*CsDestroyAllCObjects(this)*/;
+    CsDestroyAllCObjects(this);
+
+    pvalue *t = pins.next;
+    assert(t == &pins);
 
     /* free memory spaces */
     //for (space = this->oldSpace; space != NULL; space = nextSpace) {
@@ -210,16 +231,21 @@ VM::~VM()
     CsFree(this,this->stack);
 
     /* free the type list */
-    for (d = this->types; d != NULL; d = nextd) {
+    for (d = this->types; d != NULL; d = nextd) 
+    {
+#ifdef _DEBUG
+        dbg_printf("type deletion %s\n", d->typeName);
+#endif
         nextd = d->next;
         CsFreeDispatch(this,d);
     }
 
-    /* free the protected pointer blocks */
+    /* free the protected pointer blocks 
     for (p = this->protectedPtrs; p != NULL; p = nextp) {
         nextp = p->next;
         CsFree(this,p);
     }
+    */
 
     /* free the variable scopes */
     for (s = this->scopes; s != NULL; s = nexts)
@@ -293,6 +319,7 @@ static void InitInterpreter(VM *c)
     /* initialize the registers */
     c->val = c->undefinedValue;
     c->env = c->undefinedValue;
+    c->currentNS = c->undefinedValue;
     c->code = 0;
 }
 
@@ -369,11 +396,11 @@ value CsAllocate(VM *c,size_t size)
 
     expandSize = (size / expandSize) * expandSize + (size % expandSize? expandSize : 0);
 
-    /* allocate more old space */
+    /* allocate more old space, it will be used as newSpace in CsCollectGarbage */
     if (!(oldSpace = NewMemorySpace(c,expandSize)))
         CsInsufficientMemory(c);
 
-    tool::swap( oldSpace, c->oldSpace );
+    tool::swap( oldSpace, c->oldSpace ); 
     CsFree(c, oldSpace);
 
     /* allocate more new space
@@ -395,7 +422,7 @@ value CsAllocate(VM *c,size_t size)
     CsFree(c, oldSpace);
 
     /* return some of the newly allocated space */
-    val = (value)(uint)c->newSpace->free;
+    val = (value)(uint_ptr)c->newSpace->free;
     c->newSpace->free += size;
     return val;
 #else
@@ -405,7 +432,7 @@ value CsAllocate(VM *c,size_t size)
 }
 
 /* CsMakeDispatch - make a new type pdispatch */
-dispatch *CsMakeDispatch(VM *c, const char *typeName,dispatch *prototype)
+dispatch *CsMakeDispatch(VM *c,char *typeName,dispatch *prototype)
 {
     int totalSize = sizeof(dispatch) + strlen(typeName) + 1;
     dispatch *d;
@@ -437,27 +464,69 @@ void CsFreeDispatch(VM *c,dispatch *d)
     CsFree(c,d);
 }
 
+uint CsFreeSpace(VM *c)
+{
+  CsMemorySpace *space = c->newSpace;
+  return (space->top - space->free);
+}
+
 bool CsCollectGarbageIf(VM *c, size_t threshold)
 {
     CsMemorySpace *space = c->newSpace;
 
     if( threshold == 0)
     {
-    if( (space->free - space->base) < ((space->top - space->base)*2)/3 ) // 2/3 threshold
+      if( (space->free - space->base) < ((space->top - space->base)*2)/3 ) // 2/3 threshold
         return false;
     }
     else
-      if( (space->top - space->free) > threshold )
+      if( (space->top - space->free) > threshold ) 
         return false;
 
     CsCollectGarbage(c);
     return true;
 }
 
+#ifdef _DEBUG 
+void printPins(VM* c, const char* msg)
+{
+		c->standardError->printf(L"pins:%S\n", msg);
+    pvalue *t = c->pins.next;
+    while(t != &c->pins)
+    {
+      if(t->is_set()) 
+      {
+        dispatch* pd = CsGetDispatch(t->val);
+		    c->standardError->printf(L"pinned %x %S\n", t, pd->typeName);
+      }
+      else
+        t = t;
+      t = t->next;
+    }
+}
+
+void checkIfPinned(VM* c, pvalue* pv)
+{
+    pvalue *t = c->pins.next;
+    while(t != &c->pins)
+    {
+      if(t == pv) 
+      {
+        return;
+      }
+      else
+        t = t;
+      t = t->next;
+    }
+    assert(false);
+}
+
+#endif
+
 /* CsCollectGarbage - garbage collect a heap */
 void CsCollectGarbage(VM *c)
 {
-    CsProtectedPtrs *ppb;
+    //CsProtectedPtrs *ppb;
     byte *scan;
     CsMemorySpace *ms;
     CsSavedState *ss;
@@ -469,10 +538,9 @@ void CsCollectGarbage(VM *c)
 	  c->standardError->put_str("[GC");
 #endif
 
-  /* run prepare opened storages for garbage collection */
-  for( i = c->storages.size() - 1; i >= 0; i-- )
-    StoragePreGC(c, c->storages[i] );
-
+    /* run prepare opened storages for garbage collection */
+    for( i = c->storages.size() - 1; i >= 0; i-- )
+      StoragePreGC(c, c->storages[i] );
 
     /* reverse the memory spaces */
     ms = c->oldSpace;
@@ -494,7 +562,8 @@ void CsCollectGarbage(VM *c)
     //c->symbols = CsCopyValue(c,c->symbols);
 
     c->objectObject = CsCopyValue(c,c->objectObject);
-
+    c->classObject = CsCopyValue(c,c->classObject);
+    
     /* copy global variable scopes */
     for (scope = c->scopes; scope != NULL; scope = scope->next)
         scope->globals = CsCopyValue(c,scope->globals);
@@ -503,6 +572,7 @@ void CsCollectGarbage(VM *c)
     c->vectorObject = CsCopyValue(c,c->vectorObject);
     c->methodObject = CsCopyValue(c,c->methodObject);
     c->propertyObject = CsCopyValue(c,c->propertyObject);
+    //c->iteratorObject = CsCopyValue(c,c->iteratorObject);
 
     c->symbolObject = CsCopyValue(c,c->symbolObject);
     c->stringObject = CsCopyValue(c,c->stringObject);
@@ -519,13 +589,8 @@ void CsCollectGarbage(VM *c)
 
     c->GC_started();
 
-    /* copy protected pointers */
-    for (ppb = c->protectedPtrs; ppb != NULL; ppb = ppb->next) {
-        value **pp = ppb->pointers;
-        int count = ppb->count;
-        for (; --count >= 0; ++pp)
-            **pp = CsCopyValue(c,**pp);
-    }
+    /* copy "pinned" values */
+
 
     /* copy the saved interpreter states */
     for (ss = c->savedState; ss != NULL; ss = ss->next) {
@@ -545,10 +610,22 @@ void CsCollectGarbage(VM *c)
     /* copy the registers */
     c->val = CsCopyValue(c,c->val);
     c->env = CsCopyValue(c,c->env);
+    c->currentNS = CsCopyValue(c,c->currentNS);
 
     /* copy any user objects */
     if (c->protectHandler)
         (*c->protectHandler)(c,c->protectData);
+
+    pvalue *t = c->pins.next;
+    while(t != &c->pins)
+    {
+      if(t->is_set()) 
+        t->val = CsCopyValue(c,t->val);
+      else
+        t = t;
+      t = t->next;
+    }
+
 
     /* scan and copy until all accessible objects have been copied */
 
@@ -567,6 +644,7 @@ void CsCollectGarbage(VM *c)
     }
 
 #ifdef _DEBUG
+
 		c->standardError->printf(
 			  L" - %ld bytes free out of %ld, total memory %lu, allocations %lu]\n",
 				c->newSpace->top - c->newSpace->free,
@@ -626,34 +704,34 @@ void CsDumpScopes(VM *c)
         value props = CsObjectProperties(scope->globals);
         if (CsHashTableP(props)) {
             int i;
-            c->standardOutput->printf(L"Scope %d:\n", t);
+            c->standardError->printf(L"Scope %d:\n", t);
             for (i = 0; i < CsHashTableSize(props); ++i) {
                 value p;
-                //c->standardOutput->printf(L" Bucket %d\n",i);
+                //c->standardError->printf(L" Bucket %d\n",i);
                 for (p = CsHashTableElement(props,i); p != c->undefinedValue; p = CsPropertyNext(p)) {
-                    //c->standardOutput->put_str("  ");
+                    //c->standardError->put_str("  ");
                     for(int n = 0; n < t; ++n)
-                      c->standardOutput->put_str("\t");
+                      c->standardError->put_str("\t");
 
-                    CsPrint(c,CsPropertyTag(p),c->standardOutput);
-                    c->standardOutput->put_str(" = ");
-                    CsPrint(c,CsPropertyValue(p),c->standardOutput);
-                    c->standardOutput->put('\n');
+                    CsPrint(c,CsPropertyTag(p),c->standardError);
+                    c->standardError->put_str(" = ");
+                    CsPrint(c,CsPropertyValue(p),c->standardError);
+                    c->standardError->put('\n');
                 }
             }
         }
         else {
             value p;
-            //c->standardOutput->printf(L"Scope %08lx:%08lx (list)\n",scope,scope->globals);
-            c->standardOutput->printf(L"Scope %d:\n", t);
+            //c->standardError->printf(L"Scope %08lx:%08lx (list)\n",scope,scope->globals);
+            c->standardError->printf(L"Scope %d:\n", t);
             for (p = props; p != c->undefinedValue; p = CsPropertyNext(p)) {
-                //c->standardOutput->put_str("  ");
+                //c->standardError->put_str("  ");
                 for(int n = 0; n < t; ++n)
-                  c->standardOutput->put_str("\t");
-                CsPrint(c,CsPropertyTag(p),c->standardOutput);
-                c->standardOutput->put_str(" = ");
-                CsPrint(c,CsPropertyValue(p),c->standardOutput);
-                c->standardOutput->put('\n');
+                  c->standardError->put_str("\t");
+                CsPrint(c,CsPropertyTag(p),c->standardError);
+                c->standardError->put_str(" = ");
+                CsPrint(c,CsPropertyValue(p),c->standardError);
+                c->standardError->put('\n');
             }
         }
         scope = scope->next;
@@ -841,6 +919,37 @@ static value BrokenHeartCopy(VM *c,value obj)
     return CsBrokenHeartForwardingAddr(obj);
 }
 
+void pvalue::pin(VM* c, value v) 
+{ 
+  unpin(); 
+  if( c )
+  {
+    pvm = c; 
+
+    (next = c->pins.next)->prev = this;
+    (prev = &c->pins)->next = this; 
+    val = v; 
+  }
+  else
+  {
+    assert(v == 0);
+  }
+}
+void pvalue::unpin() 
+{
+   if( !pvm || !next || !prev) return;
+
+   next->prev = prev;
+   prev->next = next;
+
+   next = 0;
+   prev = 0;
+   pvm = 0;
+   val = 0;
+
+}
+
+#if 0
 /* CsProtectPointer - protect a pointer from the garbage collector */
 bool CsProtectPointer(VM *c,value *pp)
 {
@@ -892,6 +1001,8 @@ bool CsUnprotectPointer(VM *c,value *pp)
     }
     return false;
 }
+
+#endif
 
 /* CsAlloc - allocate memory */
 void *CsAlloc(VM *c,unsigned long size)

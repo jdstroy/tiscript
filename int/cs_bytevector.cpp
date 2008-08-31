@@ -75,11 +75,14 @@ static value CSF_toString(VM *c)
 {
     value obj;
     CsParseArguments(c,"V=*",&obj,&CsByteVectorDispatch);
-    tool::string b64 = tool::base64_encode(CsByteVectorAddress(obj),CsByteVectorSize(obj));
-    value s = CsMakeFilledString(c, ' ', b64.length());
+    tool::array<char> b64;
+    tool::base64_encode(
+      tool::bytes(CsByteVectorAddress(obj),CsByteVectorSize(obj)),
+      b64);
+    value s = CsMakeFilledString(c, ' ', b64.size());
     wchar *pd = CsStringAddress(s);
-    const char *ps = b64;
-    const char *pse = ps + b64.length();
+    const char *ps = b64.head();
+    const char *pse = ps + b64.size();
     while( ps < pse ) *pd++ = *ps++;
     return s;
 }

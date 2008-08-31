@@ -41,8 +41,9 @@ static struct { char *kt_keyword; int kt_token; } ktab[] = {
 { "get",        T_GET           },
 { "set",        T_SET           },
 { "include",    T_INCLUDE       }, 
-{ "debug",      T_DEBUG         },
 { "like",       T_LIKE          },
+{ "yield",      T_YIELD         },
+{ "debug",      T_DEBUG         },
 { NULL,         0               }};
 
 /* CsToken name table */
@@ -106,13 +107,14 @@ static char *t_names[] = {
 "get",
 "set",
 "include",
-"debug",
 "like",
+"yield",
+"debug",
 };
 
 /* prototypes */
 static int  rtoken(CsCompiler *c);
-static int  getstring(CsCompiler *c);
+static int  getstring(CsCompiler *c, int delim = '"');
 static int  getcharacter(CsCompiler *c);
 static int  literalch(CsCompiler *c,int ch);
 static int  getid(CsCompiler *c,int ch);
@@ -191,6 +193,8 @@ static int rtoken(CsCompiler *c)
         case EOF:       return T_EOF;
         case '\"':	    
            return getstring(c);
+        case '`':	    
+           return getstring(c, '`');
         case '\'':      return getcharacter(c);
         case '<':       switch (ch = getch(c)) {
                         case '=':
@@ -198,6 +202,13 @@ static int rtoken(CsCompiler *c)
                         case '<':
                             if ((ch = getch(c)) == '=')
                                 return T_SHLEQ;
+                            else if( ch == '<' )
+                            {
+                              if ((ch = getch(c)) == '=')
+                                return T_USHLEQ;  
+                              c->savedChar = ch;
+                              return T_USHL;  
+                            }
                             c->savedChar = ch;
                             return T_SHL;
                         default:
@@ -232,6 +243,13 @@ static int rtoken(CsCompiler *c)
                         case '>':
                             if ((ch = getch(c)) == '=')
                                 return T_SHREQ;
+                            else if( ch == '>' )
+                            {
+                              if ((ch = getch(c)) == '=')
+                                  return T_USHREQ;
+                              c->savedChar = ch;
+                              return T_USHR;
+                            }
                             c->savedChar = ch;
                             return T_SHR;
                         default:
@@ -253,6 +271,8 @@ static int rtoken(CsCompiler *c)
                               return getoutputstring(c);
                         case '=':
                             return T_REMEQ;
+                        case '~':
+                           return T_RCDR;
                         default:
                             c->savedChar = ch;
                             return '%';
@@ -289,6 +309,15 @@ static int rtoken(CsCompiler *c)
                             c->savedChar = ch;
                             return '-';
                         }
+        case '~':       switch (ch = getch(c)) {
+                        case '/':
+                            return T_CAR;
+                        case '%':
+                            return T_CDR;
+                        default:
+                            c->savedChar = ch;
+                            return '~';
+                        }
         case '*':       if ((ch = getch(c)) == '=')
                             return T_MULEQ;
                         c->savedChar = ch;
@@ -307,6 +336,8 @@ static int rtoken(CsCompiler *c)
                                 if (ch == '*' && ch2 == '/')
                                     break;
                             break;
+                        case '~':
+                           return T_RCAR;
                         default:
                             c->savedChar = ch;
                             return '/';
@@ -357,14 +388,14 @@ static int rtoken(CsCompiler *c)
 }
 
 /* getstring - get a string */
-static int getstring(CsCompiler *c)
+static int getstring(CsCompiler *c, int delim)
 {
     int ch,len=0;
     //wchar *p;
     /* get the string */
     //p = c->t_wtoken;
     c->t_wtoken.clear();
-    while ((ch = getch(c)) != EOF && ch != '"') {
+    while ((ch = getch(c)) != EOF && ch != delim) {
 
         /* get the first byte of the character */
         if ((ch = literalch(c,ch)) == EOF)
@@ -724,7 +755,8 @@ static int isidchar(int ch)
         || islower(ch)
         || isdigit(ch)
         || ch == '_'
-        || ch == '$';
+        || ch == '$'
+        || ch == '@';
 }
 
 /* getch - get the next character */

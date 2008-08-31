@@ -48,6 +48,13 @@ namespace tool
         free((void*)strings[i]);
     }
 
+    void clear()
+    {
+      for( int i = strings.size() - 1; i >= total_statics; --i )
+        free((void*)strings[i]);
+      strings.destroy();
+      nodes.destroy();
+    }
 
     // 
     // returns number [1..max uint] of inserted or existing item.

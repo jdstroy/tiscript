@@ -11,24 +11,38 @@
 #ifndef __tl_mm_file_h
 #define __tl_mm_file_h
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#ifdef _WINDOWS
+
+  #define WIN32_LEAN_AND_MEAN
+  #include <windows.h>
+
+#endif
+
 #include <assert.h>
 
-namespace tool 
+namespace tool
 {
 
-class mm_file 
+class mm_file
 {
+
+#ifdef WINDOWS
     HANDLE hfile;
     HANDLE hmap;
+#else
+#pragma TODO("")   
+#endif
 
   protected:
-    bool read_only;
     void*  ptr;
     size_t length;
+    bool read_only;
   public:
+#ifdef WINDOWS
     mm_file(): hfile(0),hmap(0),ptr(0),length(0),read_only(true) {}
+#else
+    mm_file(): ptr(0),length(0),read_only(true) {}
+#endif
     virtual ~mm_file() { close(); }
 
     void *open(const char *path, bool to_write = false);
@@ -38,7 +52,7 @@ class mm_file
     size_t size() { return length; }
     void   size(size_t sz) { assert(!read_only); length = sz; }
 
-    operator slice<byte>() { return slice<byte>((byte*)data(), size()); }
+    operator slice<byte>() { return slice<byte>((byte*)data(), (uint)size()); }
 
 };
 
@@ -62,22 +76,22 @@ template<class RECORD>
       mm_file::close();
     }
     unsigned int total() const { return total_records; }
-    void         total(unsigned int numrecs) 
-    { 
-          assert(numrecs <= total_records); 
-          total_records = numrecs; 
+    void         total(unsigned int numrecs)
+    {
+          assert(numrecs <= total_records);
+          total_records = numrecs;
     }
 
-    // "read" record 
-    const RECORD& operator()(unsigned int idx) const 
-    { 
+    // "read" record
+    const RECORD& operator()(unsigned int idx) const
+    {
       assert(idx < total_records);
-      return ((RECORD*)ptr)[idx]; 
+      return ((RECORD*)ptr)[idx];
     }
-    
-    // "write" record. expand array if necessary 
-    RECORD& operator[](unsigned int idx)  
-    { 
+
+    // "write" record. expand array if necessary
+    RECORD& operator[](unsigned int idx)
+    {
       assert(!read_only);
       if(idx >= total_records)
       {
@@ -85,7 +99,7 @@ template<class RECORD>
         while(idx >= total_records)
           ((RECORD*)ptr)[total_records++] = nullrec;
       }
-      return ((RECORD*)ptr)[idx]; 
+      return ((RECORD*)ptr)[idx];
     }
 };
 

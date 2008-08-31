@@ -135,7 +135,6 @@ function Array_test()
   a7.sort(:v1,v2:v1-v2);
   if( a7 != a0 ) throw String.printf("sort3 with lambda, arrays are %v %v\n", a7, a0);
     
-    
   if( a0.toLocaleString() != a0.toString() ) throw "toLocaleString | toString";
   
   var sum = 0;

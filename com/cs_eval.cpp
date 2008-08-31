@@ -9,6 +9,7 @@
 namespace tis
 {
 
+
 /* method handlers */
 static value CSF_load(VM *c);
 value CSF_eval(VM *c);
@@ -192,9 +193,9 @@ static value CSF_emit(VM *c)
     {
       auto_scope as(c,v_namespace);
       if( CsStringP(inp) )
-        return CsLoadFile(&as,CsStringAddress(inp), CsFileStream(outp));
+        return CsLoadFile(CsCurrentScope(c),CsStringAddress(inp), CsFileStream(outp));
       else if( CsFileP(c,inp) )
-        return CsLoadStream(&as,CsFileStream(inp), CsFileStream(outp));
+        return CsLoadStream(CsCurrentScope(c),CsFileStream(inp), CsFileStream(outp));
       else
       {
         CsTypeError(c, inp);
@@ -274,8 +275,8 @@ tool::ustring
 stream*
   VM::open( const tool::ustring& url )
 {
-  if( url.like(L"file://*") )
-    return OpenFileStream(this,( const wchar*)url + 7,L"r");
+  //if( url.like(L"file://*") )
+  //  return OpenFileStream(this,( const wchar*)url + 7,L"r");
   return OpenFileStream(this, url, L"r");
 }
 
@@ -314,7 +315,9 @@ value CsInclude(CsScope *scope, const tool::ustring& path)
 {
   value sym = CsMakeSymbol(scope->c, path, path.length());
   value val;
-  if(CsGlobalValue( scope, sym, &val))
+
+  //if(CsGlobalValue( scope, sym, &val)) - appears to be wrong!
+  if( CsGetProperty(scope->c, scope->globals, sym, &sym) )
     return scope->c->falseValue;
   stream *s = scope->c->ploader->open(path);
   if( !s )

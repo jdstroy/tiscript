@@ -30,8 +30,8 @@ static ErrString errStrings[] = {
 {       CsErrStackOverflow,        "Stack overflow"				},
 {       CsErrTooManyArguments,     "Too many arguments - %V"				},
 {       CsErrTooFewArguments,      "Too few arguments - %V"				},
-{       CsErrTypeError,            "Wrong type - <%V>"						},
-{       CsErrUnexpectedTypeError,  "Wrong type - <%V>, expected %s"		},
+{       CsErrTypeError,            "Wrong type - (%V)"						},
+{       CsErrUnexpectedTypeError,  "Wrong type - (%V), expected %s"		},
 {       CsErrUnboundVariable,      "Variable not found - %V"				    },
 {       CsErrIndexOutOfBounds,     "Index out of bounds - %V"				},
 {       CsErrNoMethod,             "%s (%V) has no method - %V"          },
@@ -85,7 +85,6 @@ void CsThrowKnownError(VM *c,int code,...)
     va_list ap;
     va_start(ap,code);
     //(*c->errorHandler)(c,code,ap);
-
 
     string_stream s(256);
     

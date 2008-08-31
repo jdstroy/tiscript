@@ -13,7 +13,7 @@
 
 #include "tl_basic.h"
 
-#ifdef WIN32
+#ifdef WINDOWS
   #define WIN32_LEAN_AND_MEAN
   #include <windows.h>
 #else
@@ -71,9 +71,15 @@ struct event
 
 };
 
+inline void yield()
+{
+  ::Sleep(1); // 1 is a MUST here, seems like ::Sleep(0); is not enough on Vista
+}
+
 #else
 
 class mutex {
+    friend class event;
     int             count;
     pthread_t       owner;
     pthread_mutex_t cs;
@@ -84,23 +90,23 @@ class mutex {
     {
         pthread_t _self = pthread_self();
         if (owner != _self) {
-            pthread_mutex_lock(&cs);
+	    pthread_mutex_lock(&cs);
             owner = _self;
-        }
-        count += 1;
+	}
+	count += 1;
     }
     void unlock() {
-        assert(pthread_self() == owner);
-        if (--count == 0) {
-            owner = 0;
-            pthread_mutex_unlock(&cs);
-        }
+	assert(pthread_self() == owner);
+	if (--count == 0) {
+	    owner = 0;
+	    pthread_mutex_unlock(&cs);
+	}
     }
     mutex() {
-        pthread_mutex_init(&cs, NULL);
+	pthread_mutex_init(&cs, NULL);
     }
     ~mutex() {
-        pthread_mutex_destroy(&cs);
+	pthread_mutex_destroy(&cs);
     }
 };
 
@@ -117,7 +123,7 @@ class event {
     void signal() {
 	pthread_cond_signal(&cond);
     }
-    void wait(mutex_t& m) {
+    void wait(mutex& m) {
 	pthread_t self = pthread_self();
 	assert(m.owner == self && m.count == 1);
 	m.count = 0;
@@ -127,6 +133,12 @@ class event {
 	m.owner = self;
     }
 };
+
+inline void yield()
+{
+  sched_yield();
+}
+
 
 #endif
 
@@ -141,47 +153,69 @@ class critical_section {
     }
 };
 
+#ifdef WINDOWS
+
 struct task
 {
-  task(){}
+  struct task* next;
+
+  task():next(0) {}
   virtual ~task(){}
   virtual void exec() = 0;
+  virtual void stop() = 0;
 
 };
 
 class thread_pool
 {
 private:
+
+#ifdef WINDOWS
     array<HANDLE>   thread_handles;
-    array<task*>    tasks;
+#else
+    array<pthread_t>  thread_handles;
+#endif
+    task* first;
+    task* first_running;
+
     mutex           guard;
+    mutex           running_guard;
     event           got_something;
     locked::counter terminate;
     locked::counter active;
 
 public:
     thread_pool(int n_pool_size = 5):
-        terminate(0),active(0)
+        terminate(0),active(0), first(0), first_running(0)
     {
-        unsigned long threadID;
+        //unsigned long threadID;
         for(int i = 0; i < n_pool_size; i++)
         {
-            //thread_handles.push((HANDLE)_beginthreadex(NULL, 0, thread, this, 0, &threadID));
-            thread_handles.push(CreateThread(NULL, 0, thread, this, 0, &threadID));
-            locked::inc(active);
+#ifdef WINDOWS
+			      thread_handles.push( CreateThread(0, 0, thread, (LPVOID)this, 0, 0));
+#else
+          thread_handles.push(_beginthread(thread, 0,this));
+#endif
+            //thread_handles.push(CreateThread(NULL, 0, thread, this, 0, &threadID));
+          locked::inc(active);
         }
     }
 
     ~thread_pool()
     {
-        foreach(n, thread_handles) CloseHandle(thread_handles[n]);
+        stop();
+#ifdef WINDOWS
+        foreach(n, thread_handles)
+          CloseHandle(thread_handles[n]);
+#endif
     }
 
     void add_task(task *t)
     {
       {
         critical_section cs(guard);
-        tasks.push(t);
+        t->next = first;
+        first = t;
       }
       got_something.signal();
     }
@@ -198,115 +232,116 @@ public:
     void stop()
     {
        locked::set(terminate, 1);
-       int attempts = thread_handles.size() * 2;
-       while(active > 0 && attempts > 0)
+
        {
-         got_something.signal();
-         ::Sleep(0);
-         --attempts;
+         critical_section cs(guard);
+         while(first)
+         {
+           task* t = first;
+           first = t->next;
+           delete t;
+         }
+       }
+       {
+         critical_section cs(running_guard);
+         for(task* tr = first_running; tr; tr = tr->next)
+           tr->stop();
        }
 
+       int attempts = thread_handles.size() * 2;
+       while(active > 0/* && attempts > 0*/)
+       {
+         got_something.signal();
+         yield();
+         --attempts;
+       }
     }
 
     int tasks_waiting() {
       critical_section cs(guard);
-      return tasks.size();
+      return first != 0;
     }
+
 
 protected:
 
     task* next_task()
     {
-      critical_section cs(guard);
-      // check if we already got something...
-      if(tasks.size()) return tasks.remove(0);
-        // no luck, wait
-      got_something.wait(guard);
-      // return it
-      if(tasks.size()) return tasks.remove(0);
-      // nothing to execute, terminating?
+      task* t = 0;
+      if(terminate)
+        return 0;
+
+      got_something.wait();
+
+      bool has_next = false;
+
+      {
+        critical_section cs(guard);
+        if(terminate)
       return 0;
+
+        if(first)
+        {
+          t = first;
+          first = first->next;
+          if( first )
+            has_next = true;
+        }
     }
 
+      if(has_next)
+        got_something.signal();
+
+      return t;
+    }
+#ifdef WINDOWS
     static DWORD WINAPI thread(LPVOID pParam)
+#else
+    static void thread(LPVOID pParam)
+#endif
+
     {
         thread_pool* pthis = static_cast<thread_pool*>(pParam);
         while(!pthis->terminating())
         {
             task *t = pthis->next_task();
-            if(t)
+            if(!t)
+              break;
+
             {
+              critical_section cs(pthis->running_guard);
+              t->next = pthis->first_running;
+              pthis->first_running = t;
+            }
                t->exec();
+            {
+              critical_section cs(pthis->running_guard);
+              if(pthis->first_running == t)
+                pthis->first_running = t->next;
+              else
+                for(task *r = pthis->first_running; r; r = r->next)
+                  if( r->next == t )
+                  {
+                    r->next = t->next;
+                    break;
+                  }
+            }
                delete t;
             }
-        }
         locked::dec(pthis->active);
+#ifdef WINDOWS
+		    ExitThread(0);
         return 0;
+#else
+        _endthread();
+#endif
     }
 };
 
-class timed
-{
-protected:
-    unsigned int  elapse;			// "Sleep time" in milliseconds
-    bool          is_active;
-    mutex         lock;  // thread synchronization
-
-public:
-  timed():is_active(false),elapse(10) {}
-  virtual ~timed(){}
-
-    void start (unsigned int period)
-    {
-      critical_section cs(lock);
-      // is it already active?
-      if (is_active)
-          return;
-
-      // Start the thread
-      DWORD threadId;
-      HANDLE threadHandle = CreateThread (NULL, 0x10000, thread_f, this, 0, &threadId);
-      //SetThreadPriority(threadHandle,THREAD_PRIORITY_TIME_CRITICAL); // this is optional
-      is_active = true;
-    }
-
-    void stop()
-    {
-      critical_section cs(lock);
-      is_active = false;
-    }
-
-    bool is_ticking() { return is_active; }
-
-    void set_delay(unsigned int ms) { elapse = ms; }
-
-    static DWORD WINAPI thread_f(LPVOID param) // thread entry point
-    {
-      timed* to = (timed*) param;
-      bool is_active = true;
-      do
-      {
-        ::Sleep(to->elapse);
-        to->on_tick();
-        {
-          critical_section cs(to->lock);
-          is_active = to->is_active;
-        }
-      } while (is_active);
-      return 0;
-    }
-
-    virtual void on_tick() = 0;
-
-};
-
-
-
+#endif
 
 
 }
-
-
 
 
 #endif

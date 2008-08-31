@@ -12,13 +12,7 @@
 #define __W32SOCK_H__
 
 #include "sockio.h"
-/* In order to work for both vc6 and vc2005, we must define
-   WIN32_LEAN_AND_MEAN and include <windows.h> before
-   including <winsock2.h>. Otherwise <windows.h> will include
-   <winsock.h> and lots of collisions with winsock2.h will happen */
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <winsock2.h>
+#include <winsock.h>
 
 class win_socket : public socket_t {
   protected:

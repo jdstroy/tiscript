@@ -49,48 +49,61 @@ TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
     <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>eval</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="middle">
 <DIV><STRONG>( </STRONG><EM>input</EM><STRONG> : </STRONG>string|stream <STRONG>&nbsp;</STRONG>[, <EM>env</EM> :object ]<STRONG> ) </STRONG>: <EM>value</EM></DIV>
-<P>Evaluates (interprets) <EM>input</EM> and returns its value. If <EM>input </EM>is a string than function interprets it as it is contain script source code. If <EM>input </EM>is a <EM>stream object</EM> then it compiles and executes source code from it.</P>
+<P>Evaluates (interprets) <EM>input</EM> and returns its value. If <EM>input </EM>is a string then function tries to interpret it as if it &nbsp;contains script source code. If <EM>input </EM>is a <EM>stream object</EM> then it compiles and executes source code from it.</P>
 <P>Example: after execution of the following:</P>
 <BLOCKQUOTE>
-<P>var obj = eval( <FONT color=#990099>&quot; { one:1, two:2 } &quot;</FONT> );</P></BLOCKQUOTE>
+<P>var obj = eval( <FONT color=#990099>&quot; ({ one:1, two:2 }) &quot;</FONT> );</P></BLOCKQUOTE>
 
 <P>variable <EM>obj</EM> will contain object having two fields: <EM>one</EM> and <EM>two.</EM></P>
-<P><EM>env</EM> is an environment object - if provided then script execution takes place in namespace of that object. </P>
+<P><EM>env</EM> is an environment object - if provided then script execution takes place in the namespace of that object.</P>
 <BLOCKQUOTE>
 <DIV>var env = { one:1, two:2 };<BR>var res = eval( <FONT color=#990099>&quot;one + two&quot;, </FONT>env);</DIV></BLOCKQUOTE>
 
 <DIV>After execution of two lines above variable <EM>res</EM> will contain integer 3.</DIV></TD>
-    <TD rowspan="7" width="140" bgcolor=#ffffff valign="top">
+    <TD rowspan="8" width="140" bgcolor=#ffffff valign="top">
       <TABLE align="left" border="0" cellpadding="0" cellspacing="4">
         <TR>
           <TD><FONT size="6" color=#cc0000>!</FONT></TD>
         </TR>
       </TABLE>
-<DIV>These functions available only if host application configured the engine to use them.</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>&nbsp;</DIV></TD>
+<DIV>These functions available only if host application configured the engine to use them.</DIV></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>parseData</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>input</EM><STRONG> : </STRONG>string|stream<STRONG> ) </STRONG>: <EM>value</EM></DIV>
+<P>a.k.a. JSON++ data parser.</P>
+<P>Evaluates (interprets) data literal at the <EM>input</EM> and returns its value. Input shall contain valid data literal expression otherwise parsing exception will be thrown.</P>
+<P>Example 1: after execution of the following:</P>
+<BLOCKQUOTE>
+<P>var obj = parseValuel( <FONT color=#990099>&quot; { one:1, two:2 } &quot;</FONT> );</P></BLOCKQUOTE>
+
+<P>variable <EM>obj</EM> will contain object having two fields: <EM>one</EM> and <EM>two.</EM></P>
+<DIV>Example 2: after execution of the following:</DIV>
+<BLOCKQUOTE>
+<P>var v = parseValuel( <FONT color=#990099>&quot;3.1415926&quot;</FONT> );</P></BLOCKQUOTE>
+
+<P>variable <EM>v</EM> will contain float number 3.1415926 - parsed value of the string<EM>.</EM></P>
+<P>Main difference from the <EM>eval</EM> function is that <EM>parseValue</EM> will not parse and execute any function declarations or functions so it is safe to use this function when data is coming from unknown sources e.g. in AJAX like of interactions.</P></TD>
   </TR>
   <TR>
     <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>emit</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="middle">
 <DIV><STRONG>( </STRONG><EM>input</EM> :string|stream,<STRONG> </STRONG><EM>output </EM>:stream<STRONG> </STRONG>[, <EM>env</EM> :object ] <STRONG>)</STRONG> :value</DIV>
-<P>Evaluates <EM>input</EM> stream in serverScript mode (see below) and emits result to <EM>output</EM> stream. Function assumes that executable script at the <EM>input</EM> text is contained in &lt;% %&gt; brackets. Function returns result of first standalone <EM>return</EM> statement in the input stream.</P>
-<P><EM>env</EM> is an environment object - see explanation above. </P>
-<P><EM>env</EM> allows to pass parameters to the input script from caller.</P></TD>
+<P>Evaluates the <EM>input</EM> stream in serverScript mode (see below) and emits result to the <EM>output</EM> stream. Function assumes that executable script at the <EM>input</EM> is contained in &lt;% %&gt; brackets. Function returns result of first standalone <EM>return</EM> statement in the input stream.</P>
+<P><EM>env</EM> is an environment object, it allows to pass parameters to the input script from the caller.</P></TD>
   </TR>
   <TR>
     <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>load</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="middle">
 <DIV><STRONG>( </STRONG><EM>source</EM> [, <EM>asServerScript</EM>]<STRONG> )</STRONG> :true|false</DIV>
-<P>Loads (compiles and executes) <EM>source</EM>. Source here either string - <STRONG>file name</STRONG> or <STRONG>stream object</STRONG>. If <EM>asServerScript</EM> provided and equals to <EM>true </EM>then source is interpreted as text with imbedded script like PHP or ASP web page source:</P>
+<P>Loads (compiles and executes) <EM>source</EM>. Source here either string - <STRONG>file name</STRONG> or <STRONG>stream object</STRONG>. If <EM>asServerScript</EM> provided and equals to <EM>true </EM>then source is interpreted as a text with embedded script like PHP or ASP web page:</P>
 <P>&lt;html&gt; ... <FONT color=#990099>&lt;%</FONT> =some_script_function(); <FONT color=#990099>%&gt;</FONT>... &lt;/html&gt;</P>
 <P>These two fragments are equivalent:</P>
 <BLOCKQUOTE>
 <P><STRONG>load</STRONG>( <FONT color=#990099>&quot;c:/myscripts/test.js&quot;</FONT> );<BR>-and-<BR>var s = Stream.openFile(<FONT color=#990099>&quot;c:/myscripts/test.js&quot;</FONT>,<FONT color=#990099>&quot;r&quot;</FONT>); <STRONG>load</STRONG>( s );</P></BLOCKQUOTE>
 
-<P>Script execution takes place in namespace of caller of the function.</P></TD>
+<P>Script execution takes place in the namespace of the caller of the function.</P></TD>
   </TR>
   <TR>
     <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>loadbc</EM></STRONG></TD>
@@ -114,7 +127,7 @@ TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
     <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>fetch</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="middle">
 <DIV><STRONG>( </STRONG><EM>filename</EM> | <EM>stream</EM><STRONG> ) </STRONG>:<STRONG> </STRONG><EM>value</EM> | <EM>null</EM></DIV>
-<P>Restores value previously written into file <EM>filename</EM> or <EM>stream</EM> by function <EM>store.</EM> Returns the value or <EM>null</EM> if operation failed.</P></TD>
+<P>Restores value previously written into the file (<EM>filename</EM>) or <EM>stream</EM> by function <EM>store.</EM> Returns value or <EM>null</EM> if operation failed.</P></TD>
   </TR>
   <TR>
     <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>hash</EM></STRONG></TD>

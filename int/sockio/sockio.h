@@ -12,6 +12,7 @@
 #define __SOCKIO_H__
 
 #include <time.h>
+#include "tool.h"
 
 #define DEFAULT_CONNECT_MAX_ATTEMPTS 100
 #define DEFAULT_RECONNECT_TIMEOUT    1  // seconds

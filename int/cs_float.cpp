@@ -12,6 +12,11 @@
 #include <math.h>
 #include "cs.h"
 
+#if defined(_MSC_VER) 
+#define isnan _isnan
+#define finite _finite
+#endif
+
 namespace tis
 {
 

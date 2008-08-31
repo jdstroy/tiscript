@@ -33,6 +33,7 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h> 
 
 size_t do_vsnprintf(char *str, size_t count, const char *fmt, va_list args);
 size_t do_snprintf(char *str,size_t count,const char *fmt,...);
@@ -40,11 +41,18 @@ size_t do_vasprintf(char **ptr, const char *format, va_list ap);
 size_t do_asprintf(char **ptr, const char *format, ...);
 size_t do_sprintf(char *ptr, const char *format, ...);
 
+struct printf_output_stream
+{
+  virtual bool out(int c) = 0;
+};
+
 size_t do_w_vsnprintf(wchar_t *str, size_t count, const wchar_t *fmt, va_list args);
 size_t do_w_snprintf(wchar_t *str,size_t count,const wchar_t *fmt,...);
 size_t do_w_vasprintf(wchar_t **ptr, const wchar_t *format, va_list ap);
 size_t do_w_asprintf(wchar_t **ptr, const wchar_t *format, ...);
 size_t do_w_sprintf(wchar_t *ptr, const wchar_t *format, ...);
+size_t do_w_sprintf_os(printf_output_stream* os,const wchar_t *fmt,...);
+size_t do_w_vsprintf_os(printf_output_stream* os, const wchar_t *fmt, va_list ap);
 
 #endif
 

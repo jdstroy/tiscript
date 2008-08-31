@@ -85,8 +85,24 @@ enum dbPredefinedIds {
     dbFirstUserId = dbBitmapId + dbBitmapPages
 };
 
+/*
+enum dybase_type {
+    dybase_object_ref_type  = 0, // object ref, oid
+    dybase_array_ref_type  = 1,
+    dybase_index_ref_type  = 2,
+
+    dybase_bool_type    = 3, 
+    dybase_int_type     = 4,
+    dybase_long_type    = 5,
+    dybase_real_type    = 6,
+    dybase_string_type  = 7, // literal string
+    dybase_array_type   = 8, // literal array
+    dybase_map_type     = 9, // literal key/value pairs map
+*/
 
 static const int dbSizeofType[] = {
+    sizeof(oid_t),    // dybase_object_type
+    sizeof(oid_t),    // dybase_object_type
     sizeof(oid_t),    // dybase_object_type
     sizeof(db_int1),  // dybase_bool_type
     sizeof(db_int4),  // dybase_int_type

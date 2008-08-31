@@ -1,4 +1,4 @@
-
+#include "snprintf.h"
 
 /*
  * snprintf.c
@@ -436,24 +436,25 @@ static size_t dopr(do_outch_t* dopr_outch, void *buffer, size_t maxlen, const ch
             dopr_outch (buffer, &currlen, maxlen, c);
           else
           {
+            wchar_t wbuf[2] = { (wchar_t)c,0 }; 
             char buf[32]; // I do not know any encoding that produce
                           // mbs more that 32 chars from single wchar
             int n, nmbc = 0;
-            nmbc = wctomb(buf,c);
+            nmbc = wcstombs(buf,wbuf,32);
             for( n = 0; n < nmbc; ++n )
 				      dopr_outch (buffer, &currlen, maxlen, buf[n]);
           }
         }
         else //if( dopr_outch == dopr_outch_w )
         {
-          unsigned char c  = (unsigned char)va_arg (args, int);
-          if( c < 127 )
-            dopr_outch (buffer, &currlen, maxlen, c);
+          unsigned char c[2] = {0}; c[0] = (unsigned char)va_arg (args, int);
+          if( c[0] < 127 )
+            dopr_outch (buffer, &currlen, maxlen, c[0]);
           else
           {
-            wchar_t wc = '?';
-            mbtowc(&wc,(char*)&c,1);
-			      dopr_outch (buffer, &currlen, maxlen, wc);
+            wchar_t wc[2] = { '?', 0 };
+            mbstowcs(wc,(char*)c,1);
+			      dopr_outch (buffer, &currlen, maxlen, wc[0]);
           }
         }
 				break;
@@ -646,11 +647,13 @@ static void fmtstr_m_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, si
 	}
 	while (*value && (cnt < max))
       {
-	  // apkbox: fix: MB_CUR_MAX not required to be constant
-        char mbchars[MB_LEN_MAX];
+        wchar_t wc[2] = {0};
+        char mbchars[32];
         int  n, nmbchars = 0;
-        nmbchars = wctomb( mbchars, *value++ );
-        for (n = 0; n < nmbchars; ++n ) {
+        wc[0] = *value++;
+        nmbchars = wcstombs( mbchars, wc, 32 ); 
+        for (n = 0; n < nmbchars; ++n ) 
+        {
               dopr_outch (buffer, currlen, maxlen, mbchars[n]);
               ++cnt;
         }
@@ -730,11 +733,10 @@ static void fmtstr_w_m(do_outch_t* dopr_outch, void *buffer, size_t *currlen, si
 	}
 	while (*value && (cnt < max))
   {
-    wchar_t uchar = 0;
-    int  nmbchars = mbtowc( &uchar, value, strln );
-    dopr_outch (buffer, currlen, maxlen, uchar);
+    wchar_t wc[2] = {0};
+    int  nmbchars = mbstowcs( wc, value, 1 );
+    dopr_outch (buffer, currlen, maxlen, wc[0]);
     value += nmbchars;
-    strln -= nmbchars;
 		++cnt;
 	}
 	while ((padlen < 0) && (cnt < max)) {
@@ -1062,6 +1064,12 @@ static void dopr_outch_w(void *buffer, size_t *currlen, size_t maxlen, int c)
 	(*currlen)++;
 }
 
+static void dopr_outch_w_os(void *buffer, size_t *currlen, size_t maxlen, int c)
+{
+  printf_output_stream* os = (printf_output_stream*)buffer;
+  if(os->out(c))
+	    (*currlen)++;
+}
 
 size_t do_vsnprintf (char *str, size_t count, const char *fmt, va_list args)
 {
@@ -1072,6 +1080,12 @@ size_t do_w_vsnprintf (wchar_t *str, size_t count, const wchar_t *fmt, va_list a
 {
 	return dopr(dopr_outch_w, str, count, (const char *)fmt, args);
 }
+
+size_t do_w_vsprintf_os(printf_output_stream* os, const wchar_t *fmt, va_list args)
+{
+	return dopr(dopr_outch_w_os, os, 0, (const char *)fmt, args);
+}
+
 
 size_t do_snprintf(char *str,size_t count,const char *fmt,...)
 {

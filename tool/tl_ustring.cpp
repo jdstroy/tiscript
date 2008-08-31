@@ -28,17 +28,23 @@ namespace tool {
 
 ustring::data ustring::null_data;
 
-ustring::ustring(const char *s)  : my_data ( &null_data )
+ustring::ustring(const char *s, int slen)  : my_data ( &null_data )
 {
   //assert(s);
   if(!s)
     return;
-  int slen = int(strlen(s));
-  //int uslen = MultiByteToWideChar(CP_ACP,0,s,int(slen),0,0);
+  if(slen <= 0)
+     slen = int(strlen(s));
+
+#ifdef WINDOWS
+  int uslen = MultiByteToWideChar(CP_ACP,0,s,int(slen),0,0);
+  my_data = new_data(uslen);
+  MultiByteToWideChar(CP_ACP,0,s,slen,head(),uslen);
+#else
   int uslen = mbstowcs( 0, s, slen );
   my_data = new_data(uslen);
-  mbstowcs( head(), s, uslen );
-  //MultiByteToWideChar(CP_ACP,0,s,slen,head(),uslen);
+  mbstowcs( head(), s, slen );
+#endif
   my_data->ref_count = 1;
 }
 
@@ -46,11 +52,15 @@ ustring::ustring(const string &s)  : my_data ( &null_data )
 {
   if(s.length() == 0)
     return;
-  //int uslen = MultiByteToWideChar(CP_ACP,0,s,s.length(),0,0); //mbstowcs( NULL, s, slen );//
+#ifdef WINDOWS   
+  int uslen = MultiByteToWideChar(CP_ACP,0,s,s.length(),0,0); 
+  my_data = new_data(uslen);
+  MultiByteToWideChar(CP_ACP,0,s,s.length(),head(),uslen);
+#else
   int uslen = mbstowcs( 0, s, s.length() );
   my_data = new_data(uslen);
   mbstowcs( head(), s, uslen );
-  //MultiByteToWideChar(CP_ACP,0,s,s.length(),head(),uslen);
+#endif
   my_data->ref_count = 1;
 }
 
@@ -101,7 +111,7 @@ ustring::replace_data(int length)
         return;
 
     if (my_data != &null_data && --my_data->ref_count == 0)
-        delete (byte *)my_data;
+        delete[] (byte *)my_data;
 
     if (length > 0) {
         my_data = (data *) new byte[sizeof(data) + length * sizeof(wchar)];
@@ -118,7 +128,7 @@ ustring::replace_data(int length)
 void ustring::release_data(ustring::data *dta)
 {
  if ( dta && (dta != &null_data) && (--dta->ref_count == 0))
-        delete (byte *)dta;
+        delete[] (byte *)dta;
 }
 
 
@@ -128,7 +138,7 @@ ustring::replace_data(data *data)
     if (my_data == data)
       return;
     if (my_data != &null_data && --my_data->ref_count == 0)
-        delete (byte *)my_data;
+        delete[] (byte *)my_data;
 
     if (data != &null_data)
         data->ref_count++;
@@ -241,6 +251,28 @@ ustring::is_whitespace() const
 
     return true;
 }
+
+
+void
+  ustring::set_length ( int len, bool preserve_content )
+{
+  if ( my_data->ref_count <= 1 )
+  {
+    my_data->length = len;
+    my_data->chars [ len ] = '\0';
+    return;
+  }
+  
+  data *dt = new_data ( len );
+  dt->ref_count = 1;
+
+  if ( preserve_content)
+    umemcpy ( dt->chars, my_data->chars, my_data->length );
+
+  release_data(my_data);
+  my_data = dt;
+}
+
 
 /****************************************************************************/
 
@@ -435,7 +467,7 @@ ustring & ustring::printf(const wchar *fmt,...)
   wchar buffer[2049];
   va_list args;
   va_start (args, fmt);
-  int len = do_w_vsnprintf( buffer, 2048, fmt, args );
+  int len = (int)do_w_vsnprintf( buffer, 2048, fmt, args );
   va_end (args);
   buffer[2048] = 0;
 
@@ -474,10 +506,11 @@ ustring& ustring::to_upper()
     make_unique();
 
     //_wcsupr(head());
+    tool::to_upper( wchars(buffer(), length()));
 
-    for (register wchar *p = head(); *p; p++)
+    /*for (register wchar *p = head(); *p; p++)
         if (iswlower(*p))
-            *p = towupper(*p);
+            *p = towupper(*p); */
 
     return *this;
 }
@@ -487,11 +520,13 @@ ustring& ustring::to_lower()
 {
     make_unique();
 
+    tool::to_lower( wchars(buffer(), length()));
     //_wcslwr(head());
+    /*
     for (register wchar *p = head(); *p; p++)
         if (iswupper(*p))
             *p = towlower(*p);
-
+    */
     return *this;
 }
 
@@ -661,8 +696,15 @@ inline uint get_next_utf8(unsigned int val)
 
 ustring ustring::utf8(const char *src, size_t len)
 {
-    if(len == 0) return ustring();
-    array<wchar> buf;
+  array<wchar> buf;
+  from_utf8(src, len, buf);
+  return ustring(buf.head(),buf.size());
+}
+
+void from_utf8(const char *src, size_t len, array<wchar>& buf)
+{
+    if(len == 0) return;
+    buf.size(int(len)); buf.size(0);
     const byte* pc = (const byte*)src;
     const byte* last = pc + len;
     uint b1;
@@ -725,7 +767,6 @@ ustring ustring::utf8(const char *src, size_t len)
 
       }
     }
-    return ustring(buf.head(), buf.size());
 }
 
 wchar getc_utf8(FILE *f)
@@ -988,7 +1029,7 @@ ustring ustring::xml_escape() const
 
   ustring ascii(const chars& s)
   {
-    ustring r( ' ', s.length );
+    ustring r( ' ', int(s.length) );
     wchar *pc = r.head();
     for( uint n = 0; n < s.length; ++n, ++pc )
     {

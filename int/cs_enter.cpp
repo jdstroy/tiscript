@@ -65,8 +65,9 @@ value CsEnterObject(CsScope *scope,char *name,value proto,c_method *methods, vp_
 
 
 
+
 /* CsEnterCObjectType - add a built-in cobject type to the symbol table */
-dispatch *CsEnterCObjectType(CsScope *scope,dispatch *proto,const char *typeName,c_method *methods,vp_method *properties, constant *constants, long size)
+dispatch *CsEnterCObjectType(CsScope *scope,dispatch *proto,char *typeName,c_method *methods,vp_method *properties, constant *constants, long size)
 {
     VM *c = scope->c;
     dispatch *d;
@@ -85,7 +86,7 @@ dispatch *CsEnterCObjectType(CsScope *scope,dispatch *proto,const char *typeName
 }
 
 /* CsEnterCPtrObjectType - add a built-in pointer cobject type to the symbol table */
-dispatch *CsEnterCPtrObjectType(CsScope *scope,dispatch *proto,const char *typeName,c_method *methods,vp_method *properties, constant *constants)
+dispatch *CsEnterCPtrObjectType(CsScope *scope,dispatch *proto,char *typeName,c_method *methods,vp_method *properties, constant *constants)
 {
     VM *c = scope->c;
     dispatch *d;
@@ -109,6 +110,7 @@ void CsEnterMethods(VM *c,value obj,c_method *methods)
 	CsCheck(c,2);
 	CsPush(c,obj);
     for (; methods->name != 0; ++methods) {
+    methods->pdispatch = &CsCMethodDispatch;
 		CsPush(c,CsInternCString(c,methods->name));
 		CsSetProperty(c,c->sp[1],CsTop(c),ptr_value(methods));
 		CsDrop(c,1);
@@ -122,6 +124,7 @@ void CsEnterMethod(VM *c,value obj,c_method *method)
     CsCheck(c,2);
     CsPush(c,obj);
     CsPush(c,CsInternCString(c,method->name));
+    method->pdispatch = &CsCMethodDispatch;
     CsSetProperty(c,c->sp[1],CsTop(c), ptr_value(method));
     CsDrop(c,2);
 }
@@ -132,6 +135,7 @@ void CsEnterVPMethods(VM *c,value obj,vp_method *methods)
 	CsCheck(c,2);
 	CsPush(c,obj);
     for (; methods->name != 0; ++methods) {
+    methods->pdispatch = &CsVPMethodDispatch;
 		CsPush(c,CsInternCString(c,methods->name));
 		CsSetProperty(c,c->sp[1],CsTop(c), ptr_value(methods));
 		CsDrop(c,1);
@@ -144,6 +148,7 @@ void CsEnterVPMethod(VM *c,value obj,vp_method *method)
 {
     CsCheck(c,2);
     CsPush(c,obj);
+    method->pdispatch = &CsVPMethodDispatch;
     CsPush(c,CsInternCString(c,method->name));
     CsSetProperty(c,c->sp[1],CsTop(c), ptr_value(method));
     CsDrop(c,2);

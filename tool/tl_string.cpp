@@ -9,22 +9,22 @@
 
 
 #include <stdlib.h>
-#include <limits.h>			  // apkbox: for MB_LEN_MAX
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include "tl_basic.h"
 #include "tl_string.h"
 #include "tl_slice.h"
-
-#include <stdio.h>
 
 
 #if !defined(_WIN32)
 #define _vsnprintf	vsnprintf
 #else
 #include <windows.h>
-#include <rpc.h>
+//#include <rpc.h>
+#include <objbase.h>
 #endif
 
 #ifdef _DEBUG
@@ -98,13 +98,13 @@ namespace tool
     }
   }
 */
+
   void
     string::release_data ( string::data* dta )
   {
     if ( dta && ( dta != &null_data ) && ( --dta->ref_count == 0 ) )
       delete (byte *) dta;
   }
-
 
   void
     string::set_data ( data *data )
@@ -159,6 +159,22 @@ namespace tool
     }
   }
 
+  /****************************************************************************/
+  string
+    operator+ ( const chars s1, const string &s2 )
+  {
+    if ( s1.length == 0 )
+      return s2;
+    else
+    {
+      string newstring;
+      newstring.set_length ( s1.length + s2.length() );
+      ::memcpy ( newstring.head(), s1.start, s1.length );
+      ::memcpy ( &( newstring.head() ) [ s1.length ], s2.head(), s2.length() );
+      return newstring;
+    }
+  }
+
 
   /****************************************************************************/
   string
@@ -180,6 +196,23 @@ namespace tool
     }
   }
 
+  /****************************************************************************/
+  string
+    string::operator+ ( const chars s ) const
+  {
+    if ( length() == 0 )
+      return string(s.start, s.length);
+    else if (s.length == 0)
+      return *this;
+    else
+    {
+      string newstring;
+      newstring.set_length ( length() + s.length );
+      ::memcpy ( newstring.head(), head(), length() );
+      ::memcpy ( &( newstring.head() ) [ length() ], s.start, s.length );
+      return newstring;
+    }
+  }
 
   /****************************************************************************/
   string
@@ -721,63 +754,86 @@ namespace tool
     return tool::match( cr, pattern );
   }
 
-#if defined(PLATFORM_WIN32) && defined(SCITER)
-  #pragma comment(lib, "Rpcrt4.lib")
-#endif
+//#if defined(WINDOWS) //&& defined(SCITER)
+//  #pragma comment(lib, "Rpcrt4.lib")
+//#endif
 
   string unique_id()
   {
-#if defined(PLATFORM_WIN32) && defined(SCITER)
+#if defined(WINDOWS) //&& defined(SCITER)
     char buffer[80];
     string r;
     UUID uuid;
-    UuidCreate(&uuid);
+    CoCreateGuid(&uuid);
     dword *p = (dword *)&uuid;
     for(uint n = 0; n < sizeof(uuid) / sizeof(dword); n++)
-      r += itoa( p[n], buffer, 36);
+      r += _itoa( p[n], buffer, 36);
     r.to_upper();
     return r;
 #else
     static int count = 12345;
 #pragma TODO("uuid generation needs to be stronger!")
-    return string::format("%x",++count);
+    return string::format("%X",++count);
 #endif
   }
 
 
   string::string ( const wchar *us )
   {
-    if(us)
+    if(us && *us)
     {
-      int slen = wcstombs(0, us, uint(-1));
+#ifdef WINDOWS
+      size_t uslen = wcslen(us);
+      size_t slen = ::WideCharToMultiByte(CP_ACP,0, us, uslen,0,0,0,0 );
+      if(slen != 0) {
+        my_data = new_data ( slen, 1 );
+        ::WideCharToMultiByte(CP_ACP,0, us, uslen, head(),slen,0,0 );
+        return;
+        //wcstombs ( chars (), s, slen );
+      }
+#else
+      int slen = wcstombs(0, us, 0xFFFFFFF);
       if(slen != 0)
       {
         my_data = new_data ( slen, 1 );
         ::wcstombs(head(),us, slen );
         return;
       }
+#endif
     }
     my_data = &null_data;
+
   }
 
   string::string ( const wchar *us, int uslen )
   {
     if(us && uslen)
     {
-	  // apkbox: fix: MB_CUR_MAX not required to be constant
-      char mbc[MB_LEN_MAX];
+#ifdef WINDOWS
+      size_t slen = ::WideCharToMultiByte(CP_ACP,0, us, uslen,0,0,0,0 );
+      if(slen != 0) {
+        my_data = new_data ( slen, 1 );
+        ::WideCharToMultiByte(CP_ACP,0, us, uslen,head(),slen,0,0 );
+        return;
+      }
+#else
+      //char mbc[32];
       int i, slen = 0;
       const wchar *p = us;
+	  wchar wcc[2]; wcc[1] = 0;
       for(i = 0; i < uslen; ++i)
       {
-        int t = wctomb(mbc,us[i]);
+	    wcc[0] = us[i];
+        int t = wcstombs(0,wcc,10);
         slen += t > 0? t : 0;
       }
       if(slen != 0)
       {
         my_data = new_data ( slen, 1 );
         wcstombs( head(), us, slen );
+        return;
       }
+#endif
     }
     my_data = &null_data;
   }
@@ -880,4 +936,5 @@ namespace tool
 
 
 }
+
 

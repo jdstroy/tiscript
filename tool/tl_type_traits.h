@@ -7,10 +7,10 @@
 //|
 //|
 
-#ifndef __type_traits_h__
-#define __type_traits_h__
+#ifndef __tool_type_traits_h__
+#define __tool_type_traits_h__
 
-namespace tool 
+namespace tool
 {
 
 //borrowed from STL
@@ -19,11 +19,11 @@ namespace tool
   struct __false_type { };
 
   template <typename _Tp>
-  struct __type_traits { 
+  struct __type_traits {
      typedef __true_type     this_dummy_member_must_be_first;
 
      /* The following restrictions should be observed for the sake of
-        compilers which automatically produce type specific specializations 
+        compilers which automatically produce type specific specializations
         of this class:
             - You may reorder the members below if you wish
             - You may remove any of the members below if you wish
@@ -59,6 +59,16 @@ template<> struct __type_traits<char> {
    typedef __true_type    has_trivial_destructor;
    typedef __true_type    is_POD_type;
 };
+
+#if !defined(_MSC_VER) || (_MSC_VER >= 1300)
+template<> struct __type_traits<wchar_t> {
+   typedef __true_type    has_trivial_default_constructor;
+   typedef __true_type    has_trivial_copy_constructor;
+   typedef __true_type    has_trivial_assignment_operator;
+   typedef __true_type    has_trivial_destructor;
+   typedef __true_type    is_POD_type;
+};
+#endif
 
 template<> struct __type_traits<signed char> {
    typedef __true_type    has_trivial_default_constructor;
@@ -125,7 +135,7 @@ template<> struct __type_traits<unsigned long> {
    typedef __true_type    is_POD_type;
 };
 
-template<> struct __type_traits<int64> 
+template<> struct __type_traits<int64>
 {
    typedef __true_type    has_trivial_default_constructor;
    typedef __true_type    has_trivial_copy_constructor;
@@ -224,9 +234,9 @@ template<> struct __type_traits<void*> {
    typedef __true_type    is_POD_type;
 };
 
-#if (_MSC_VER >= 1300)
+#if !defined(_MSC_VER) || (_MSC_VER >= 1300)
 template <class _Tp>
-  struct __type_traits<_Tp*> 
+  struct __type_traits<_Tp*>
 {
   typedef __true_type    has_trivial_default_constructor;
   typedef __true_type    has_trivial_copy_constructor;
@@ -247,5 +257,12 @@ template <class _Tp>
       typedef __true_type    is_POD_type; \
     }
 
+#define TYPE_IS_NOT_POD( TN )  template<> struct tool::__type_traits<TN> { \
+      typedef __false_type    has_trivial_default_constructor; \
+      typedef __false_type    has_trivial_copy_constructor; \
+      typedef __false_type    has_trivial_assignment_operator; \
+      typedef __false_type    has_trivial_destructor; \
+      typedef __false_type    is_POD_type; \
+    }
 
 #endif

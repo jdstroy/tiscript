@@ -59,6 +59,7 @@ namespace tool
 	  //inline friend std::istream &operator>> ( std::istream &stream, string &s );
     //inline friend std::ostream &operator<< ( std::ostream &stream, const string &s );
     friend string operator+ ( const char *s1, const string &s2 );
+    friend string operator+ ( const chars s1, const string &s2 );
     inline friend bool operator== ( const char *s1, const string &s2 );
     inline friend bool operator< ( const char *s1, const string &s2 );
     inline friend bool operator<= ( const char *s1, const string &s2 );
@@ -76,6 +77,7 @@ namespace tool
     string ( const string &s );
     string ( const char *s );
     string ( const char *s, int count );
+    string ( chars s );
     string ( const wchar *s );
     string ( const wchar *s, int count );
     string ( char c, int n = 1 );
@@ -92,6 +94,7 @@ namespace tool
     string &operator= (char c);
 
     string operator+ ( const string &s ) const;
+    string operator+ ( const chars s ) const;
     string operator+ ( const char *s ) const;
     string operator+ ( char c ) const;
 
@@ -242,10 +245,7 @@ namespace tool
 
     struct data
     {
-      data () : ref_count ( 0 ), length ( 0 )
-      {
-        chars [ 0 ] = '\0';
-      }
+      data () : ref_count ( 0 ), length ( 0 ), allocated(0) { chars [ 0 ] = '\0'; }
       void add_ref() { ref_count++; }
       unsigned int ref_count;
       int allocated;
@@ -253,7 +253,7 @@ namespace tool
       char chars [ 1 ];
     };
 
-
+    const char *head () const;
 
   protected:
 
@@ -283,7 +283,6 @@ namespace tool
     void make_unique ();
 
     char *head ();
-    const char *head () const;
 
     string& replace_substr ( const char *s, int s_len, int index, int len );
     string& insert ( const char *s, int s_length, int index );
@@ -416,6 +415,13 @@ namespace tool
   }
 
   inline
+    string::string ( chars s ) : my_data ( &null_data )
+  {
+    set_length ( int(s.length) );
+    ::strncpy ( head(), s.start, s.length );
+  }
+
+  inline
     string::string ( char c, int n ) : my_data ( &null_data )
   {
     set_length ( n );
@@ -509,10 +515,15 @@ namespace tool
   inline string &
     string::operator= ( const wchar *s )
   {
-    const int length = int(::wcslen ( s ));
-    int mblength = int(::wcstombs ( 0, s, length ));
-    set_length ( mblength );
-    ::wcstombs ( head(), s, length );
+    if( s )
+    {
+      const int length = int(::wcslen(s));
+      int mblength = int(::wcstombs ( 0, s, length ));
+      set_length ( mblength );
+      ::wcstombs ( head(), s, length );
+    }
+    else
+      set_length ( 0 );
     return *this;
   }
 
@@ -744,7 +755,7 @@ namespace tool
   {
     char* end = 0;
     int n = strtol(s,&end,10);
-    if( end && *end == 0)
+    if( end && end != s)
     {
       i = n;
       return true;
@@ -756,7 +767,7 @@ namespace tool
   {
     char* end = 0;
     double n = strtod(s,&end);
-    if( end && *end == 0)
+    if( end && end != s)
     {
       d = n;
       return true;

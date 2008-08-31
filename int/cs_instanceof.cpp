@@ -34,7 +34,12 @@ bool CsInstanceOf(VM *c, value obj, value cls)
     else if( CsObjectP(obj) || CsCObjectP(obj) )
     {
       if(!CsObjectOrMethodP(cls))
-        CsTypeError(c,cls);
+      {
+        if(c)
+          CsTypeError(c,cls);
+        else
+          return false;
+      }
       obj = CsObjectClass(obj);
       for (;;) 
       {

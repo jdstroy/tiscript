@@ -26,8 +26,8 @@
 #define BC_BOR        0x0e    /* bitwise or of top two stack entries */
 #define BC_XOR        0x0f    /* bitwise xor of top two stack entries */
 #define BC_BNOT       0x10    /* bitwise not of top two stack entries */
-#define BC_SHL        0x11    /* shift left top two stack entries */
-#define BC_SHR        0x12    /* shift right top two stack entries */
+#define BC_SHL        0x11    /* shift left top two stack entries, signed int */
+#define BC_SHR        0x12    /* shift right top two stack entries, signed int */
 #define BC_LT         0x13    /* less than */
 #define BC_LE         0x14    /* less than or equal */
 #define BC_EQ         0x15    /* equal */
@@ -84,12 +84,22 @@
 #define BC_GSETC      0x48    /* set the value of a global constatn */
 #define BC_PUSH_NS    0x49    /* push currentScope.globals on stack */
 #define BC_POP_NS     0x50    /* pops currentScope.globals from stack */
-#define BC_PROTO      0x51    /* c-val = CsObjectClass(c->val) */
+#define BC_PROTO      0x51    /* c->val = CsObjectClass(c->val) */
 #define BC_BRUNDEF    0x52    /* branch on c->val == nothingValue */
 #define BC_INCLUDE    0x53    /* include instruction */
 #define BC_LIKE       0x54    /* val <- true/false if left matches right */
 #define BC_DEBUG      0x55
 #define BC_S_CALL     0x56    /* push current PC of next instruction on top of the stack and jump to instruction given by arg.  */
 #define BC_S_RETURN   0x57    /* pop value of PC from top of the stack. */
+#define BC_YIELD      0x58    /* pop value of PC from top of the stack. */
+#define BC_NEWCLASS   0x59    /* pop value of PC from top of the stack. */
+#define BC_USHL       0x5a    /* shift left top two stack entries, signed int */
+#define BC_USHR       0x5b    /* shift right top two stack entries, signed int */
+#define BC_NS         0x5c    /* c->val = c->currentNS */
+
+#define BC_CAR        0x5d    /* s ~/ d */
+#define BC_CDR        0x5e    /* s ~% d */
+#define BC_RCAR       0x5f    /* s /~ d */
+#define BC_RCDR       0x60    /* s %~ d */
 
 #endif

@@ -15,13 +15,19 @@
 namespace tool
 {
 
-  template<>
+  template<typename T>
+  inline unsigned int
+    hash( const T& t )
+  {
+    return t.hash();
+  }
+
+  /*template<>
   inline unsigned int
     hash<string> ( const string& the_string )
   {
     return the_string.hash();
-  }
-
+  }*/
 
   typedef const char * const_char_ptr_t;
 
@@ -60,6 +66,23 @@ namespace tool
     return h;
   }
 
+  template<>
+  inline unsigned int
+    hash<bytes> ( const bytes& value )
+  {
+    unsigned int h = 0, g;
+    const byte *pc  = value.start;
+    const byte *end = value.end(); 
+
+    while ( pc != end )
+    {
+      h = ( h << 4 ) + *pc++;
+      if ( ( g = h & 0xF0000000 ) != 0 )
+        h ^= g >> 24;
+      h &= ~g;
+    }
+    return h;
+  }
 
 
   template<>

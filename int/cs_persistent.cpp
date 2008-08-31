@@ -25,7 +25,6 @@ class DbIndexData
 {
 public:
   iterator_t  iterator;
-
   db_triplet  start;
   db_triplet  end;
   bool        asc;
@@ -93,7 +92,6 @@ value CsDbIndexSlice(VM* c, value obj, value start, value end, bool ascent, bool
   value vs = ptr<persistent_header>(obj)->vstorage;
 	storage* s = (storage*)CsCObjectValue(vs);
   oid_t oidIdx = ptr<persistent_header>(obj)->oid;
-
 
   // create new object (a.k.a. iterator)
   value retObj = CsMakeDbIndex(c, vs, oidIdx);

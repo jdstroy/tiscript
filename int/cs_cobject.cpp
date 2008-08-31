@@ -48,7 +48,7 @@ dispatch CsCObjectDispatch = {
 };
 
 /* CsCObjectP - is this value a cobject? */
-int CsCObjectP(value val)
+bool CsCObjectP(value val)
 {
     dispatch *d = CsGetDispatch(val);
     return d->size == CObjectSize;
@@ -59,6 +59,8 @@ bool CsGetCObjectProperty(VM *c,value obj,value tag,value *pValue)
 {
     //return CsGetObjectProperty(c,obj,tag, pValue);
     value p;
+
+    dispatch *d = CsGetDispatch(obj);
 
     /* look for a local property */
     if ((p = CsFindProperty(c,obj,tag,0,0)) != 0) 
@@ -260,7 +262,7 @@ void CsCObjectScan(VM *c,value obj)
 dispatch *CsMakeCObjectType(
      VM *c,
      dispatch *proto,
-     const char *typeName,
+     char *typeName,
      c_method *methods,
      vp_method *properties,
      constant *constants,
@@ -289,7 +291,7 @@ dispatch *CsMakeCObjectType(
 }
 
 /* CsMakeCPtrObjectType - make a new cobject type */
-dispatch *CsMakeCPtrObjectType(VM *c,dispatch *proto,const char *typeName,c_method *methods,vp_method *properties, constant *constants)
+dispatch *CsMakeCPtrObjectType(VM *c,dispatch *proto,char *typeName,c_method *methods,vp_method *properties, constant *constants)
 {
     dispatch *d = CsMakeCObjectType(c,proto,typeName,methods,properties,constants, sizeof(CsCPtrObject) - sizeof(c_object));
     if (d) d->newInstance = CPtrObjectNewInstance;

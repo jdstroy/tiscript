@@ -127,6 +127,7 @@ namespace tool
     void normalize_path(); // norm path - remove "." and ".."
 
     string compose(bool only_resource_name = false) const;
+    string compose_object() const;
 
   };
 
@@ -142,7 +143,7 @@ namespace tool
     return relpath( string( absp ), string( basep ) );
   }
 
-
+  bool get_lang_country(string& lang,string& country, bool for_user);
 
 
 };
