@@ -114,7 +114,7 @@ bool stream::put_str(const wchar* s, const wchar* end)
 
 /* CsStreamPrintF - formated output to a stream */
 
-bool stream::printf(const wchar *fmt,...)
+/*bool stream::printf(const wchar *fmt,...)
 {
     wchar buf[1024];
     va_list ap;
@@ -123,7 +123,32 @@ bool stream::printf(const wchar *fmt,...)
     va_end(ap);
     buf[ 1023 ] = 0;
     return put_str(buf);
+}*/
+
+struct thunk: printf_output_stream
+{
+  stream *self; 
+  bool    r;
+  virtual bool out(int c) { return r = self->put(c); }
+};
+
+bool stream::printf(const wchar *fmt,...)
+{
+    //wchar buf[1024];
+    va_list ap;
+    va_start(ap,fmt);
+
+    thunk oss; 
+    oss.self = this; 
+    oss.r = false;
+
+    do_w_vsprintf_os(&oss,fmt,ap);
+    va_end(ap);
+    //buf[ 1023 ] = 0;
+    //return put_str(buf);
+    return oss.r;
 }
+
 
 /* prototypes for null streams */
 
@@ -154,7 +179,7 @@ bool string_stream::finalize()
 
 int string_stream::get()
 {
-  int c = tool::getc_utf8(buf,pos);
+  int c = tool::getc_utf8(buf(),pos);
   return c?c: EOS;
 }
 
@@ -211,6 +236,9 @@ stream *OpenFileStream(VM *c,const wchar *fname, const wchar *mode)
     if((c->features & FEATURE_FILE_IO) == 0)
       return 0;
 
+    if( wcsncmp(fname,L"file://",7) == 0)
+      fname = fname + 7;
+
     wchar buf[10] = {0};
     wcsncpy(buf,mode,9);
     bool utfstream = false;
@@ -227,7 +255,7 @@ stream *OpenFileStream(VM *c,const wchar *fname, const wchar *mode)
 
     bool writeable = wcschr(buf,'w') || wcschr(buf,'a');
 
-    FILE *fp = fopen(aux::w2a(fname),aux::w2a(buf));
+    FILE *fp = fopen(tool::string(fname),tool::string(buf));
     if (fp)
     {
       if(utfstream)

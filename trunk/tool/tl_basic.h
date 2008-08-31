@@ -20,11 +20,16 @@
 #include <stdarg.h>
 #include <assert.h>
 
+#if !defined(WINDOWS)
+  #include <unistd.h>
+#endif
+
 
 /****************************************************************************/
 
 #include "tl_type_traits.h"
 
+#include "snprintf.h"
 
 namespace tool
 {
@@ -44,6 +49,11 @@ namespace tool
 #ifndef min       // Hopefully this isn't already defined
 
   #define min(a,b)        (((a) < (b)) ? (a) : (b))
+  #define max(a,b)        (((a) > (b)) ? (a) : (b))
+  //template <typename T>
+  //  inline T min(const T a, const T b) { return a < b ? a : b; }
+  //template <typename T>
+  //  inline T max(const T a, const T b) { return a > b ? a : b; }
 
   //inline char *
   //  min ( char *arg1, char *arg2 )
@@ -64,14 +74,28 @@ namespace tool
     return v;
   }
 
+  template <class T>
+  inline
+    bool is_between( T v, T minv, T maxv )
+  {
+    if (minv >= maxv)
+      return false;
+    if (v > maxv) return false;
+    if (v < minv) return false;
+    return true;
+  }
+
+  template <class T1, class T2> inline bool set_if_less(T1& i, T2 v) { if( i < v ) { i = v; return true; } return false; }
+
+
 
   /****************************************************************************/
 
-#ifndef max       // Hopefully this isn't already defined
+/*#ifndef max       // Hopefully this isn't already defined
 
   #define max(a,b)        (((a) > (b)) ? (a) : (b))
 
-#endif
+#endif*/
 
   /****************************************************************************/
 
@@ -129,7 +153,7 @@ template <typename T>
       assert ( _ref_cntr == 0 );
     }
     unsigned int get_ref_count() { return _ref_cntr; }
-    long release()
+    virtual long release()
     {
         assert(_ref_cntr > 0);
         long t = locked::dec(_ref_cntr);
@@ -137,7 +161,7 @@ template <typename T>
           delete this;
         return t;
     }
-    void add_ref() { locked::inc(_ref_cntr); }
+    virtual void add_ref() { locked::inc(_ref_cntr); }
   };
 
   template <class T>
@@ -149,10 +173,10 @@ template <typename T>
       _ptr = NULL;
     }
 
-    handle ( T* p )
+    handle ( const T* p )
     {
       _ptr = NULL;
-      _set ( p );
+      _set ( const_cast<T*>(p) );
     }
 
     handle ( const handle<T>& p )
@@ -207,6 +231,19 @@ template <typename T>
       return _ptr == p;
     }
 
+    T* detach()
+    {
+      T* t = _ptr; _ptr = 0;
+      return t;
+    }
+
+    bool undefined() const { return _ptr == 0; }
+    bool defined() const { return _ptr != 0; }
+    void clear()      { _set ( NULL ); }
+    void inherit(const handle& v) { if(v.defined()) _set ( v._ptr ); }
+
+    unsigned int hash() const { return (unsigned int)(uint_ptr)_ptr; }
+
     private:
     T* _ptr;
     void
@@ -222,14 +259,7 @@ template <typename T>
 
       if ( _ptr )
         _ptr->add_ref();
-
     }
-
-    bool undefined() const { return _ptr == 0; }
-    bool defined() const { return _ptr != 0; }
-    void clear()      { _set ( NULL ); }
-    void inherit(const handle& v) { if(v.defined()) _set ( v._ptr ); }
-
   };
 
 
@@ -292,22 +322,29 @@ template <typename T>
   unsigned int
     hash ( const c_key &the_key );
 
-  template <typename T> void copy ( T* dst, const T* src, size_t elements, __true_type)
+  template <typename T> void copy ( T* dst, const T* src, size_t elements);
+  template <typename T> void move ( T* dst, const T* src, size_t elements);
+
+  template <typename T>
+    inline void copy ( T* dst, const T* src, size_t elements, __true_type)
   {
       memcpy(dst,src,elements*sizeof(T));
   }
-  template <typename T> void xcopy ( T* dst, const T* src, size_t elements)
+  template <typename T>
+     inline void xcopy ( T* dst, const T* src, size_t elements)
   {
       memcpy(dst,src,elements*sizeof(T));
   }
 
-  template <typename T> void copy ( T* dst, const T* src, size_t elements, __false_type)
+  template <typename T>
+     inline void copy ( T* dst, const T* src, size_t elements, __false_type)
   {
       for(T* dst_end = dst + elements; dst < dst_end; ++dst,++src )
           *dst = *src;
   }
 
-  template <typename T> void move ( T* dst, const T* src, size_t elements, __true_type)
+  template <typename T>
+     inline void move ( T* dst, const T* src, size_t elements, __true_type)
   {
       memmove(dst,src,elements*sizeof(T));
   }
@@ -318,14 +355,15 @@ template <typename T>
   }
 
 
-  template <typename T> void move ( T* dst, const T* src, size_t elements, __false_type)
+  template <typename T>
+    inline void move ( T* dst, const T* src, size_t elements, __false_type ft)
   {
 
       T* dst_end = dst + elements;
       const T* src_end = src + elements;
 
       if( max(src,dst) >= min(dst_end,src_end)  )
-        copy(dst,src,elements);
+        copy(dst,src,elements,ft);
       else if(dst < src)
         for(; dst < dst_end; ++dst, ++src )
           *dst = *src;
@@ -361,7 +399,7 @@ template <typename T>
   template <typename T> void move ( T* dst, const T* src, size_t elements)
   {
       typedef typename __type_traits<T>::has_trivial_copy_constructor Tr;
-      move(dst,src,elements, Tr());
+      move(dst,src,elements,Tr());
   }
 
   template <typename T>
@@ -373,7 +411,9 @@ template <typename T>
 
   template <typename T> void init ( T* dst, size_t elements, __true_type)
   {
-      //do nothing
+      T t = T();
+      for(T* dst_end = dst + elements; dst < dst_end; ++dst )
+        *dst = t;
   }
   template <typename T> void init ( T* dst, size_t elements, __false_type)
   {
@@ -417,11 +457,87 @@ template <typename T>
       {
         return name != rs.name || value != rs.value;
       }
-
-
     };
 
+template <typename TC>
+  class itostr
+    {
+      TC buffer[38];
+    public:
+      itostr(int n, int radix = 10)
+      {
+        buffer[0] = 0;
+        if(radix < 2 || radix > 36) return;
+
+        static char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+        int i=0, sign = n;
+
+        if (sign < 0)
+          n = -n;
+
+        do buffer[i++] = TC(digits[n % radix]);
+        while ((n /= radix) > 0);
+
+        if (sign < 0)
+          buffer[i++] = TC('-');
+        buffer[i] = TC('\0');
+
+        TC* p1 = &buffer[0];
+        TC* p2 = &buffer[i-1];
+        while( p1 < p2 )
+        {
+          swap(*p1,*p2); ++p1; --p2;
+        }
+      }
+      /*
+      char *itoa(int n, char *s, int b)
+      {
+      }
+      */
+      operator const TC*() { return buffer; }
+    };
+
+    typedef itostr<char> itoa;
+    typedef itostr<wchar> itow;
+
+    /** Float to string converter.
+        Use it as ostream << ftoa(234.1); or
+        Use it as ostream << ftoa(234.1,"pt"); or
+    **/
+  class ftoa
+    {
+      char buffer[64];
+    public:
+      ftoa(double d, const char* units = "", int fractional_digits = 1)
+      {
+        //_snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
+        do_snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
+        buffer[63] = 0;
+      }
+      operator const char*() { return buffer; }
+    };
+
+    /** Float to wstring converter.
+        Use it as wostream << ftow(234.1); or
+        Use it as wostream << ftow(234.1,"pt"); or
+    **/
+  class ftow
+    {
+      wchar_t buffer[64];
+    public:
+      ftow(double d, const wchar_t* units = L"", int fractional_digits = 1)
+      {
+        do_w_snprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+        //_snwprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+        buffer[63] = 0;
+      }
+      operator const wchar_t*() { return buffer; }
+    };
+
+
   #define items_in(a) (sizeof(a)/sizeof(a[0]))
+  //chars in sting literal
+  #define chars_in(s) (sizeof(s) / sizeof(s[0]) - 1)
 
   inline dword make_dword(word h, word l) { return (dword)h << 16 | (dword)l; }
 
@@ -579,132 +695,46 @@ template<typename T>
     sorter< T,comparator<T> >::sort(arr, arr_size,comparator<T>());
   }
 
-  /*
-  template<typename T>
-    void sort(T* arr, size_t arr_size)
-  {
-      enum
-          {
-              quick_sort_threshold = 9
-          };
-
-      if(arr_size < 2) return;
-
-      T* e1;
-      T* e2;
-
-      int  stack[80];
-      int* top = stack;
-      int  limit = arr_size;
-      int  base = 0;
-
-      for(;;)
-      {
-          int len = limit - base;
-
-          int i;
-          int j;
-          int pivot;
-
-          if(len > quick_sort_threshold)
-          {
-              // we use base + len/2 as the pivot
-              pivot = base + len / 2;
-              swap(arr[base], arr[pivot]);
-
-              i = base + 1;
-              j = limit - 1;
-
-              // now ensure that *i <= *base <= *j
-              e1 = &(arr[j]);
-              e2 = &(arr[i]);
-              if(*e1 < *e2) swap(*e1, *e2);
-
-              e1 = &(arr[base]);
-              e2 = &(arr[i]);
-              if(*e1 < *e2) swap(*e1, *e2);
-
-              e1 = &(arr[j]);
-              e2 = &(arr[base]);
-              if(*e1 < *e2) swap(*e1, *e2);
-
-              for(;;)
-              {
-                  do i++; while( arr[i] <  arr[base] );
-                  do j--; while( arr[base] <  arr[j] );
-
-                  if( i > j )
-                  {
-                      break;
-                  }
-
-                  swap(arr[i], arr[j]);
-              }
-
-              swap(arr[base], arr[j]);
-
-              // now, push the largest sub-array
-              if(j - base > limit - i)
-              {
-                  top[0] = base;
-                  top[1] = j;
-                  base   = i;
-              }
-              else
-              {
-                  top[0] = i;
-                  top[1] = limit;
-                  limit  = j;
-              }
-              top += 2;
-          }
-          else
-          {
-              // the sub-array is small, perform insertion sort
-              j = base;
-              i = j + 1;
-
-              for(; i < limit; j = i, i++)
-              {
-                  for(; *(e1 = &(arr[j + 1])) < *(e2 = &(arr[j])); j--)
-                  {
-                      swap(*e1, *e2);
-                      if(j == base)
-                      {
-                          break;
-                      }
-                  }
-              }
-              if(top > stack)
-              {
-                  top  -= 2;
-                  base  = top[0];
-                  limit = top[1];
-              }
-              else
-              {
-                  break;
-              }
-          }
-      }
-  }
-*/
 
   // double linked list , use CRTP
   template< typename T >
     struct l2elem
     {
-        T* next;
-        T* prev;
-        void link_after(l2elem* after) { (next = after->next)->prev = this; (prev = after)->next = this; }
-        void link_before(l2elem* before) { (prev = before->prev)->next = this; (next = before)->prev = this; }
-        void unlink() { prev->next = next; next->prev = prev; }
-        void prune() { next = prev = this;}
-        bool empty() const { return next == this;  };
+        l2elem<T>* _next;
+        l2elem<T>* _prev;
+        void link_after(l2elem* after) { (_next = after->_next)->_prev = this; (_prev = after)->_next = this; }
+        void link_before(l2elem* before) { (_prev = before->_prev)->_next = this; (_next = before)->_prev = this; }
+        void unlink() { _prev->_next = _next; _next->_prev = _prev; }
+        void prune() { _next = _prev = this;}
+        bool empty() const { return _next == this;  };
+
+        inline T* next() {  return static_cast<T*>(_next); }
+        inline T* prev() {  return static_cast<T*>(_prev); }
+
     };
 
+  // I do not know what really is this in theory. Let it be semaphore.
+  struct semaphore
+  {
+    int& _cnt;
+    semaphore(int& cnt): _cnt(cnt) { ++_cnt; }
+    ~semaphore() { --_cnt; }
+  };
 
-};
+#if defined(WINDOWS)
+  inline void beep() { MessageBeep(MB_ICONEXCLAMATION); }
+  inline void sleep(uint ms) { Sleep(ms); }
+#else
+  inline void beep() { putchar(7); }
+  inline void sleep(uint ms) { usleep( ms * 1000 );  }
+#endif
+
+  inline uint rotl(uint n)
+  {
+    return ( n >> (sizeof(n)-1) ) | ( n << 1 );
+  }
+
+}
 
 //|
 //| Search binary data using HORSPOOL algorithm (modified Boyer-Moore)
@@ -749,7 +779,7 @@ unsigned int crc32( const unsigned char *buffer, unsigned int count);
   ((a >> 1) & (1 << 3))
 
 
-#if defined(_DEBUG) //&& !defined(PLATFORM_WINCE)
+#if defined(_DEBUG)
   void _dprintf(const char* fmt, ...);
   #define dbg_printf _dprintf
 #else
@@ -758,17 +788,15 @@ unsigned int crc32( const unsigned char *buffer, unsigned int count);
 #endif
 
 
-void debug_printf(const char* fmt, ...);
-void debug_println(const wchar* start, const wchar* end);
+  void debug_printf(const char* fmt, ...);
+  void debug_println(const wchar* start, const wchar* end);
 
+  #define debug_assert(b,exp) if(!(b)) debug_printf((exp))
 
 #if defined(WINDOWS)
   typedef void CALLBACK debug_output_func( void* p, int c);
-  inline void beep() { MessageBeep(MB_ICONEXCLAMATION); }
-
 #else
   typedef void debug_output_func( void* p, int c);
-  inline void beep() { putchar(7); }
 #endif
 
 void setup_debug_output(void* p, debug_output_func* pf);

@@ -50,7 +50,7 @@ void *mm_file::open(const char *path, bool to_write)
     {
 #ifdef _DEBUG
       DWORD erno = GetLastError();
-      _dprintf("ERROR: mm file open <%s> failed %x\n",path, erno);
+      dbg_printf("ERROR: mm file open <%s> failed %x\n",path, erno);
 #endif
       return 0;
     }

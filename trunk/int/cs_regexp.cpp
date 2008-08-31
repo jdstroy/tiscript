@@ -6,7 +6,7 @@
 */
 
 #include "cs.h"
-#include "wregexp.h"
+#include "tl_wregexp.h"
 
 namespace tis 
 {
@@ -43,9 +43,9 @@ VP_METHOD_ENTRY( "lastIndex",      CSF_lastIndex,	0			),
 VP_METHOD_ENTRY( 0,                0,					    0			)
 };
 
-inline wregexp* RegExpValue(VM *c, value obj) 
+inline tool::wregexp* RegExpValue(VM *c, value obj) 
 {  
-  return CsRegExpP(c,obj)? (wregexp*)CsCObjectValue(obj):0; 
+  return CsRegExpP(c,obj)? (tool::wregexp*)CsCObjectValue(obj):0; 
 }
 
 /* prototypes */
@@ -58,7 +58,7 @@ value RegExpGetItem(VM *c,value obj,value tag)
   if(!CsIntegerP(tag))
      CsTypeError(c,tag);
   
-  wregexp* pre = RegExpValue(c,obj);
+  tool::wregexp* pre = RegExpValue(c,obj);
   if(!pre)
       return c->undefinedValue;
 
@@ -95,13 +95,13 @@ bool CsRegExpP(VM *c, value obj)
 }
 
 /* CsMakeRegExp - make a 'RegExp' obj */
-value CsMakeRegExp(VM *c,wregexp *re)
+value CsMakeRegExp(VM *c,tool::wregexp *re)
 {
   value v = CsMakeCPtrObject(c,c->regexpDispatch,re);
   return v;
 }
 
-inline void SetRegExpValue(value obj, wregexp* pw)
+inline void SetRegExpValue(value obj, tool::wregexp* pw)
 {
   CsSetCObjectValue(obj,pw);
 }
@@ -114,14 +114,14 @@ static value CSF_ctor(VM *c)
     CsParseArguments(c,"V=*VV?",&val,c->regexpDispatch,&src,&flags);
 
 
-    //wregexp* pre = RegExpValue(c,val);
+    //tool::wregexp* pre = RegExpValue(c,val);
     //pre->source = src;
     //pre->flags = flags;
     
     tool::ustring f = value_to_string(flags);
     tool::ustring s = value_to_string(src);
     
-    wregexp* pre = new wregexp();
+    tool::wregexp* pre = new tool::wregexp();
     if( !pre->compile(s,f.index_of('i') >= 0, f.index_of('g') >= 0) )
     {
       delete pre;
@@ -136,7 +136,7 @@ static value CSF_ctor(VM *c)
 /* DestroyRegExp - destroy a file obj */
 static void DestroyRegExp(VM *c,value obj)
 {
-  wregexp* pre = RegExpValue(c,obj);
+  tool::wregexp* pre = RegExpValue(c,obj);
   delete pre;
   SetRegExpValue(obj, 0);
 }
@@ -145,7 +145,7 @@ static value CSF_length(VM *c,value obj)
 {
   if(CsRegExpP(c,obj))
   {
-    wregexp* pre = RegExpValue(c,obj);
+    tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
       CsMakeInteger(c,0);
     return CsMakeInteger(c,pre->get_number_of_matches());
@@ -157,7 +157,7 @@ static value CSF_index(VM *c,value obj)
 {
   if(CsRegExpP(c,obj))
   {
-    wregexp* pre = RegExpValue(c,obj);
+    tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
       CsMakeInteger(c,0);
     return CsMakeInteger(c,pre->get_match_start());
@@ -168,7 +168,7 @@ static value CSF_lastIndex(VM *c,value obj)
 {
   if(CsRegExpP(c,obj))
   {
-    wregexp* pre = RegExpValue(c,obj);
+    tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
       CsMakeInteger(c,0);
     return CsMakeInteger(c,pre->get_match_end());
@@ -181,7 +181,7 @@ static value CSF_input(VM *c,value obj)
 {
   if(CsRegExpP(c,obj))
   {
-    wregexp* pre = RegExpValue(c,obj);
+    tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
       return c->undefinedValue;
     return string_to_value(c,pre->m_test);
@@ -193,7 +193,7 @@ static value CSF_source(VM *c,value obj)
 {
   if(CsRegExpP(c,obj))
   {
-    wregexp* pre = RegExpValue(c,obj);
+    tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
       return c->undefinedValue;
     return string_to_value(c,pre->m_pattern);
@@ -209,7 +209,7 @@ static value CSF_test(VM *c)
     value obj;
     wchar *str;
     CsParseArguments(c,"V=*S",&obj,c->regexpDispatch,&str);
-    wregexp* pre = RegExpValue(c,obj);
+    tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
       return c->undefinedValue;
     return pre->exec(str)? c->trueValue: c->falseValue;
@@ -221,7 +221,7 @@ static value CSF_exec(VM *c)
     value obj;
     wchar *str;
     CsParseArguments(c,"V=*S",&obj,c->regexpDispatch,&str);
-    wregexp* pre = RegExpValue(c,obj);
+    tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
       return c->undefinedValue;
 
@@ -245,7 +245,7 @@ value CSF_string_match(VM *c)
 
     if(CsRegExpP(c,pat))
     {
-      wregexp* pre = RegExpValue(c,pat);
+      tool::wregexp* pre = RegExpValue(c,pat);
       if(!pre)
         CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
       if(pre->exec(test))
@@ -255,11 +255,12 @@ value CSF_string_match(VM *c)
         else
         {
           value vec = CsMakeVector(c,pre->get_number_of_matches());
+          CsPush(c,vec);
           for( int i = 0; i < pre->get_number_of_matches(); ++i )
           {
-            CsSetVectorElement(c, vec, i, string_to_value( c, pre->get_match(i) ) );
+            CsSetVectorElement(c, CsTop(c), i, string_to_value( c, pre->get_match(i) ) );
           }
-          return vec;
+          return CsPop(c);
         }
         //return pre->exec(test)?pat: c->nullValue;
       }
@@ -267,13 +268,12 @@ value CSF_string_match(VM *c)
     }
     else if(CsStringP(pat))
     {
-      tool::auto_ptr<wregexp> pre(new wregexp);
+      tool::auto_ptr<tool::wregexp> pre(new tool::wregexp);
       if(!pre->compile(value_to_string(pat),false,false))
       {
         CsThrowKnownError(c,CsErrRegexpError,"bad expression");
       }
       if(pre->exec(test))
-#pragma TODO("Wrong!")
         return CsMakeRegExp(c,pre.release());
       return c->nullValue;
     }
@@ -295,7 +295,7 @@ bool CsIsLike( VM *c, value what, value pat )
     }
     else if(CsRegExpP(c,pat))
     {
-      wregexp* pre = RegExpValue(c,pat);
+      tool::wregexp* pre = RegExpValue(c,pat);
       if(!pre) CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
       return pre->exec(str.start)? true: false;
     }
@@ -315,10 +315,10 @@ value CSF_string_search(VM *c)
 
     if(CsRegExpP(c,pat))
     {
-      wregexp* pre = RegExpValue(c,pat);
-      pre->m_nextIndex = 0;
+      tool::wregexp* pre = RegExpValue(c,pat);
       if(!pre)
         CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
+      pre->m_nextIndex = 0;
       if(pre->exec(test))
         return CsMakeInteger(c,pre->get_match_start());
       else
@@ -326,7 +326,7 @@ value CSF_string_search(VM *c)
     }
     else if(CsStringP(pat))
     {
-      tool::auto_ptr<wregexp> pre(new wregexp);
+      tool::auto_ptr<tool::wregexp> pre(new tool::wregexp);
       if(!pre->compile(value_to_string(pat),false,false))
       {
         CsThrowKnownError(c,CsErrRegexpError,"bad expression");
@@ -366,7 +366,7 @@ value CSF_string_replace(VM *c)
     if(!CsRegExpP(c,pat))
         CsThrowKnownError(c,CsErrRegexpError,"first parameter is not a RE object");
 
-    wregexp* pre = RegExpValue(c,pat);
+    tool::wregexp* pre = RegExpValue(c,pat);
     if(!pre)
       CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
 
@@ -409,13 +409,19 @@ value CSF_string_split(VM *c)
     tool::ustring t;
     tool::wchars test = value_to_wchars(obj,t);
 
+    if( CsFreeSpace(c) < test.length * 3)
+    {
+      t = test; 
+      test = t;
+    }
+
     const wchar * start = test.start;
     const wchar * end = start;
     tool::array< tool::wchars > slices;
 
     if(CsRegExpP(c,pat))
     {
-      wregexp *pre = RegExpValue(c,pat);
+      tool::wregexp *pre = RegExpValue(c,pat);
       if(!pre)
         CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
 
@@ -459,12 +465,13 @@ value CSF_string_split(VM *c)
       CsTypeError(c,pat);
 
     value vec = CsMakeVector(c, slices.size() );
+    CsPush(c,vec);
     for( int i = 0; i < slices.size(); ++i )
     {
-      CsSetVectorElement(c, vec, i, 
+      CsSetVectorElement(c, CsTop(c), i, 
         CsMakeCharString(c,slices[i].start,slices[i].length) ); 
     }
-    return vec;
+    return CsPop(c);
 }
 
 

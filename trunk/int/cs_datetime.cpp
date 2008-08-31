@@ -1156,7 +1156,7 @@ static value CSF_dayOfWeekName(VM *c)
 static value CSF_valueOf(VM *c)
 {
     value d;
-    CsParseArguments(c,"V=*",&d,c->dateDispatch);
+    CsParseArguments(c,"V=*|B",&d,c->dateDispatch);
     tool::datetime_t ft = CsDateValue(c,d);
     /*
     SYSTEMTIME st; memset(&st,0, sizeof(st));
@@ -1167,8 +1167,8 @@ static value CSF_valueOf(VM *c)
     SystemTimeToFileTime(&st,&ftzero);
     */
 
-    int64 n = int64(ft) / 10000 - ms1970();
-    return CsMakeFloat(c, float_t(n) );
+    double n = double(int64(ft)) / 10000.0 - ms1970();
+    return CsMakeFloat(c, n );
 }
 
 static value CSF_localOffset(VM *c)

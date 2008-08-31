@@ -8,6 +8,12 @@
 #include <string.h>
 #include "cs.h"
 
+#ifdef _DEBUG
+#define new DEBUG_NEW
+#undef THIS_FILE
+static char THIS_FILE[] = __FILE__;
+#endif
+
 namespace tis
 {
 
@@ -30,40 +36,68 @@ static const char* well_known_symbols[] =
   "index",
 };
 
+tool::mutex& symbol_table_guard()
+{
+  static tool::mutex  _symbol_table_guard;
+  return _symbol_table_guard;
+}
+
 symtab& symbol_table()
 {
   static symtab _symbol_table;
+  tool::critical_section cs(symbol_table_guard());
   if( _symbol_table.size() == 0 )
   {
     for( int n = 0; n < (int) items_in(well_known_symbols); ++n )
     {
-      (void)_symbol_table[well_known_symbols[n]];
-      //const char* str = _symbol_table( n+1 );
-      //dbg_printf("%d %s\n", n+1, str);
+      uint i = _symbol_table[well_known_symbols[n]];
+      i;
+      //const char* str = _symbol_table( i );
+      //dbg_printf("%d %s\n", i, str);
     }
   }
   return _symbol_table;
+}
+
+static const char* get_symbol(uint idx)
+{
+  tool::critical_section cs(symbol_table_guard());
+  return symbol_table()(idx);
+}
+
+static uint intern(const char* s)
+{
+  tool::critical_section cs(symbol_table_guard());
+  return symbol_table()[s];
 }
 
 const char* CsSymbolPrintName(value o)
 {
   symbol_t idx = to_symbol(o);
   assert(idx && idx <= symbol_table().size());
-  return symbol_table()( idx );
+  return get_symbol( idx );
 }
 
 tool::string CsSymbolName(value o)
 {
   symbol_t idx = to_symbol(o);
-  assert(idx && idx <= symbol_table().size());
-  return symbol_table()( idx );
+  return symbol_name(idx);
 }
 
-int            CsSymbolPrintNameLength(value o)
+tool::string symbol_name(symbol_t idx)
+{
+  assert(idx && idx <= symbol_table().size());
+  if( idx && idx <= symbol_table().size() )
+    return get_symbol( idx );
+  return tool::string();
+}
+
+
+int CsSymbolPrintNameLength(value o)
 {
   symbol_t idx = to_symbol(o);
   assert(idx && idx <= symbol_table().size());
-  return strlen(symbol_table()( idx ));
+  return strlen(get_symbol( idx ));
 }
 
 static value CSF_toString(VM *c);
@@ -103,7 +137,7 @@ value CSF_toString(VM *c)
 
     sym &= 0x0FFFFFFF;
 
-    tool::string s = symbol_table()( sym );
+    tool::string s = get_symbol( sym );
     tool::ustring us = tool::ustring::utf8(s,s.length());
     return string_to_value(c,us);
 }
@@ -169,7 +203,7 @@ static bool SymbolPrint(VM *c,value val,stream *s, bool toLocale)
 {
     symbol_t idx = to_symbol(val);
     assert(idx <= symbol_table().size());
-    tool::string str = symbol_table()( idx );
+    tool::string str = get_symbol( idx );
     //if (!s->put('#'))
     //  return false;
     long size = str.length();
@@ -204,7 +238,7 @@ static int_t SymbolHash(value obj)
 value CsMakeSymbol(VM *c,const char *printName,int length)
 {
     tool::string s(printName,length?length:strlen(printName) );
-    size_t idx = symbol_table()[s];
+    uint idx = intern(s);
     value v = CsSymbol(idx);
     return v;
 }
@@ -213,30 +247,29 @@ value CsMakeSymbol(VM *c,const char *printName,int length)
 value CsMakeSymbol(VM *c,const wchar *printName,int length)
 {
     tool::ustring us(printName,length?length:wcslen(printName));
-    size_t idx = symbol_table()[us.utf8()];
+    uint idx = intern(us.utf8());
     return CsSymbol(idx);
 }
-
 
 value CsSymbolOf(const char *printName)
 {
     tool::string s(printName);
-    size_t idx = symbol_table()[s];
+    uint idx = intern(s);
     return CsSymbol(idx);
 }
 
 size_t CsSymbolIdx(const char *printName)
 {
     tool::string s(printName);
-    size_t idx = symbol_table()[s];
+    size_t idx = intern(s);
     return idx;
 }
 
 const char* CsSymbolIntern(const char *printName)
 {
     tool::string s(printName);
-    size_t idx = symbol_table()[s];
-    return symbol_table()(idx);
+    uint idx = intern(s);
+    return get_symbol(idx);
 }
 
 
@@ -247,7 +280,6 @@ value CsIntern(VM *c,value printName)
     // ustring us could be avoided.
     tool::ustring us = value_to_string(printName);
     tool::string s = us.utf8();
-    //return CsInternString(c,CsStringAddress(printName),CsStringSize(printName));
     return CsInternString(c,s,s.length());
 }
 
@@ -290,32 +322,36 @@ bool CsGetGlobalValue(VM *c,value sym,value *pValue)
 			      *pValue = CsPropertyValue(property);
             return true;
         }
-        /*while ( CsObjectP(obj) || CsCObjectP(obj) )
+
+        if( CsClassP(obj) ) // special case, class establishes namespace too 
         {
-          if( property = CsFindProperty(c,obj,sym,0,0))
-          {
-	          *pValue = CsPropertyValue(property);
-             return true;
-          }
           obj = CsObjectClass(obj);
-        }*/
+          while ( CsObjectP(obj) || CsCObjectP(obj) || CsClassP(obj) )
+          {
+            if( property = CsFindProperty(c,obj,sym,0,0))
+            {
+	            *pValue = CsPropertyValue(property);
+               return true;
+            }
+            obj = CsObjectClass(obj);
+          }
+        }
   }
-  //CsDumpScopes(c);
   return false;
 }
 
 
 value CsGetGlobalValueByPath(VM *c,const char* path)
 {
-  tool::string::tokenz tz(path,'.');
-  tool::string s;
-  value obj = CsCurrentScope(c)->globals;
+  tool::atokens tz(tool::chars_of(path),".");
+  tool::chars s;
+  value obj = CsGlobalScope(c)->globals;
   while( tz.next(s) )
   {
     value v = 0;
-    if( CsGetProperty1(c,obj,CsMakeSymbol(c,s,s.length()),&v) )
+    if( CsGetProperty1(c,obj,CsMakeSymbol(c,s.start,s.length),&v) )
     {
-      if( v && CsObjectP(v) )
+      if( v /*&& CsObjectP(v)*/ )
       {
         obj = v;
         continue;
@@ -326,8 +362,6 @@ value CsGetGlobalValueByPath(VM *c,const char* path)
   }
   return obj;
 }
-
-
 
 /*
 bool CsGlobalValue(CsScope *scope,value sym,value *pValue)
@@ -345,18 +379,18 @@ bool CsGlobalValue(CsScope *scope,value sym,value *pValue)
 */
 
 /* CsSetGlobalValue - set the value of a global symbol */
-void CsSetGlobalValue(CsScope *scope,value sym,value val)
+void CsSetGlobalValue(CsScope *scope,value sym,value value)
 {
-    CsSetProperty(scope->c,CsScopeObject(scope),sym,val);
+    CsSetProperty(scope->c,CsScopeObject(scope),sym,value);
 }
 
-void CsCreateGlobalConst(CsScope *scope,value sym,value val)
+void CsCreateGlobalConst(VM *c, value sym,value val)
 {
     //printf("CsSetGlobalValue step 0 %x %x\n", scope, scope->c );
     if( !CsSymbolP(sym) )
-      CsThrowKnownError(scope->c,CsErrImpossible);
+      CsThrowKnownError(c,CsErrImpossible);
 
-    CsAddConstant(scope->c,CsScopeObject(scope),sym, val);
+    CsAddConstant(c,c->getCurrentNS(),sym, val);
 }
 
 /* AllocateSymbolSpace - allocate symbol space

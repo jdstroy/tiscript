@@ -28,6 +28,7 @@ static value CSF_dumpScopes(VM *c);
 
 static value CSF_toInteger(VM *c);
 static value CSF_toFloat(VM *c);
+static value CSF_crackUrl(VM *c);
 
 value length_string( VM *c, tool::value::unit_type type )
 {
@@ -43,8 +44,8 @@ value length_string( VM *c, tool::value::unit_type type )
     {
       case tool::value::em: units = "em"; break;
       case tool::value::ex: units = "ex"; break;
-      case tool::value::pr: units = "pr"; break;
-      case tool::value::sp: units = "sp"; break;
+      case tool::value::pr: units = "%"; break;
+      case tool::value::sp: units = "%%"; break;
       case tool::value::px: units = "px"; break;
       case tool::value::in: units = "in"; break;
       case tool::value::cm: units = "cm"; break;
@@ -89,6 +90,7 @@ C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
 C_METHOD_ENTRY( "toFloat",          CSF_toFloat          ),
 C_METHOD_ENTRY( "dumpScopes",       CSF_dumpScopes       ),
 C_METHOD_ENTRY( "missed",           CSF_missed           ),
+C_METHOD_ENTRY( "crackUrl",         CSF_crackUrl         ),
 
 C_METHOD_ENTRY( "px",               CSF_px               ),
 C_METHOD_ENTRY( "pt",               CSF_pt               ),
@@ -419,7 +421,7 @@ value CsTypeOf(VM *c, value val)
       return symbol_value(S_STRING);
     if(d == &CsVectorDispatch || d == &CsMovedVectorDispatch)
       return symbol_value(S_ARRAY);
-    if(d == &CsObjectDispatch || d == &CsCObjectDispatch)
+    if(d == &CsObjectDispatch || d == &CsCObjectDispatch || d == &CsClassDispatch)
       return symbol_value(S_OBJECT);
     if(d == &CsSymbolDispatch)
       return symbol_value(S_SYMBOL);
@@ -432,90 +434,71 @@ value CsTypeOf(VM *c, value val)
 }
 
 
-  value value_to_value(VM *c, const json::value& v)
+static value CSF_crackUrl(VM *c)
+{
+  wchar* str = 0;
+  int    len = 0;
+  CsParseArguments(c,"**S#",&str,&len);
+  if(str && len)
   {
-    switch(v.type())
+    tool::url u;
+    if(u.parse(tool::string(str,len)))
     {
-      case json::value::V_UNDEFINED:  return c->nullValue;
-      case json::value::V_BOOL:       return v.get(false)? c->trueValue:c->falseValue;
-      case json::value::V_INT:        return CsMakeInteger(c, v.get(0));
-      case json::value::V_REAL:       return CsMakeFloat(c, v.get(0.0));
-      case json::value::V_STRING:     return string_to_value(c,v.get(L""));
-      case json::value::V_ARRAY:
-        {
-          int sz = v.length();
-          value vo = CsMakeVector(c, sz);
-          CsPush(c,vo);
-          for(int i=0; i < sz; ++i)
-            CsSetVectorElement(c,CsTop(c),i,value_to_value(c,v[i]));
-          vo = CsPop(c);
-          return vo;
-        }
-      case json::value::V_MAP:
-        {
-          value vo = CsMakeObject(c, c->undefinedValue);
-          const json::named_value* tuple = v.get_first();
-          CsPush(c,vo);
-          int n = 0;
-          while(tuple)
-          {
-            value k,v;
-            CsPush(c, value_to_value(c, tuple->key));
-            v = value_to_value(c, tuple->val);
-            k = CsPop(c);
-            CsSetObjectProperty(c,CsTop(c),k,v);
-            ++n;
-            tuple = tuple->next;
-          }
-          vo = CsPop(c);
-          return vo;
-        }
+      pvalue pobj(c,CsMakeObject(c,c->objectObject));
+      pvalue pkey(c);
+      pvalue pval(c);
+        
+      pkey = CsMakeString(c,WCHARS("port"));
+      pval = CsMakeInteger(c,u.port);
+      CsObjectSetItem(c,pobj,pkey,pval);
+
+      pkey = CsMakeString(c,WCHARS("protocol"));
+      pval = CsMakeCString(c,u.protocol);
+      CsObjectSetItem(c,pobj,pkey,pval);
+
+      pkey = CsMakeString(c,WCHARS("hostname"));
+      pval = CsMakeCString(c,u.hostname);
+      CsObjectSetItem(c,pobj,pkey,pval);
+
+      pkey = CsMakeString(c,WCHARS("anchor"));
+      pval = CsMakeCString(c,u.anchor);
+      CsObjectSetItem(c,pobj,pkey,pval);
+
+      if( !u.is_local() )
+      {
+        pkey = CsMakeString(c,WCHARS("username"));
+        pval = CsMakeCString(c,u.username);
+        CsObjectSetItem(c,pobj,pkey,pval);
+
+        pkey = CsMakeString(c,WCHARS("password"));
+        pval = CsMakeCString(c,u.password);
+        CsObjectSetItem(c,pobj,pkey,pval);
+      }
+
+      pkey = CsMakeString(c,WCHARS("params"));
+      pval = CsMakeCString(c,u.params);
+      CsObjectSetItem(c,pobj,pkey,pval);
+
+      tool::string dir = u.dir();
+      pkey = CsMakeString(c,WCHARS("dir"));
+      pval = CsMakeCString(c,dir);
+      CsObjectSetItem(c,pobj,pkey,pval);
+
+      tool::string name = u.name();
+      pkey = CsMakeString(c,WCHARS("name"));
+      pval = CsMakeCString(c,name);
+      CsObjectSetItem(c,pobj,pkey,pval);
+
+      tool::string ext = u.ext();
+      pkey = CsMakeString(c,WCHARS("ext"));
+      pval = CsMakeCString(c,ext);
+      CsObjectSetItem(c,pobj,pkey,pval);
+
+      return pobj;
     }
-    assert(false);
-    return c->undefinedValue;
   }
-
-  struct tos :object_scanner
-  {
-    json::value map;
-    virtual bool item( VM *c, value key, value val )
-    {
-      map.v2k( value_to_value(c,key), value_to_value(c,val) );
-      return true;
-    }
-  };
-
-
-  json::value value_to_value(VM *c, value v)
-  {
-    if( CsStringP(v) )
-      return json::value( CsStringAddress(v) );
-    if( v == c->trueValue )
-      return json::value( true );
-    if( v == c->falseValue )
-      return json::value( false );
-    if( CsIntegerP( v ) )
-      return json::value( CsIntegerValue( v ) );
-    if( CsFloatP( v ) )
-      return json::value( CsFloatValue( v ) );
-    if( CsVectorP( v ) )
-    {
-      int sz = CsVectorSize(c,v);
-      tool::array<json::value> va( sz );
-      for(int i=0; i < sz; ++i)
-         va[i] = value_to_value(c, CsVectorElement(c,v,i));
-      return json::value(va.head(), va.size());
-    }
-    if( CsObjectP( v ) )
-    {
-	  tos scanner;
-      CsScanObject( c, v, scanner);
-      return scanner.map;
-    }
-    return json::value();
-  }
-
-
+  return c->nullValue;
+}
 
 
 }

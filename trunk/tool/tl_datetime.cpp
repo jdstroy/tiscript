@@ -6,16 +6,17 @@
 //| date & time implementation
 //|
 //|
+
+#include "tl_config.h"
+
 #include <stdlib.h>
-#if !defined( WIN32 )
+#ifdef WINDOWS
+#include <TCHAR.H> 
+#else
 #include <sys/time.h>
 #endif
-#include <time.h>
+#include <time.h> 
 #include "tl_datetime.h"
-
-#ifdef WINDOWS
-#include <TCHAR.H>
-#endif
 
 namespace tool
 {
@@ -48,22 +49,22 @@ namespace tool
       GetSystemTime(&st);
     else
       GetLocalTime(&st);
-
+    
     SystemTimeToFileTime( &st, (FILETIME*)&dt._time);
-
+    
 #else
     struct timeval tv;
-    gettimeofday(&tv, NULL);
+    gettimeofday(&tv, NULL); 
     struct tm syst = utc? *gmtime( &tv.tv_sec ): *localtime ( &tv.tv_sec );
     dt = syst;
     dt.set_frac_time(tv.tv_usec / 1000, tv.tv_usec % 1000, 0 );
-#endif
+#endif    
 
     /*
     time_t t;
     ::time ( &t );
     struct tm syst = utc? *gmtime( &t ): *localtime ( &t );
-
+    
     dt = syst;
     */
     return dt;
@@ -228,7 +229,7 @@ namespace tool
     days_absolute     += 584754L;	//  adjust days from 1/1/0 to 01/01/1601
 
     // Calculate the day of week (mon=0...sun=6)
-    //   -2 because 1/1/0 is Sat.
+    //   -2 because 1/1/0 is Sat.  
     dst.day_of_week = (int) (( days_absolute - 2 ) % 7L );
 
     // Leap years every 4 yrs except centuries not multiples of 400.
@@ -510,6 +511,11 @@ namespace tool
     dts.month += ( nv - dts.month );
     dts.year  += dts.month / 12;
     dts.month %= 12;
+    if( dts.month == 0 ) 
+    {
+        dts.month = 12;
+        dts.year  -= 1;
+    }
     cvt ( _time, dts );
   }
 
@@ -570,9 +576,15 @@ namespace tool
   }
 
 
-  ustring date_time::locale_format(const wchar* fmt) const
+  ustring date_time::locale_format(const wchar* fmt) const 
   {
 #ifdef WIN32
+
+#ifndef _WIN32_WCE
+    LCID lcid = GetThreadLocale();
+#else
+    LCID lcid = LOCALE_USER_DEFAULT;
+#endif
     //tool::datetime_t ft;
     //FileTimeToLocalFileTime((FILETIME*)&_time,(FILETIME*)&ft);
     SYSTEMTIME st;
@@ -581,9 +593,9 @@ namespace tool
     wchar str[64]; str[0] = 0;
     //uint flags = LOCALE_USER_DEFAULT;
     //if( !fmt ) flags |= DATE_SHORTDATE;
-
+      
     int n = GetDateFormatW(
-      LOCALE_USER_DEFAULT,  // locale
+      lcid,  // locale
       0,      // options
       &st,    // date
       fmt,    // date format
@@ -599,6 +611,12 @@ namespace tool
   ustring date_time::default_format(bool full) const
   {
 #ifdef WIN32
+
+#ifdef _WIN32_WCE
+    LCID lcid = LOCALE_USER_DEFAULT;
+#else
+    LCID lcid = GetThreadLocale();
+#endif
     //tool::datetime_t ft;
     //FileTimeToLocalFileTime((FILETIME*)&_time,(FILETIME*)&ft);
     SYSTEMTIME st;
@@ -606,9 +624,9 @@ namespace tool
 
     wchar str[64]; str[0] = 0;
     uint flags = full? DATE_LONGDATE: DATE_SHORTDATE;
-
+      
     int n = GetDateFormatW(
-      LOCALE_USER_DEFAULT,  // locale
+      lcid,  // locale
       flags,  // options
       &st,    // date
       0,      // date format
@@ -624,8 +642,13 @@ namespace tool
   int date_time::first_day_of_week() // returns first day of week for the current locale
   {
 #ifdef WIN32
+#ifdef _WIN32_WCE
+    LCID lcid = LOCALE_USER_DEFAULT;
+#else
+    LCID lcid = GetThreadLocale();
+#endif
     wchar sz[2];
-    BOOL bResult = GetLocaleInfoW(LOCALE_USER_DEFAULT, LOCALE_IFIRSTDAYOFWEEK, sz, 2);
+    BOOL bResult = GetLocaleInfoW(lcid, LOCALE_IFIRSTDAYOFWEEK, sz, 2);
     return sz[0]-'0';
 #else
     return 0;
@@ -635,8 +658,13 @@ namespace tool
   ustring date_time::week_day_name(int n, int maxlength)
   {
 #ifdef WIN32
+#ifdef _WIN32_WCE
+    LCID lcid = LOCALE_USER_DEFAULT;
+#else
+    LCID lcid = GetThreadLocale();
+#endif
     wchar sz[64]; sz[0] = 0;
-    GetLocaleInfoW(LOCALE_USER_DEFAULT, LOCALE_SABBREVDAYNAME1 + n, sz, 64);
+    GetLocaleInfoW(lcid, LOCALE_SABBREVDAYNAME1 + n, sz, 64);
     if(maxlength && maxlength < 64)
       sz[maxlength] = 0;
     return sz;
@@ -648,12 +676,16 @@ namespace tool
   void date_time::date_format(date_format_order& order, wchar& separator )
   {
 #ifdef WIN32
-    wchar sz[4];
-    BOOL bResult = GetLocaleInfoW(LOCALE_USER_DEFAULT, LOCALE_ILDATE, sz, 2);
-    order = date_format_order(sz[0]-'0');
-    bResult = GetLocaleInfoW(LOCALE_USER_DEFAULT, LOCALE_SDATE, sz, 4);
-    separator = sz[0];
-#else
+  #ifdef _WIN32_WCE
+      LCID lcid = LOCALE_USER_DEFAULT;
+  #else
+      LCID lcid = GetThreadLocale();
+  #endif
+      wchar sz[4];
+      BOOL bResult = GetLocaleInfoW(lcid, LOCALE_IDATE, sz, 2);
+      order = date_format_order(sz[0]-'0');
+      bResult = GetLocaleInfoW(lcid, LOCALE_SDATE, sz, 4);
+      separator = sz[0];
     return;
 #endif
   }

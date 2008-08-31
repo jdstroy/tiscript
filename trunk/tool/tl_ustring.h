@@ -3,7 +3,7 @@
 //| Copyright (c) 2001-2005
 //| Andrew Fedoniouk - andrew@terrainformatica.com
 //|
-//|
+//| 
 //|
 //|
 
@@ -74,8 +74,9 @@ class ustring {
         ustring(const ustring &s);
         ustring(const wchar *s);
         ustring(const wchar *s, int count);
+        ustring(wchars s);
 
-        ustring(const char *s);
+        ustring(const char *s, int count = 0);
         static ustring cvt(int codepage, const char *s, size_t slen);
 
 		ustring(const string &s);
@@ -84,7 +85,7 @@ class ustring {
         ~ustring();
         operator const wchar *() const;
         operator slice<wchar> () const;
-
+        
         wchar *buffer();
         wchar &operator[](int index);
         const wchar operator[](int index) const;
@@ -108,8 +109,9 @@ class ustring {
         ustring &operator+=(const ustring &s);
         ustring &operator+=(const wchar *s);
         ustring &operator+=(wchar c);
-
+        
         int length() const;
+        void length (int newlen) { set_length(newlen,true); }
         const wchar *end() const { return my_data->chars + length(); }
         bool is_empty() const;
         bool is_whitespace() const;
@@ -140,36 +142,41 @@ class ustring {
 
         bool equals( const wchar *s, bool nocase = true) const;
 
-        //
+        uint hash() const;
+
+        // 
         // pattern chars:
         //  '*' - any subustring
         //  '?' - any one wchar
         //  '['char set']' = any one char in set
-        //    e.g.  [a-z] - all lowercase letters
-        //          [a-zA-Z] - all letters
-        //          [abd-z] - all lowercase letters except of 'c'
-        //          [-a-z] - all lowercase letters and '-'
+        //    e.g.  [a-z] - all lowercase letters 
+        //          [a-zA-Z] - all letters 
+        //          [abd-z] - all lowercase letters except of 'c' 
+        //          [-a-z] - all lowercase letters and '-'  
         // returns:
         //    -1 - no match otherwise start pos of match
-        int  match(const wchar *pattern) const;
+        int  match(const wchar *pattern) const; 
         bool like(const wchar *pattern) const { return match(pattern) >= 0; }
-
+        
         ustring &printf(const wchar *fmt,...);
         static ustring format(const wchar *fmt,...);
 
-        // create ustring from utf8
+        // create ustring from utf8  
         static ustring utf8(const char *str, size_t len);
 
-        // create ustring from utf8
+        // create ustring from utf8  
         static ustring utf8(const byte *str, size_t len) { return  utf8((const char *)str, len); }
 
+        static ustring utf8(chars s) { return utf8( s.start, s.length ); }
+        static ustring utf8(bytes s) { return utf8( s.start, s.length ); }
 
+        
         // create utf8 string
         string utf8() const;
         ustring xml_escape() const;
 
         void inherit(const ustring& src) { if(src.length()) *this = src; }
-
+    
         bool defined() const { return my_data != &null_data; }
         bool undefined() const { return my_data == &null_data; }
 
@@ -202,12 +209,12 @@ class ustring {
             start = p = text;
             end = tok();
           }
-          bool next(ustring& v)
-          {
+          bool next(ustring& v) 
+          {  
             if(start && *start)
             {
               v = ustring(start,int(end-start));
-              start = p;
+              start = p; 
               end = tok();
               return true;
             }
@@ -227,6 +234,8 @@ class ustring {
     protected:
 
         ustring(data* dta);
+
+        void set_length ( int length, bool preserve_content = false );
 
         static void invalid_args_error(const wchar *fname);
         static void invalid_index_error(const wchar *fname);
@@ -279,7 +288,7 @@ inline void swap(ustring &s1, ustring &s2)
 { ustring::data *tmp = s1.my_data; s1.my_data = s2.my_data; s2.my_data = tmp; }
 
 inline bool ustring::equals(const wchar *s, bool nocase) const
-{
+{ 
   if(nocase) return (wcsicmp(my_data->chars,s) == 0);
   else return (wcscmp(my_data->chars,s) == 0);
 }
@@ -291,22 +300,26 @@ inline ustring::ustring(const ustring &s): my_data(&null_data)
 { replace_data(s.my_data); }
 
 inline ustring::ustring(const wchar *s): my_data(&null_data)
-{ if (s) {
-    const int length = int(::wcslen(s));
+{ if (s) { 
+    const int length = int(::wcslen(s)); 
     replace_data(length);
     ::memcpy(head(), s, length * sizeof(wchar));
-  }
+  } 
 }
 
 inline ustring::ustring(const wchar *s, int count): my_data(&null_data)
 { replace_data(count);
   ::memcpy(head(), s, count*sizeof(wchar)); }
 
+inline ustring::ustring(wchars s): my_data(&null_data)
+{ replace_data( int(s.length) );
+  ::memcpy(head(), s.start, s.length*sizeof(wchar)); }
+
 inline ustring::ustring(wchar c, int n): my_data(&null_data)
-{ replace_data(n);
+{ replace_data(n); 
   wchar *p = head();
   for(int i=0; i < n; i++ ) *p++ = c;
-  //::memset(head(), c, n * sizeof(wchar));
+  //::memset(head(), c, n * sizeof(wchar)); 
 }
 
 inline ustring::~ustring()
@@ -338,8 +351,8 @@ inline const wchar ustring::operator[](int index) const
   return head()[index]; }
 
 inline ustring &ustring::operator=(const ustring &s)
-{
-  replace_data(s.my_data); return *this;
+{ 
+  replace_data(s.my_data); return *this; 
 }
 
 inline ustring &ustring::operator=(const wchar *s)
@@ -418,17 +431,18 @@ inline bool ustring::contains(const wchar *s) const
 inline bool ustring::contains(wchar c) const
 { return (index_of(c, 0) >= 0); }
 
-template<>
-inline unsigned int hash<ustring>(const ustring& the_ustring) {
+inline unsigned int ustring::hash() const 
+{
   unsigned int h = 0, g;
-  wchar *pc = const_cast<wchar *>((const wchar *)the_ustring);
-  while(*pc) {
+  const wchar *pc = c_str();
+  while(*pc) { 
 	  h = (h << 4) + *pc++;
 	  if ((g = h & 0xF0000000) != 0) h ^= g >> 24;
 	  h &= ~g;
   }
   return h;
 }
+
 
 
 /****************************************************************************/
@@ -489,7 +503,7 @@ inline void to_utf8(const wchar* utf16, size_t utf16_length, array<byte>& utf8ou
 {
   const wchar *pc = utf16;
   const wchar *pc_end = utf16 + utf16_length;
-  for(wchar c = *pc; pc < pc_end ; c = *(++pc))
+  for(wchar c = *pc; pc < pc_end ; c = *(++pc)) 
     to_utf8(c,utf8out);
 }
 
@@ -497,9 +511,9 @@ inline void to_utf8_x(const wchar* utf16, size_t utf16_length, array<byte>& utf8
 {
   const wchar *pc = utf16;
   const wchar *pc_end = utf16 + utf16_length;
-  for(wchar c = *pc; pc < pc_end ; c = *(++pc))
+  for(wchar c = *pc; pc < pc_end ; c = *(++pc)) 
   {
-    switch(c)
+    switch(c) 
     {
         case '<': utf8out.push((const byte*)"&lt;",4); continue;
         case '>': utf8out.push((const byte*)"&gt;",4); continue;
@@ -510,6 +524,27 @@ inline void to_utf8_x(const wchar* utf16, size_t utf16_length, array<byte>& utf8
     to_utf8(c,utf8out);
   }
 }
+
+inline void to_utf8_x_no_amp(const wchar* utf16, size_t utf16_length, array<byte>& utf8out)
+{
+  const wchar *pc = utf16;
+  const wchar *pc_end = utf16 + utf16_length;
+  for(wchar c = *pc; pc < pc_end ; c = *(++pc)) 
+  {
+    switch(c) 
+    {
+        case '<': utf8out.push((const byte*)"&lt;",4); continue;
+        case '>': utf8out.push((const byte*)"&gt;",4); continue;
+        //case '&': utf8out.push((const byte*)"&amp;",5); continue;
+        case '"': utf8out.push((const byte*)"&quot;",6); continue;
+        case '\'': utf8out.push((const byte*)"&apos;",6); continue;
+    }
+    to_utf8(c,utf8out);
+  }
+}
+
+
+void from_utf8(const char *src, size_t len, array<wchar>& buf);
 
 //wchar   html_unescape(const string& name);
 wchar html_unescape(chars name);
@@ -522,8 +557,8 @@ void rtl_reorder( wchar* text, uint text_length );
   #define SOFT_HYPHEN wchar(0xAD)
   #define NBSP_CHAR wchar(0xA0)
 
-  enum WCHAR_CLASS
-  {
+  enum WCHAR_CLASS 
+  { 
     wcc_space,
     wcc_alpha,
     wcc_number,
@@ -534,6 +569,12 @@ void rtl_reorder( wchar* text, uint text_length );
     wcc_soft_hyphen,
     wcc_ideograph,
     wcc_rtl_alpha,
+    wcc_non_printable_space,
+    wcc_forced_space,
+    wcc_ltr_mark,
+    wcc_rtl_mark,
+    wcc_hangul,
+    wcc_surrogate_pair,
   };
 
 
@@ -543,33 +584,33 @@ inline WCHAR_CLASS wchar_class(wchar c)
   {
     switch(c)
     {
-      case '\r': assert( c == BREAK_CHAR );
+      case '\r': assert( c == BREAK_CHAR ); 
     return wcc_break;
 
-      case '\n': assert( c == NEWLINE_CHAR );
+      case '\n': assert( c == NEWLINE_CHAR ); 
     return wcc_newline;
-
+      
       case ' ':
-      case 0x9:   case 0xB: case 0xC:
+      case 0x9:   case 0xB: case 0xC:  
     return wcc_space;
-
+      
       case '!':   case '#':
       case '$':   case '%':   case '&':
       case '\'':  case '*':   case '+':
       case ',':   case '-':   case '.':
       case '/':   case ':':   case ';':
       case '<':   case '=':   case '>':
-      case '?':   case '\\':  case '^': case '|':
+      case '?':   case '\\':  case '^': case '|': 
     return wcc_punct;
-
-      //case 0xAB:  //Left Double Guillemet
-      //case 0xBB:  //Right Double Guillemet
+      
+      //case 0xAB:  //Left Double Guillemet 
+      //case 0xBB:  //Right Double Guillemet 
       //case 0x8B:
       case '\"':  case '(':   case ')':
-      case '[':   case ']':
-      case '{':   case '}':
+      case '[':   case ']':  
+      case '{':   case '}':  
     return wcc_paren;
-
+      
       case '0':   case '1':   case '2':
       case '3':   case '4':   case '5':
       case '6':   case '7':   case '8': case '9':
@@ -580,14 +621,47 @@ inline WCHAR_CLASS wchar_class(wchar c)
     }
   }
 
-  if( c >= 0x3000 )
-    return wcc_ideograph;
+  if( c >= 0x1100 &&
+      c <= 0x11FF )
+        return wcc_hangul; // Unicode Hangul Jamo block 
 
-  if( c == SOFT_HYPHEN || c == 0x200b)
+  if( c >= 0x3000 )
+  {
+    if( c >= 0xD800 && c <= 0xDFFF )
+      return wcc_surrogate_pair; // surrogate pair.
+
+    if( c >= 0xFF10 && // FULLWIDTH DIGIT ZERO (U+FF10)
+        c <= 0xFF19 ) // FULLWIDTH DIGIT NINE (U+FF19)
+          return wcc_number;
+    if( c >= 0xFF21 && // FULLWIDTH LATIN CAPITAL LETTER A (U+FF21)
+        c <= 0xFF3A)   // FULLWIDTH LATIN CAPITAL LETTER Z (U+FF3A)
+          return wcc_alpha;
+
+    if( c >= 0xAC00 &&
+        c <= 0xD7AF )
+          return wcc_hangul;
+
+    return wcc_ideograph;
+  }
+
+  if( c == SOFT_HYPHEN)
     return wcc_soft_hyphen;
 
   if( c == NBSP_CHAR)
-    return wcc_space;
+    return wcc_forced_space;//wcc_space;
+
+  if( c == 0x200b
+   || c == 0x2009
+   || c == 0x2006
+   || c == 0x2005
+   || c == 0x2004 )
+      return wcc_non_printable_space;
+
+  if( c == 0x200e ) // DIRECTIONALITY_LEFT_TO_RIGHT 
+      return wcc_ltr_mark;
+  if( c == 0x200f ) // DIRECTIONALITY_RIGHT_TO_LEFT
+      return wcc_rtl_mark;
+
 
   if((c >= 0x0590 && c <= 0x05FF) // Hebrew
    ||(c >= 0x0600 && c <= 0x07FF)) // Arabic, Arabic Sup., N'ko, Syriac, Thaana/Thana
@@ -600,9 +674,11 @@ inline WCHAR_CLASS wchar_class(wchar c)
 
   inline bool stoi(const wchar* s, int& i)
   {
+    if( !s || !s[0] )
+      return false;
     wchar* end = 0;
     int n = wcstol(s,&end,10);
-    if( end && *end == 0)
+    if( end && (*end == 0 || *end == '%'))
     {
       i = n;
       return true;
@@ -612,6 +688,8 @@ inline WCHAR_CLASS wchar_class(wchar c)
 
   inline bool stof(const wchar* s, double& d)
   {
+    if( !s || !s[0] )
+      return false;
     wchar* end = 0;
     double n = wcstod(s,&end);
     if( end && *end == 0)
@@ -620,6 +698,45 @@ inline WCHAR_CLASS wchar_class(wchar c)
       return true;
     }
     return false;
+  }
+
+  inline void to_lower( wchars wc )
+  {
+  #ifdef WINDOWS
+    CharLowerBuffW( const_cast<wchar*>(wc.start), DWORD(wc.length) );
+  #else
+    const wchar* end = wc.end();
+    for (wchar *p = const_cast<wchar*>(wc.start); p < end; ++p)
+      *p = towupper(*p);
+  #endif
+  }
+
+  inline void to_upper( wchars wc )
+  {
+  #ifdef WINDOWS
+    CharUpperBuffW( const_cast<wchar*>(wc.start), DWORD(wc.length) );
+  #else
+    const wchar* end = wc.end();
+    for (wchar *p = const_cast<wchar*>(wc.start); p < end; ++p)
+      *p = towlower(*p);
+  #endif
+  }
+
+  inline void capitalize( wchars wc )
+  {
+    bool cap_next = true;
+    const wchar* end = wc.end();
+    for (wchar *p = const_cast<wchar*>(wc.start); p < end; ++p)
+    {
+      WCHAR_CLASS wcc = wchar_class(*p);
+      bool is_delimiter = wcc == wcc_space || wcc == wcc_paren || wcc == wcc_punct || wcc == wcc_break || wcc == wcc_newline;
+      if (is_delimiter) cap_next = true;
+      else if (cap_next) 
+      {
+        to_upper(wchars(p,1));
+        cap_next = false;
+      } 
+    }
   }
 
 

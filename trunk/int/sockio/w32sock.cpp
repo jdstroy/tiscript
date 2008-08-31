@@ -10,17 +10,12 @@
 
 #include "w32sock.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <assert.h>
 
 #define MAX_HOST_NAME         256
 #define MILLISECOND           1000
 
 #if defined( UNDER_CE ) 
-#define strdup _strdup
-#endif
-
-#if _MSC_VER
 #define strdup _strdup
 #endif
 
@@ -470,7 +465,7 @@ socket_t* socket_t::connect(char const* _address,
 #if !defined( UNDER_CE ) 
     char   hostname[MAX_HOST_NAME];
     size_t hostname_len;
-    const char*  port;
+    char*  port;
 
     if (domain == sock_local_domain 
 	  || (domain == sock_any_domain 

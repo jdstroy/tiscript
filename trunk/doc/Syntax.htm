@@ -3,7 +3,7 @@
     <META http-equiv="Content-Type" content="text/html; charset=utf-8">
     <META name="GENERATOR" content="BLOCKNOTE.NET">
     <META name="source" content="http://www.terrainformatica.com/org/c-smile/c-smile-ref.htm">
-    <BASEFONT face="Verdana" size="2">
+    <BASEFONT face="Verdana" size=2>
     <TITLE>TIScript syntax</TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
 P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
 DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
@@ -11,6 +11,139 @@ TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
 </STYLE>
   </HEAD>
 <BODY>
-See official documentation of <A href="http://www.terrainformatica.com/wiki/tiscript:start">TIScript in the Terrarium</A>.</FONT>
+<H3>Statements</H3>
+<BLOCKQUOTE>
+<DIV><STRONG>if</STRONG> <STRONG>(</STRONG> &lt;expression&gt; <STRONG>)</STRONG> &lt;statement&gt; [ <STRONG>else</STRONG> &lt;statement&gt; ]</DIV>
+<DIV><STRONG>while</STRONG> <STRONG>(</STRONG> &lt;expression&gt; <STRONG>)</STRONG> &lt;statement&gt;</DIV>
+<DIV><STRONG>do</STRONG> &lt;statement&gt; <STRONG>while</STRONG> <STRONG>(</STRONG> &lt;expression&gt; <STRONG>)</STRONG></DIV>
+<DIV><STRONG>for</STRONG> ( [&lt;expression&gt;] | [<STRONG>var</STRONG> &lt;name-with-initialization&gt;] <STRONG>;</STRONG> [&lt;expression&gt;] <STRONG>;</STRONG> [&lt;expression&gt;] ) &lt;statement&gt;</DIV>
+<DIV><STRONG>for</STRONG> ( [&lt;name&gt;] | [<STRONG>var</STRONG> &lt;name-with-initialization&gt;] <STRONG>in</STRONG> [&lt;expression&gt;] ) &lt;statement&gt;</DIV>
+<DIV><STRONG>switch(</STRONG>&lt;expression&gt;<STRONG>) { case </STRONG>&lt;expression&gt;<STRONG>:</STRONG>&lt;statement&gt; [...] <STRONG>default: </STRONG>&lt;statement&gt; <STRONG>}</STRONG></DIV>
+<DIV><STRONG>break</STRONG>;</DIV>
+<DIV><STRONG>continue</STRONG>;</DIV>
+<DIV><STRONG>return</STRONG> [ &lt;expression&gt; ] <STRONG>;</STRONG></DIV>
+<DIV>&lt;expression&gt;<STRONG>;</STRONG></DIV>
+<DIV><STRONG>{</STRONG> &lt;statement&gt;... <STRONG>}</STRONG></DIV>
+<DIV><STRONG>var</STRONG> &lt;name&gt; [<STRONG>=</STRONG> &lt;expression&gt;] [ <STRONG>,</STRONG> ... ] <STRONG>;</STRONG></DIV>
+<DIV><STRONG>try</STRONG> &lt;statement&gt; <STRONG>catch</STRONG> <STRONG>(</STRONG> &lt;variable-name&gt; <STRONG>)</STRONG> &lt;statement&gt; <STRONG>finally</STRONG> &lt;statement&gt;</DIV></BLOCKQUOTE>
+
+<H3>Expressions</H3>
+<BLOCKQUOTE>
+<DIV>&lt;expression&gt; <STRONG>,</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>+=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>-=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>*=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>/=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>%=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>&amp;=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>|=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>^=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>&lt;&lt;=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>&gt;&gt;=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt; expression&gt; <STRONG>?</STRONG> &lt;expression (if-true)&gt; <STRONG>:</STRONG> &lt;expression (if-false)&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>||</STRONG> &lt;expresssion&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>&amp;&amp;</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>|</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>^</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>&amp;</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>==</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>===</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>!=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>!==</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>&lt;</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>&lt;=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>&gt;=</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>&gt;</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>&lt;&lt;</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>&gt;&gt;</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>+</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>-</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>*</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>/</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>%</STRONG> &lt;expression&gt;</DIV>
+<DIV>&lt;expression&gt; <STRONG>instanceof</STRONG> &lt;class-name&gt;</DIV>
+<DIV><STRONG>-</STRONG> &lt;expression&gt;</DIV>
+<DIV><STRONG>!</STRONG> &lt;expression&gt;</DIV>
+<DIV><STRONG>~</STRONG> &lt;expression&gt;</DIV>
+<DIV><STRONG>typeof</STRONG> &lt;expression&gt; <FONT color=#339900>// result is a string - name of type of the expression</FONT></DIV>
+<DIV><STRONG>++</STRONG> &lt;lvalue&gt;</DIV>
+<DIV><STRONG>--</STRONG>&lt;lvalue&gt;</DIV>
+<DIV>&lt;lvalue&gt; <STRONG>++</STRONG></DIV>
+<DIV>&lt;lvalue&gt; <STRONG>--</STRONG></DIV>
+<DIV><STRONG>new</STRONG> &lt;class-name&gt; <STRONG>(</STRONG> [ &lt;argument-list&gt; ] <STRONG>)</STRONG></DIV>
+<DIV>&lt;expression&gt; <STRONG>(</STRONG> [ &lt;arguments&gt; ] <STRONG>)</STRONG></DIV>
+<DIV>&lt;expression&gt; <STRONG>.</STRONG> &lt;name&gt;</DIV>
+<DIV>&lt;expression&gt; '<STRONG>[</STRONG>' &lt;expression&gt; '<STRONG>]</STRONG>'</DIV>
+<DIV>&lt;expression&gt; '<STRONG>[</STRONG>' [&lt;int-expression&gt;] <STRONG>..</STRONG> [&lt;int-expression&gt;] '<STRONG>]</STRONG>' <FONT color=#339900>// slice of the string/array</FONT></DIV>
+<DIV><STRONG>(</STRONG> &lt;expression&gt; <STRONG>)</STRONG></DIV>
+<DIV>&lt;variable-name&gt;</DIV>
+<DIV>&lt;number-constant&gt;</DIV>
+<DIV>&lt;string-constant&gt;</DIV>
+<DIV>&lt;array-constant&gt;</DIV>
+<DIV>&lt;regexp-constant&gt;</DIV>
+<DIV>&lt;object-constant&gt;</DIV>
+<DIV><STRONG>this</STRONG></DIV>
+<DIV><STRONG>super</STRONG></DIV>
+<DIV><STRONG>null</STRONG></DIV>
+<DIV><STRONG>true</STRONG></DIV>
+<DIV><STRONG>false</STRONG></DIV>
+<DIV><STRONG>undefined</STRONG></DIV></BLOCKQUOTE>
+
+<H3>Constants</H3>
+<BLOCKQUOTE>
+<DIV align=left><STRONG>&lt;numeric-constant&gt;</STRONG> is one of &lt;decimal-number&gt;, &lt;hexadecimal-number&gt; or &lt;char-constant&gt;, where:</DIV>
+<BLOCKQUOTE>
+<DIV><STRONG>&lt;decimal-number&gt;</STRONG> is [<EM>sign</EM>] <EM>decimal digits</EM> [<STRONG>. </STRONG><EM>decimal digits</EM>] [ {<STRONG>d</STRONG> | <STRONG>D</STRONG> | <STRONG>e</STRONG> | <STRONG>E</STRONG>} [<EM>sign</EM>] <EM>decimal digits </EM>]</DIV>
+<DIV><STRONG>&lt;hexadecimal-number&gt; </STRONG>is &nbsp;<STRONG>0 </STRONG>{ <STRONG>x</STRONG> | <STRONG>X </STRONG>} <EM>hexadecimal digits</EM></DIV>
+<DIV><STRONG>&lt;char-constant&gt;</STRONG> is <STRONG>' </STRONG>character <STRONG>' </STRONG>( character enclosed by apostrophes ) Example: 'a'</DIV></BLOCKQUOTE>
+
+<P><STRONG>&lt;string-constant&gt;</STRONG> is sequence of characters enclosed by double quotes. Example: &quot;hello world&quot;</P>
+<P align=left><STRONG>&lt;array-constant&gt;</STRONG> is '<STRONG>[</STRONG>' [ expression [ <STRONG>,</STRONG> ... ] ] '<STRONG>]</STRONG>'</P>
+<P align=left><STRONG>&lt;object-constant&gt;</STRONG> is '<STRONG>{</STRONG>' [ expression(key) <STRONG>:</STRONG> expression(value) [ <STRONG>,</STRONG> ... ] ] '<STRONG>}</STRONG>'</P>
+<P align=left><STRONG>&lt;regexp-constant&gt;</STRONG> is '<STRONG>/</STRONG>' single line regular expression ['<STRONG>/ig</STRONG>']<STRONG>;</STRONG></P>
+<P align=left><STRONG>&lt;symbol-constant&gt; </STRONG>is a sequence of alphanumeric characters starting from symbol '<STRONG>#</STRONG>', example: <EM>#left. </EM><BR>Symbols are represented internally as integers having unique number in the system.</P></BLOCKQUOTE>
+
+<H3>Functions</H3>
+<BLOCKQUOTE>
+<P>Named functions can be declared as:</P>
+<BLOCKQUOTE>
+<DIV><STRONG>function</STRONG> &lt;name&gt; <STRONG>(</STRONG>[&lt;parameter-name1&gt; [, &lt;parameter-name2&gt; [, ... &lt;parameter-nameN&gt; ]]]<STRONG>)</STRONG><BR><STRONG>{</STRONG></DIV>
+<BLOCKQUOTE>
+<DIV><FONT color=#009933>//... function body</FONT></DIV></BLOCKQUOTE>
+
+<DIV><STRONG>}</STRONG></DIV></BLOCKQUOTE>
+
+<P>Anonymous functions can be declared in place without any name like:</P>
+<BLOCKQUOTE>
+<P><STRONG>var</STRONG> foo = <STRONG>function</STRONG> <STRONG>(</STRONG>parameters<STRONG>) {</STRONG> /* function body */ <STRONG>}</STRONG></P></BLOCKQUOTE>
+
+<P>Nested functions (functions inside functions) are allowed.</P></BLOCKQUOTE>
+
+<H3><A name="classes">Classes</FONT></A></H3>
+<BLOCKQUOTE>
+<P>TIScript is a prototyped language therefore there is no pure class abstraction in traditional for C++ or Java form.</P>
+<P>Classes here are just objects and may be declared/defined by using following template:</P>
+<P><STRONG><FONT color=#0000cc>var</FONT></STRONG> MyClass = <BR><STRONG>{</STRONG></P>
+<BLOCKQUOTE>
+<DIV>classField1<STRONG>:</STRONG> <EM>expression</EM>,<BR>classField2<STRONG>:</STRONG> <EM>expression</EM>,<BR>classFieldN<STRONG>:</STRONG> <EM>expression</EM>,<BR>method1<STRONG>:</STRONG> function ( <EM>parameter-list</EM> ) { <FONT color=#009933>/* method1 body */</FONT> },<BR>method2<STRONG>:</STRONG> function ( <EM>parameter-list</EM> ) { <STRONG><FONT color=#0000cc>this</FONT>.</STRONG>method1(); <FONT color=#009933>/* example of method call*/</FONT> },<BR>method3<STRONG>:</STRONG> function ( <EM>parameter-list</EM> ) <BR>{ </DIV>
+<BLOCKQUOTE>
+<DIV><STRONG><FONT color=#0000cc>this</FONT></STRONG>.classField1 = 1; <FONT color=#009933>/* example of instance field access*/</FONT> <BR><STRONG><FONT color=#0000cc>this</FONT>.</STRONG>method2( <EM>parameters</EM> ) <FONT color=#009933>/* call of other istance method */</FONT><BR><STRONG><FONT color=#0000cc>super</FONT></STRONG>.methodOfSuperClass(<EM> parameters</EM> ); <FONT color=#009933>/* call of method of super class, see prototype field */</FONT></DIV></BLOCKQUOTE>
+
+<DIV>},<BR><STRONG><FONT color=#0000cc>constructor</FONT></STRONG>: function ( <EM>parameter-list</EM> ) <BR>{</DIV>
+<BLOCKQUOTE>
+<DIV><STRONG><FONT color=#0000cc>super</FONT></STRONG>(<EM>parameters</EM>); <FONT color=#009933>/* optional call of constructor of super class */</FONT><BR><STRONG><FONT color=#0000cc>this</FONT>.</STRONG>instanceField1 = <EM>expression</EM>; <FONT color=#009933>/* creation and intialization of instance field */</FONT><BR><STRONG><FONT color=#0000cc>this</FONT>.</STRONG>instanceField2 = <EM>expression</EM>;<BR><FONT color=#009933> &nbsp;/* .... other statemnts and no <STRONG>return</STRONG> needed*/</FONT></DIV></BLOCKQUOTE>
+
+<DIV>},<BR><STRONG><FONT color=#0000cc>prototype</FONT></STRONG>: MyOtherClass <FONT color=#009933>/* use this optional field to derive this class from some MyOtherClass */</FONT></DIV></BLOCKQUOTE>
+
+<P><STRONG>};</STRONG></P>
+<P><STRONG>constructor</STRONG> here is a predefined name of the method. TIScript runtime calls it to initialize new instance of the class.</P>
+<P>To create an instance of such class use operator new:</P>
+<BLOCKQUOTE>
+<P><STRONG>var</STRONG> instanceOfMyClass = <STRONG>new</STRONG> MyClass( parameters );</P></BLOCKQUOTE>
+
+<P>This statement will create object variable and call method MyClass.constructor with it.</P>
+<P><STRONG>super </STRONG>keyword is used for invocation of constructor of super class (if used in constructor) or to access to overloaded method/variable.</P></BLOCKQUOTE>
+
 </BODY>
 </HTML>

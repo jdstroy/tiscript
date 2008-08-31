@@ -87,7 +87,7 @@ struct xml_stream:  public tool::markup::instream<wchar>
     virtual char_type get_char() 
     {
       stream *s = CsFileStream(istr);
-      int c = s->get();
+      int c = s?s->get():0;
       return (wchar) (c > 0? c: 0);
     }
   };
@@ -103,7 +103,8 @@ struct xml_scanner_ctl
 static void CsXMLScannerScan(VM* c, value obj)
 {
   xml_scanner_ctl *s = (xml_scanner_ctl *)CsCObjectValue(obj);
-  s->xstr.istr = CsCopyValue(c,s->xstr.istr);
+  if(s)
+    s->xstr.istr = CsCopyValue(c,s->xstr.istr);
   CsCObjectScan(c,obj);
 }
 

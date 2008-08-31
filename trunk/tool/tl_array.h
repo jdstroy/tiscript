@@ -35,16 +35,17 @@ public:
 
   int       size () const;
   bool      is_empty () const;
-
+  
   void      size ( int new_size );
   void      size ( int new_size, const element& init_value );
   void      clear ();
-
+  
   array<element>& operator = ( const array<element> &the_array );
+  array<element>& operator = ( const slice<element> &the_range );
 
   inline const element &operator[] ( int index ) const;
   inline element &operator[] ( int index );
-
+  
   element   remove ( int index );
   void      remove ( int index, int length );
   int       insert ( int index, const element& elem );
@@ -65,6 +66,8 @@ public:
   void		  push ( const element* elems, int count );
   void		  push ( const slice<element>& elems );
   element   pop ();
+  bool      pop (element& el);
+  void      drop (int n);
 
   void      reverse();
 
@@ -80,23 +83,23 @@ public:
   inline const element&  last  () const;
   inline int last_index () const
   {
-    return _size - 1;
+    return size() - 1;
   }
 
   // will create elements buffer if it does not exist
-  element* elements()
-  {
+  element* elements() 
+  {  
     if(!_elements)
     {
-      size(4); size(0);
+      size(4); size(0); 
     }
     return _elements;
   }
 
   element* head() const { return _elements; }
-  element* tail() const { return _elements + _size; }
+  element* tail() const { return _elements + size(); }
 
-  operator slice<element>() const { return slice<element>(head(),size()); }
+  slice<element>  operator()() const { return slice<element>(head(),size()); }
   slice<element>  operator()(int s) const { return slice<element>(head()+s,size()-s); }
   slice<element>  operator()(int s, int e) const { return slice<element>(head()+s,e-s); }
 
@@ -104,35 +107,58 @@ public:
   {
     if(this == &the_array)
       return;
-    /*tool::*/ swop(_size,the_array._size);
-    /*tool::*/ swop(_allocated_size,the_array._allocated_size);
-    /*tool::*/ swop(_elements,the_array._elements);
+    swop(_elements,the_array._elements);
   }
-
 
   void transfer_from( array<element> &the_array )
   {
-    clear();
-    if ( _elements )  delete [] _elements;
-    _size           = the_array._size;
-    _allocated_size = the_array._allocated_size;
+    destroy();
     _elements       = the_array._elements;
-    the_array._size = 0;
-    the_array._allocated_size = 0;
     the_array._elements = 0;
   }
 
+  unsigned int hash() const 
+  {
+    unsigned int r = 0;
+    element* p = head();
+    element* end = tail();
+    while( p < end ) r ^= tool::hash(*p++);
+    return r;
+  }
+
 protected:
-  int	 	 		_size;
-  int				_allocated_size;
+  /*int	 	 	_size;
+    int 		_allocated_size; */
+
   element *	_elements;
+
+  inline void set_size(int new_size)
+  {
+    assert( _elements );
+    *(((int*)_elements) - 1) = new_size;
+  }
+  inline int get_size() const
+  {
+    assert( _elements );
+    return *(((int*)_elements) - 1);
+  }
+  inline void set_allocated_size(int new_size)
+  {
+    assert( _elements );
+    *(((int*)_elements) - 2) = new_size;
+  }
+  inline int allocated_size() const
+  {
+    if(_elements) return *(((int*)_elements) - 2);
+    return 0;
+  }
 
 };
 
 template <typename element>
 inline
   array<element>::array ()
-:_size ( 0 ), _allocated_size ( 0 ), _elements ( 0 )
+:_elements ( 0 )
 {
   ;/* do nothing */
 }
@@ -140,7 +166,7 @@ inline
 template <typename element>
 inline
   array<element>::array ( int sz )
-:_size ( 0 ), _allocated_size ( 0 ), _elements ( 0 )
+:_elements ( 0 )
 {
   size ( sz );
 }
@@ -148,7 +174,7 @@ inline
 template <typename element>
 inline
   array<element>::array ( int sz, const element &init_element )
-: _size ( 0 ), _allocated_size ( 0 ), _elements ( 0 )
+: _elements ( 0 )
 {
   size ( sz, init_element );
 }
@@ -156,17 +182,16 @@ inline
 template <typename element>
 inline
   array<element>::array ( const slice<element>& d )
-: _size ( 0 ), _allocated_size ( 0 ), _elements ( 0 )
+: _elements ( 0 )
 {
   size ( d.length );
   copy( head(), d.start, d.length);
 }
 
-
 template <typename element>
 inline
   array<element>::array ( const array<element> &the_array )
-: _size ( 0 ), _allocated_size ( 0 ), _elements ( 0 )
+: _elements(0)
 {
   operator= ( the_array );
 }
@@ -175,12 +200,11 @@ inline
 template <typename element>
   inline void array<element>::destroy ()
 {
-  erase(_elements,_size);
-  delete [] (char*)_elements;
+  if(!_elements) return;
+  erase(_elements,size());
+  int* p = ((int*)_elements) - 2;
+  free(p);
   _elements = 0;
-  _size = 0;
-  _allocated_size = 0;
-
 }
 
 
@@ -197,22 +221,32 @@ inline
 {
   if ( this == &the_array )
     return *this;
-  size ( the_array._size );
+  size ( the_array.size() );
 
-  copy(_elements,the_array._elements,_size);
+  copy(_elements,the_array._elements,size());
   /*
-  for ( int i = 0; i < _size; i++ )
+  for ( int i = 0; i < size(); i++ )
     _elements [ i ] = the_array._elements [ i ];
   */
   return *this;
 }
 
 template <typename element>
+inline
+  array<element>& array<element>::operator= ( const slice<element> &the_range )
+{
+  size ( the_range.length );
+  copy(_elements,the_range.start,the_range.length);
+  return *this;
+}
+
+
+template <typename element>
 inline int
   array<element>::push ( const element& elem )
 {
-  assert( _elements == 0 || &elem < _elements || &elem >= (_elements + _size) );
-  int tpos = _size;
+  assert( _elements == 0 || &elem < _elements || &elem >= (_elements + size()) );
+  int tpos = size();
   size ( tpos + 1 );
   operator[] ( tpos ) = elem;
   return tpos;
@@ -222,28 +256,55 @@ template <typename element>
 inline element
   array<element>::pop ()
 {
-  assert( _size > 0 );
-  if( _size > 0 )
+  assert( size() > 0 );
+  if( size() > 0 )
   {
-    element e = _elements [ _size - 1 ];
-    size ( _size - 1 );
+    element e = _elements [ size() - 1 ] ;
+    size ( size() - 1 );
     return e;
   }
   return element();
 }
 
 template <typename element>
+inline bool
+  array<element>::pop (element& el)
+{
+  assert( size() > 0 );
+  if( size() > 0 )
+  {
+    el = _elements [ size() - 1 ];
+    size ( size() - 1 );
+    return true;
+  }
+  return false;
+}
+
+
+template <typename element>
+inline void
+  array<element>::drop (int n)
+{
+  assert( n >= 0 && n <= size() );
+  n = min(n,size());
+  size ( size() - n );
+}
+
+template <typename element>
 inline element
   array<element>::remove ( int index )
 {
-  assert( index >= 0 && index < _size );
+  assert( index >= 0 && index < size() );
+  if( !_elements )
+    return element();
   element *dst = _elements + index;
   element r = *dst;
-  _size--;
-  if(index < _size)
-    move(dst,dst+1,_size - index);
-  erase(_elements + _size,1);
-  //for ( int i = index; i < _size; i++, dst++ )
+  //size--;
+  set_size( size() - 1 );
+  if(index < size())
+    move(dst,dst+1, size_t(size() - index));
+  erase(_elements + size(),1);
+  //for ( int i = index; i < size(); i++, dst++ )
   //  *dst = * ( dst + 1 );
   return r;
 }
@@ -252,16 +313,18 @@ template <typename element>
 inline void
   array<element>::remove ( int index, int length )
 {
-  assert( index >= 0 && ( ( index + length ) <= _size ) );
+  assert( index >= 0 && ( ( index + length ) <= size() ) );
+  if( !_elements )
+    return;
   element *dst = _elements + index;
   element *dste = dst;
   //for ( int i = 0; i < length; i++, dste++ )
   //  dste->~element();
-  _size -= length;
-  if(index < _size)
-    move(dst,dst+length,_size - index);
-  erase(_elements + _size, length);
-  //for ( int i = index; i < _size; i++, dst++ )
+  set_size( get_size() - length );
+  if(index < size())
+    move(dst,dst+length,size() - index);
+  erase(_elements + size(), length);
+  //for ( int i = index; i < size(); i++, dst++ )
   //  *dst = * ( dst + length );
 }
 
@@ -272,17 +335,17 @@ inline int
 {
   if ( index < 0 )
     index = 0;
-  if ( index >= _size )
+  if ( index >= size() )
   {
     push ( elem );
     return size() - 1;
   }
   else
   {
-    size ( _size + 1 );
-    element *dst = _elements + _size - 1;
+    size ( size() + 1 );
+    element *dst = _elements + size() - 1;
 
-    move(_elements + index + 1,_elements + index,_size - index - 1);
+    move(_elements + index + 1,_elements + index,size() - index - 1);
 
     *( _elements + index ) = elem;
     return index;
@@ -295,25 +358,25 @@ inline void
 {
   assert(count > 0);
   if(count <= 0) return;
-  assert( _elements == 0 || elems < _elements || elems >= (_elements + _size) );
+  assert( _elements == 0 || elems < _elements || elems >= (_elements + size()) );
   if ( index < 0 )
     index = 0;
-  if ( index >= _size )
+  if ( index >= size() )
     push ( elems, count );
   else
   {
-    int _old_size = _size;
-    size ( _size + count );
-    element *dst = _elements + _size - 1;
+    int _old_size = size();
+    size ( size() + count );
+    element *dst = _elements + size() - 1;
     element *src = _elements + _old_size - 1;
     for ( int i = 0; i < _old_size - index; i++)
       *dst-- = *src--;
-    //move<element>(_elements + index + count,_elements + index,_size - index - count);
+    //move<element>(_elements + index + count,_elements + index,size() - index - count);
 
     element *p = _elements + index;
     for ( int j = 0; j < count; j++)
       *p++ = *elems++;
-
+    
   }
 }
 
@@ -321,7 +384,7 @@ template <typename element>
 inline element &
   array<element>::operator[] ( int index )
 {
-  assert( index >= 0 && index < _size );
+  assert( index >= 0 && index < size() );
   return _elements [ index ];
 }
 
@@ -329,7 +392,7 @@ template <typename element>
 inline const element &
   array<element>::operator[] ( int index ) const
 {
-  assert( index >= 0 && index < _size );
+  assert( index >= 0 && index < size() );
   return _elements [ index ];
 }
 
@@ -337,23 +400,23 @@ template <typename element>
 inline element &
   array<element>::last ()
 {
-  assert( _size > 0 );
-  return _elements [ _size - 1 ];
+  assert( size() > 0 );
+  return _elements [ size() - 1 ];
 }
 
 template <typename element>
 inline const element &
   array<element>::last () const
 {
-  assert( _size > 0 );
-  return _elements [ _size - 1 ];
+  assert( size() > 0 );
+  return _elements [ size() - 1 ];
 }
 
 template <typename element>
 inline element &
   array<element>::first ()
 {
-  assert( _size > 0 );
+  assert( size() > 0 );
   return _elements [ 0 ];
 }
 
@@ -361,7 +424,7 @@ template <typename element>
 inline const element &
   array<element>::first () const
 {
-  assert( _size > 0 );
+  assert( size() > 0 );
   return _elements [ 0 ];
 }
 
@@ -370,69 +433,130 @@ template <typename element>
 inline int
   array<element>::size () const
 {
-  return _size;
+  return _elements? get_size(): 0;
 }
 
 template <typename element>
 inline bool
   array<element>::is_empty () const
 {
-  return ( _size == 0 );
+  return ( size() == 0 );
 }
+
 
 template <typename element>
 inline void
   array<element>::size ( int new_size )
 {
   assert(new_size >= 0);
-  if ( _size == new_size )
+  new_size = max(0,new_size);
+  int old_size = size();
+  
+  if ( old_size == new_size )
     return;
-  if ( new_size > _size )
+  
+  if ( new_size > old_size )
   {
-    if ( new_size >  _allocated_size )
+    int allocated = allocated_size();
+    if ( new_size > allocated )
     {
-      //int toallocate = _allocated_size? ((_allocated_size * 5) / 4):8;
-      int toallocate = _allocated_size? ((_allocated_size * 3) / 2):4;
-      //int toallocate = _allocated_size + (new_size -  _allocated_size) * 2;
+      int toallocate = allocated? 
+          ((allocated * 3) / 2) : 
+          max(4,new_size);
 
+      if( toallocate < new_size ) toallocate = new_size;
 
-      _allocated_size = ( new_size < toallocate ) ? toallocate : new_size;
+      int *d = (int *)malloc(sizeof(int) * 2 + toallocate * sizeof(element));
+
+      element *new_space = (element *) ( d + 2);
       
-      element *new_space = (element *) new char[ _allocated_size * sizeof(element) ];
       init(new_space,new_size);
-      copy(new_space,_elements, _size < new_size? _size: new_size );
 
-      //for (int i = 0; i < min ( _size, new_size ); i++ )
-      //  new_space [ i ] = _elements [ i ];
       if ( _elements )
       {
-        erase(_elements,_size);
-        delete [] (char*)_elements;
+        copy(new_space, _elements, old_size < new_size? old_size: new_size );
+        erase(_elements,old_size);
+        free(((int *)_elements) - 2);
       }
       _elements = new_space;
 
-    }
-    else
-      init(_elements+_size,new_size - _size);
-  }
-  else
-  {
-    erase(_elements + new_size,_size - new_size);
-  }
+      set_size(new_size);
+      set_allocated_size(toallocate);
 
-  _size = new_size;
+    }
+    else //if ( new_size <= allocated ), simply init the tail
+      init(_elements + old_size, new_size - old_size);
+  } 
+  else if( _elements ) // and yet new_size < old_size 
+    erase(_elements + new_size, old_size - new_size);
+
+  set_size(new_size);
 }
 
+/* Something wrong with realloc here:
+template <typename element>
+inline void
+  array<element>::size ( int new_size )
+{
+  assert(new_size >= 0);
+  new_size = max(0,new_size);
+  int old_size = size();
+  
+  if ( old_size == new_size )
+    return;
+  
+  if ( new_size > old_size )
+  {
+    int allocated = allocated_size();
+    if ( new_size > allocated )
+    {
+      int toallocate = allocated? 
+          ((allocated * 3) / 2) : 
+          max(4,new_size);
+
+      if( toallocate < new_size ) toallocate = new_size;
+
+      int *d = 0;
+      int* old_d = 0;
+      
+      if(_elements)
+      {
+         old_d = (((int *)_elements) - 2);
+         d = (int *)realloc( old_d, sizeof(int) * 2 + toallocate * sizeof(element));
+         if( d != old_d ) // reallocated inplace
+           _elements = (element *) ( d + 2 );
+         init(_elements + old_size, new_size - old_size);
+      }
+      else
+      {
+         d = (int *)malloc(sizeof(int) * 2 + toallocate * sizeof(element));
+         _elements = (element *) ( d + 2 );
+         init(_elements,new_size);
+      }
+      set_size(new_size);
+      set_allocated_size(toallocate);
+
+    }
+    else //if ( new_size <= allocated ), simply init the tail
+      init(_elements + old_size, new_size - old_size);
+  } 
+  else if( _elements ) // and yet new_size < old_size 
+    erase(_elements + new_size, old_size - new_size);
+
+  set_size(new_size);
+}
+
+*/
 
 template <typename element>
 inline void
   array<element>::size ( int new_size, const element& init_value )
 {
   assert(new_size >= 0);
-  int oldsize = _size;
+  int oldsize = size();
   size(new_size);
-  for(int i = oldsize; i < _size; i++)
-     _elements[i] = init_value;
+  for(int i = oldsize; i < new_size; i++)
+     _elements[i] = init_value;    
 }
 
 
@@ -440,15 +564,15 @@ template <typename element>
 inline void
   array<element>::set_all_to ( const element &the_element )
 {
-  for ( int i = 0; i < _size; i++ )
+  for ( int i = 0; i < size(); i++ )
     _elements [ i ] = the_element;
 }
 
 template <typename element>
-inline int
+inline int 
   array<element>::get_index(const element& e) const
   {
-    for ( int i = 0; i < _size; i++ )
+    for ( int i = 0; i < size(); i++ )
       if(_elements[i] == e) return i;
     return -1;
   }
@@ -469,8 +593,8 @@ template <typename element>
 inline bool
   array<element>::operator ==(const array<element> &rs) const
   {
-    if(_size != rs._size) return false;
-    for ( int i = _size - 1; i >= 0; --i )
+    if(size() != rs.size()) return false;
+    for ( int i = size() - 1; i >= 0; --i )
       if (!(_elements[i] == rs._elements[i]) ) return false;
     return true;
   }
@@ -479,8 +603,8 @@ template <typename element>
 inline bool
   array<element>::operator !=(const array<element> &rs) const
   {
-    if(_size != rs._size) return true;
-    for ( int i = 0; i < _size; i++ )
+    if(size() != rs.size()) return true;
+    for ( int i = 0; i < size(); i++ )
       if (_elements[i] != rs._elements[i] ) return true;
     return false;
   }
@@ -490,18 +614,18 @@ template <typename element>
 inline bool
   array<element>::operator < (const array<element> &rs) const
   {
-    assert(_size && rs._size);
+    assert(size() && rs.size());
 
-    int mi = min( _size, rs._size ) - 1;
+    int mi = min( size(), rs.size() ) - 1;
     for (int i = 0; i < mi; i++ )
     {
-      if (_elements[i] > rs._elements[i] )
+      if (_elements[i] > rs._elements[i] ) 
         return false;
       if (_elements[i] < rs._elements[i] ) return true;
     }
-
-    if(_size != rs._size)
-      return _elements[mi] <= rs._elements[mi];
+    
+    if(size() != rs.size())
+      return _elements[mi] <= rs._elements[mi];  
     else
       return _elements[mi] < rs._elements[mi];
     //bool r = _elements[mi] < rs._elements[mi];
@@ -514,9 +638,9 @@ template <typename element>
 inline bool
   array<element>::operator <= (const array<element> &rs) const
   {
-    assert(_size && rs._size);
+    assert(size() && rs.size());
 
-    int mi = min( _size, rs._size );
+    int mi = min( size(), rs.size() );
     for (int i = 0; i < mi; i++ )
     {
       if (_elements[i] > rs._elements[i] ) return false;
@@ -529,9 +653,9 @@ template <typename element>
 inline bool
   array<element>::operator > (const array<element> &rs) const
   {
-    assert(_size && rs._size);
+    assert(size() && rs.size());
 
-    int mi = min( _size, rs._size ) - 1;
+    int mi = min( size(), rs.size() ) - 1;
     for (int i = 0; i < mi; i++ )
     {
       if (_elements[i] < rs._elements[i] ) return false;
@@ -544,8 +668,8 @@ template <typename element>
 inline bool
   array<element>::operator >= (const array<element> &rs) const
   {
-    assert(_size && rs._size);
-    int mi = min( _size, rs._size );
+    assert(size() && rs.size());
+    int mi = min( size(), rs.size() );
     for (int i = 0; i < mi; i++ )
     {
       if (_elements[i] < rs._elements[i] ) return false;
@@ -558,7 +682,7 @@ template <typename element>
 inline void
   array<element>::reverse()
   {
-    int i = 0;
+    int i = 0; 
     int k = size() - 1;
     while( i < k )
     {

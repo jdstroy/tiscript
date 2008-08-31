@@ -3,7 +3,7 @@
 //| Copyright (c) 2001-2005
 //| Andrew Fedoniouk - andrew@terrainformatica.com
 //|
-//| pool, table of unique instances of some class, e.g. strings 
+//| pool, table of unique instances of some class, e.g. strings
 //|
 //|
 
@@ -23,7 +23,7 @@ namespace tool
     static c_element create(const c_element& key) { return key; }
   };
 
-  //#define POOL_TRAITS pool_traits<c_element>  
+  //#define POOL_TRAITS pool_traits<c_element>
 
   template <typename c_element, typename c_traits = pool_traits<c_element> >
   class pool
@@ -57,12 +57,16 @@ namespace tool
       copy(c);
       return *this;
     }
+    bool operator==(const pool& rs) const
+    {
+      return _array == rs._array;
+    }
 
     //
     // Add to hash table association of object with specified name.
     //
     uint  operator[] ( const c_element &the_key );
-    uint  operator[] ( const c_element &the_key ) const;
+    //uint  operator[] ( const c_element &the_key ) const;
     c_element&  operator() ( uint the_index );
     const c_element&  operator() ( uint the_index ) const;
 
@@ -116,8 +120,13 @@ namespace tool
       return _array;
     }
 
+    unsigned int hash() const
+    {
+      return _array.hash();
+    }
+
 #ifdef _DEBUG
-    void report() 
+    void report()
     {
       printf("hash table: size=%d\n",_hash_size);
       printf("\tbuckets:\n");
@@ -137,13 +146,13 @@ namespace tool
     return get_index ( the_key, true );
   }
 
-  template <typename c_element, typename c_traits>
+  /*template <typename c_element, typename c_traits>
   inline uint
-    pool<c_element,c_traits>::operator[] ( const c_element &the_key ) const 
+    pool<c_element,c_traits>::operator[] ( const c_element &the_key ) const
   {
     return const_cast<pool<c_element,c_traits>*>
                     ( this )->get_index ( the_key, false );
-  }
+  }*/
 
   template <typename c_element, typename c_traits>
   inline uint
@@ -176,7 +185,7 @@ namespace tool
   inline void
     pool<c_element,c_traits>::remove ( const c_element& the_key )
   {
-    size_t h = hash<c_element> ( the_key ) % _hash_size;
+    size_t h = hash ( the_key ) % _hash_size;
     int i;
     array<hash_item> &bucket = _table [ h ];
     for ( i = 0; i < bucket.size(); i++ )
@@ -233,7 +242,7 @@ namespace tool
       _table [ i ].clear ();
     _array.clear ();
   }
-  
+
 
 
 };

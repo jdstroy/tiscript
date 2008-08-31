@@ -26,6 +26,11 @@ static value CSF_length(VM *c,value obj);
 static value CSF_prototype(VM *c,value obj);
 static void CSF_set_prototype(VM *c,value obj, value pro);
 
+static value CSF_class_name(VM *c,value obj);
+
+static value CSF_class_class_name(VM *c,value obj);
+static void CSF_set_class_class_name(VM *c,value obj, value pro);
+
 #define FETCH(c,obj) if( _CsIsPersistent(obj) ) obj = CsFetchObjectData(c, obj);
 
 /* Object methods */
@@ -50,14 +55,26 @@ C_METHOD_ENTRY(	0,                  0                   )
 static vp_method properties[] = {
 //VP_METHOD_ENTRY( "class",    CSF_prototype, CSF_set_prototype ),
 VP_METHOD_ENTRY( "length",   CSF_length, 0 ),
+VP_METHOD_ENTRY( "className",   CSF_class_name, 0 ),
 VP_METHOD_ENTRY( 0,          0,					0					)
 };
+
+
+/* Object properties */
+static vp_method class_properties[] = {
+//VP_METHOD_ENTRY( "class",    CSF_prototype, CSF_set_prototype ),
+VP_METHOD_ENTRY( "length",      CSF_length, 0 ),
+VP_METHOD_ENTRY( "className",   CSF_class_class_name, CSF_set_class_class_name ),
+VP_METHOD_ENTRY( 0,          0,					0					)
+};
+
 
 /* CsInitObject - initialize the 'Object' obj */
 void CsInitObject(VM *c)
 {
     /* make the base of the obj inheritance tree */
     c->objectObject = CsEnterObject(CsGlobalScope(c),"Object",c->undefinedValue,methods, properties);
+    c->classObject = CsEnterObject(CsGlobalScope(c),"Class",c->undefinedValue,methods, class_properties);
 }
 
 /* CSF_ctor - built-in method 'initialize' */
@@ -92,8 +109,38 @@ static void CSF_set_prototype(VM *c,value obj, value pro)
       CsTypeError(c, pro);
 }
 
+static value CSF_class_name(VM *c,value obj)
+{
+    value cls = CsObjectClass(obj);
+    if( CsClassP(cls) ) 
+      return CsClassName(cls);
+    return cls;
+}
 
-/* CSF_vlone - built-in method 'Clone' */
+static value CSF_class_class_name(VM *c,value obj)
+{
+    if( CsClassP(obj) ) 
+      return CsClassName(obj);
+    else
+    {
+      value cls = CsObjectClass(obj);
+      if( CsClassP(cls) ) 
+        return CsClassName(cls);
+      return cls;
+    }
+}
+static void CSF_set_class_class_name(VM *c,value obj, value v)
+{
+    if( CsClassP(obj) && CsStringP(v)) 
+    {
+      value n = CsClassName(obj);
+      if( n == c->undefinedValue )
+        CsSetClassName(obj,v);
+    }
+}
+
+
+/* CSF_clone - built-in method 'Clone' */
 static value CSF_clone(VM *c)
 {
     value obj;
@@ -163,7 +210,6 @@ value CSF_call(VM *c)
         CsPush(c,CsVectorElementI(argv,i));
     return CsInternalSend(c,argc);
 }
-
 
 void CsScanObject( VM *c, value obj, object_scanner& osc )
 {
@@ -293,6 +339,27 @@ dispatch CsObjectDispatch = {
     CsObjectSize,
     CsDefaultCopy,
     CsObjectScan,
+    CsDefaultHash,
+    CsObjectGetItem,
+    CsObjectSetItem,
+    ObjectNextElement,
+    AddObjectConstant,
+};
+
+static void CsClassScan(VM *c,value obj);
+static long CsClassSize(value obj);
+
+/* Class pdispatch */
+dispatch CsClassDispatch = {
+    "Class",
+    &CsObjectDispatch,
+    CsGetObjectProperty,
+    CsSetObjectProperty,
+    CsMakeClass,
+    CsDefaultPrint,
+    CsClassSize,
+    CsDefaultCopy,
+    CsClassScan,
     CsDefaultHash,
     CsObjectGetItem,
     CsObjectSetItem,
@@ -520,8 +587,14 @@ bool CsSetObjectProperty(VM *c,value obj,value tag,value val)
 
 const char* CsClassClassName(VM* c, value cls)
 {
+  if( CsClassP(cls) )
+  {
+    value n = CsClassName(cls);
+    if( CsSymbolP(n))
+      return CsSymbolPrintName(n);
+  }
 
-  static value classNameTag = 0;
+  /*static value classNameTag = 0;
   if(!classNameTag)
     classNameTag = symbol_value(".className");
 
@@ -534,6 +607,8 @@ const char* CsClassClassName(VM* c, value cls)
     else
       dbg_printf("", CsTypeName(className));
   }
+  */
+
   return "";
 }
 
@@ -641,6 +716,21 @@ void CsObjectScan(VM *c,value obj)
     CsSetObjectProperties(obj,CsCopyValue(c,CsObjectProperties(obj)));
 }
 
+
+/* CsClassSize - Class size handler */
+long CsClassSize(value obj)
+{
+    return sizeof(klass);
+}
+
+/* CsObjectScan - Object scan handler */
+void CsClassScan(VM *c,value obj)
+{
+    CsObjectScan(c,obj);
+    CsSetClassName(obj,CsCopyValue(c,CsClassName(obj)));
+}
+
+
 /* CsMakeObject - make a new obj */
 value CsMakeObject(VM *c,value proto)
 {
@@ -655,6 +745,33 @@ value CsMakeObject(VM *c,value proto)
     return newo;
 }
 
+/* CsMakeObject - make a new obj */
+value CsMakeClass(VM *c,value proto)
+{
+    value newo;
+    CsCPush(c,proto);
+    newo = CsAllocate(c,sizeof(klass));
+    CsSetDispatch(newo,&CsClassDispatch);
+    CsSetClassName(newo,c->undefinedValue);
+    CsSetObjectClass(newo,CsPop(c));
+    CsSetObjectProperties(newo,c->undefinedValue);
+    CsSetObjectPropertyCount(newo,0);
+    return newo;
+}
+
+value CsNewClassInstance(VM* c,value parentClass, value nameSymbol)
+{
+    value newo;
+    CsCPush(c,parentClass);
+    CsCPush(c,nameSymbol);
+    newo = CsAllocate(c,sizeof(klass));
+    CsSetDispatch(newo,&CsClassDispatch);
+    CsSetClassName(newo,CsPop(c));
+    CsSetObjectClass(newo,CsPop(c));
+    CsSetObjectProperties(newo,c->undefinedValue);
+    CsSetObjectPropertyCount(newo,0);
+    return newo;
+}
 
 /* CsCloneObject - clone an existing obj */
 value CsCloneObject(VM *c,value obj)
@@ -1109,53 +1226,6 @@ value CsMakeProperty(VM *c,value key,value val, int_t flags)
     return newo;
 }
 
-//--------
-/* Property handlers */
-static long NamespaceSize(value obj);
-static void NamespaceScan(VM *c,value obj);
-
-/* Property pdispatch */
-dispatch CsNamespaceDispatch = {
-    "NamespaceTuple",
-    &CsPropertyDispatch,
-    CsDefaultGetProperty,
-    CsDefaultSetProperty,
-    CsDefaultNewInstance,
-    CsDefaultPrint,
-    NamespaceSize,
-    CsDefaultCopy,
-    NamespaceScan,
-    CsDefaultHash,
-    CsDefaultGetItem,
-    CsDefaultSetItem
-};
-
-/* PropertySize - Property size handler */
-static long NamespaceSize(value obj)
-{
-    return sizeof(CsFixedVector) + CsNamespaceSize * sizeof(value);
-}
-
-/* PropertyScan - Property scan handler */
-static void NamespaceScan(VM *c,value obj)
-{
-    long i;
-    for (i = 0; i < CsNamespaceSize; ++i)
-        CsSetFixedVectorElement(obj,i,CsCopyValue(c,CsFixedVectorElement(obj,i)));
-}
-
-/* CsMakeProperty - make a property */
-value CsMakeNamespace(VM *c,value globals,value next)
-{
-    value newo;
-    CsCheck(c,2);
-    CsPush(c,globals);
-    CsPush(c,next);
-    newo = CsMakeFixedVectorValue(c,&CsNamespaceDispatch,CsNamespaceSize);
-    CsSetNamespaceNext(newo,CsPop(c));
-    CsSetNamespaceGlobals(newo,CsPop(c));
-    return newo;
-}
 
 
 }

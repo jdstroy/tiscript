@@ -152,14 +152,14 @@ int main(int argc,char **argv)
                 }
             }
             else {
-                interactiveP = false;
                 LoadFile(&vm,argv[i],forceType);
+                interactiveP = false;
             }
         }
     }
     catch(tis::error_event& e) // uncaught error
     {
-      //e;
+      e;
       tis::CsDisplay(&vm,vm.val,vm.standardError);
     }
 
@@ -287,7 +287,7 @@ static void ReadEvalPrint(tis::VM *c)
     tis::value val;
 
     /* protect a pointer from the garbage collector */
-    tis::CsProtectPointer(c,&val);
+//    tis::CsProtectPointer(c,&val);
 
     for (;;)
     {
@@ -308,12 +308,12 @@ static void ReadEvalPrint(tis::VM *c)
       }
       catch(tis::error_event& e) // uncaught error
       {
-        //e;
+        e;
         tis::CsDisplay(c,c->val,c->standardError);
       }
     }
 
-    tis::CsUnprotectPointer(c,&val);
+//    tis::CsUnprotectPointer(c,&val);
 }
 
 

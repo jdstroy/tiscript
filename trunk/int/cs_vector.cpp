@@ -26,6 +26,7 @@ static value CSF_splice(VM *c);
 static value CSF_sort(VM *c);
 static value CSF_indexOf(VM *c);
 static value CSF_remove(VM *c);
+static value CSF_removeByValue(VM *c);
 
 
 #define FETCH(c,obj) if( _CsIsPersistent(obj) ) obj = CsFetchVectorData(c, obj);
@@ -58,6 +59,8 @@ C_METHOD_ENTRY( "splice",           CSF_splice          ),
 C_METHOD_ENTRY( "sort",             CSF_sort            ),
 C_METHOD_ENTRY( "indexOf",          CSF_indexOf         ),
 C_METHOD_ENTRY( "remove",           CSF_remove          ),
+C_METHOD_ENTRY( "removeByValue",    CSF_removeByValue   ),
+
 C_METHOD_ENTRY(	0,                  0                   )
 };
 
@@ -231,6 +234,39 @@ static value CSF_remove(VM *c)
         *p = p[1];
     return val;
 }
+
+static value CSF_removeByValue(VM *c)
+{
+    value vector;
+    value element;
+    CsParseArguments(c,"V=*V",&vector,&CsVectorDispatch,&element);
+    CsPush(c,element);
+      FETCH(c, vector);
+      CsSetModified(vector,true);
+    element = CsPop(c);
+
+    if (CsMovedVectorP(vector))
+        vector = CsVectorForwardingAddr(vector);
+
+    value *p = CsVectorAddress(c,vector);
+    int_t size = CsVectorSize(c,vector);
+    int n = 0;
+    for( ; n < size; ++n )
+    {
+      if( CsEqualOp(c, p[n], element ) ) 
+      {
+        element = p[n];
+        break;
+      }
+    }
+    if( n >= size)
+      return c->nothingValue;
+    CsSetVectorSize(vector,--size);
+    for (; --size >= n; ++p)
+        *p = p[1];
+    return element;
+}
+
 
 
 /* CSF_length - built-in property 'length' */

@@ -22,9 +22,6 @@ namespace tis
 char* strErrCantSaveObj = "Can't save object.";
 char* strErrCorruptPersistent = "Object is corrupted.";
 
-/* name of a property for registered class name */
-static const char* _class = "_class";
-
 
 /* 'storage' pdispatch */
 
@@ -342,6 +339,7 @@ void CsInitStorage(VM *c)
 
 	// setup alternate handlers
 	c->storageDispatch->destroy = DestroyStorage;
+        c->storageDispatch->baseType = &CsCObjectDispatch;
 }
 
 
@@ -350,15 +348,18 @@ void CsInitStorage(VM *c)
 */
 static value CSF_open(VM *c)
 {
-	wchar* wfname = NULL;
+  tool::wchars wfname;
   bool autocommit = true;
-	CsParseArguments(c, "**S|B", &wfname, &autocommit);
+	CsParseArguments(c, "**S#|B", &wfname.start, &wfname.length, &autocommit);
 
 	storage* s = new storage();
 	assert(s);
   s->autocommit = autocommit;
 
-	if (!(s->dbS = dybase_open( wfname, 4*1024*1024, errHandler )))
+  if(tool::is_like(wfname,L"file://*")) 
+    wfname.prune(7);
+
+	if (!(s->dbS = dybase_open( wfname.start, 4*1024*1024, errHandler )))
 	{
 		delete s;
 		return c->nullValue;
@@ -632,7 +633,11 @@ value CsFetchObject( VM *c, value vs, oid_t oid )
 	  }
 
     tool::string className = FetchClassName(s, oid);
-    value proto = className.length() ? s->GetProtoByName(c,className) : 0;
+    value proto = 0; 
+    if(className.length())
+    {
+      proto = s->GetProtoByName(c,className);
+    }
     if(!proto) proto = c->objectObject;
 		value obj = CsMakeObject( c, proto );
 
@@ -698,6 +703,8 @@ value  CsFetchObjectData( VM *c, value obj )
 {
   if(ptr<persistent_header>(obj)->loaded())
     return obj; // already loaded, nothing to do.
+
+  dispatch* pd = CsGetDispatch(obj);
 
   dybase_oid_t  oid = ptr<persistent_header>(obj)->oid;
   value         vs = ptr<persistent_header>(obj)->vstorage;
@@ -883,7 +890,8 @@ value FetchValue( VM *c, value vs, dybase_handle_t h )
       case db_wchar:
   		  return CsMakeCharString( c, (wchar*)((byte*)value_ptr + 1), (value_length-1)/2 );
       case db_blob:
-        assert(false);
+        //assert(false);
+        return CsMakeByteVector( c, (byte*)value_ptr + 1, value_length - 1);
         break;
       default:
         assert(false);
@@ -1024,8 +1032,8 @@ void CsStoreObjectData( VM *c, value obj )
     value vs;
     bool item( VM *c, value key, value val )
     {
-      if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' ) 
-        return true; // this is not persistable member.
+      //if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' ) 
+      //  return true; // this is not persistable member.
       ++counter;
       return true; // continue scan
     }
@@ -1049,8 +1057,8 @@ void CsStoreObjectData( VM *c, value obj )
     value vs;
     bool item( VM *c, value key, value val )
     {
-      if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' ) 
-        return true; // this is not persistable member.
+      //if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' ) 
+      //  return true; // this is not persistable member.
       StoreValue(c, vs, h,key);
       StoreValue(c, vs, h,val);
       return true; // continue scan
@@ -1163,8 +1171,9 @@ void Transform(VM* c, value vs, value val, db_triplet& db_v)
 	}
 	else if( CsStringP( val ) )
 	{
-// #pragma TODO("Alex, consider use of UTF8 here!"), 
-// too late, databases already in the wild.
+    //array<byte> utf8;
+    //to_utf8(CsStringAddress(val), CsStringSize(val), array<byte>& utf8out)
+
 		db_v.len = 1 + CsStringSize(val) * sizeof(wchar); // length in bytes + 1 byte for the type
     db_v.data.s = new byte[db_v.len];
     byte strType = db_wchar;
@@ -1199,6 +1208,18 @@ void Transform(VM* c, value vs, value val, db_triplet& db_v)
 		db_v.data.oid = CsStoreObject( c, vs, val );
 //trace( L" obj 0x%x ", db_v.data.oid );
 	}
+  else if(CsByteVectorP(val))
+  {
+    byte* b   = CsByteVectorAddress(val);
+    int   len = CsByteVectorSize(val);
+    //tool::string str = CsSymbolName(val);
+		db_v.len = 1 + len; // length in bytes + 1 byte for the type
+    db_v.data.s = new byte[db_v.len];
+    byte strType = db_blob;
+    ::memcpy( db_v.data.s, &strType, 1);
+    ::memcpy( db_v.data.s + 1, b, len);
+		db_v.type = dybase_string_type;
+  }
 	else
 	{
 		// TODO: not supported?

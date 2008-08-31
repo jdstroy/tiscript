@@ -30,25 +30,25 @@ TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
     <TD valign="top" align="right"><STRONG><EM>HEAD</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="top">
 <DIV>- head of the element parsed:</DIV>
-<DIV><FONT face="Courier New">&lt;tag ...<BR> &nbsp;&nbsp;^-- happens here</FONT></DIV></TD>
+<DIV><FONT face="Courier New">&lt;tag ...<BR> &nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV></TD>
   </TR>
   <TR>
     <TD valign="top" align="right"><STRONG><EM>HEAD_END</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="top">
 <DIV>- end of head of non-empty element parsed:</DIV>
-<DIV><FONT face="Courier New">&lt;tag ... &gt;<BR> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV></TD>
+<DIV><FONT face="Courier New">&lt;tag ... &gt;<BR> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV></TD>
   </TR>
   <TR>
     <TD valign="top" align="right"><STRONG><EM>EMPTY_HEAD_END</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="top">
 <DIV>- end of head of empty element parsed:</DIV>
-<DIV><FONT face="Courier New">&lt;tag ... /&gt;<BR> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV></TD>
+<DIV><FONT face="Courier New">&lt;tag ... /&gt;<BR> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV></TD>
   </TR>
   <TR>
     <TD valign="top" align="right"><STRONG><EM>TAIL</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="top">
 <DIV>- tail of the non-empty element parsed:</DIV>
-<DIV><FONT face="Courier New">&lt;/tag&gt;<BR> &nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV></TD>
+<DIV><FONT face="Courier New">&lt;/tag&gt;<BR> &nbsp;&nbsp;^-- happens here</FONT></DIV></TD>
   </TR>
   <TR>
     <TD valign="top" align="right"><STRONG><EM>ATTR</EM></STRONG></TD>
@@ -68,14 +68,14 @@ TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
     <TD valign="top" align="right"><STRONG><EM>CDATA</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="top">
 <DIV>- cdata parsed:</DIV>
-<DIV><FONT face="Courier New">&lt;![CDATA[ ...value... ]]&gt;<BR> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV>
+<DIV><FONT face="Courier New">&lt;![CDATA[ ...value... ]]&gt;<BR> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV>
 <P><EM>scanner.value</EM> contains text of the cdata.</P></TD>
   </TR>
   <TR>
     <TD valign="top" align="right"><STRONG><EM>PI</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="top">
 <DIV>- processing instruction parsed:</DIV>
-<DIV><FONT face="Courier New">&lt;? ...value... ?&gt;<BR> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV>
+<DIV><FONT face="Courier New">&lt;? ...value... ?&gt;<BR> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;^-- happens here</FONT></DIV>
 <P><EM>scanner.value</EM> contains text of the instruction.</P></TD>
   </TR>
   <TR>

@@ -15,6 +15,10 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+#ifdef WINDOWS
+#include <shlobj.h>
+#endif 
+
 namespace tool {
 
 
@@ -108,7 +112,7 @@ tstring get_home_dir(const tchar* relpath, void* hinst)
   split_path(buffer, drive, dir, name, ext);
   
   if( relpath )
-    return drive + dir + relpath;
+    return tstring::format(TEXT("%s%s%s"), drive, dir, relpath);
   return drive + dir;
 #else
 #pragma TODO("Not supported yet!")
@@ -137,5 +141,64 @@ unsigned int get_ticks()
   return 0;
 #endif
 }
+
+bool get_lang_country(string& lang,string& country, bool for_user)
+{
+#ifdef WINDOWS
+   long langId = for_user? GetUserDefaultLCID() : GetSystemDefaultLCID();
+   TCHAR buf[256]; buf[0] = 0;
+	 GetLocaleInfo(MAKELCID(langId, SORT_DEFAULT), LOCALE_SISO639LANGNAME, buf, sizeof(buf));
+	 lang = buf;
+	 GetLocaleInfo(MAKELCID(langId, SORT_DEFAULT), LOCALE_SISO3166CTRYNAME, buf, sizeof(buf));
+   country = buf; 
+   return true;
+#else
+   #pragma TODO("get lang id on this OS!")
+#endif
+}
+
+tstring  get_standard_dir(STANDARD_DIR sd)
+{
+#ifdef WINDOWS
+  static int sysids[] = 
+  {
+#if defined(UNDER_CE)
+    CSIDL_WINDOWS,
+    CSIDL_WINDOWS,
+    CSIDL_PROGRAM_FILES,
+    CSIDL_APPDATA, 
+    CSIDL_APPDATA,
+    CSIDL_PERSONAL,
+    CSIDL_PERSONAL, 
+#else
+    CSIDL_WINDOWS,
+    CSIDL_SYSTEM,
+    CSIDL_PROGRAM_FILES,
+    CSIDL_APPDATA, 
+    CSIDL_COMMON_APPDATA,
+    CSIDL_PERSONAL,
+    CSIDL_COMMON_DOCUMENTS, 
+#endif
+  };
+
+  TCHAR path[MAX_PATH]; path[0] = 0;
+
+  HRESULT hr = SHGetSpecialFolderPath(
+      NULL,path,
+      sysids[sd],
+      FALSE
+      );
+  return tstring(path);
+#else
+  #pragma TODO("get folder path on this OS!")
+#endif
+}
+
+#ifdef _WINDOWS
+  // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
+  EXTERN_C IMAGE_DOS_HEADER __ImageBase;
+  #define HINSTANCE_THISCOMPONENT ((HINSTANCE)&__ImageBase)
+#endif
+
 
 }

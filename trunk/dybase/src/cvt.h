@@ -27,6 +27,26 @@ namespace cvt
     operator const char*() { return buffer; }
   };
 
+ class a2w 
+  {
+    wchar_t* buffer;
+  public:
+    explicit a2w(const char* str):buffer(0)
+    { 
+      if(str)
+      {
+        size_t n = strlen(str);
+        size_t nu = mbstowcs(0,str,n);
+        buffer = new wchar_t[nu+1];
+        mbstowcs(buffer,str,nu);
+        buffer[nu] = 0;
+      }
+    }
+    ~a2w() {  delete[] buffer;  }
+    operator const wchar_t*() { return buffer; }
+
+  };
+
 }
 
 #endif

@@ -7,9 +7,7 @@
 //|
 //|
 
-#include "tl_basic.h"
-#include "tl_array.h"
-#include "tl_string.h"
+#include "tl_base64.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -39,28 +37,26 @@ namespace tool
   * @param data the array of bytes to encode
   * @return base64-coded character string.
   */
-string  base64_encode(const byte* data, uint data_length)
+void  base64_encode(bytes data, stream_o<char>& out)
 {
-    //int         out_length = ((data_length + 2) / 3) * 4 + data_length / 10;
-    array<char> out;
     char        buf[4];
 
     //
     // 3 bytes encode to 4 chars.  Output is always an even
     // multiple of 4 characters.
     //
-    for (uint i=0, index=4; i < data_length; i+=3, index+=4) {
+    for (uint i=0, index=4; i < data.length; i+=3, index+=4) {
         bool quad = false;
         bool trip = false;
 
         int val = (0xFF & (int) data[i]);
         val <<= 8;
-        if ((i+1) < data_length) {
+        if ((i+1) < data.length) {
             val |= (0xFF & (int) data[i+1]);
             trip = true;
         }
         val <<= 8;
-        if ((i+2) < data_length) {
+        if ((i+2) < data.length) {
             val |= (0xFF & (int) data[i+2]);
             quad = true;
         }
@@ -72,13 +68,12 @@ string  base64_encode(const byte* data, uint data_length)
         val >>= 6;
         buf[0] = alphabet[val & 0x3F];
 
-        out.push(buf[0]); out.push(buf[1]); out.push(buf[2]); out.push(buf[3]);
+        out.put(buf,4);
         if(index == 64)
-          { index = 0; out.push("\r\n",2); }
+          { index = 0; out.put("\r\n",2); }
 
     }
-    out.push("=\r\n",3); //4!!! out.push('\0');
-    return string(out.head(),out.size());
+    out.put("=",1); //4!!! out.push('\0');
 }
 
   /**
@@ -92,8 +87,9 @@ string  base64_encode(const byte* data, uint data_length)
   * input and generating from that a count of VALID input
   * characters.
   **/
+  template<typename T>
   bool
-    base64_decode ( const char *data, uint data_length, array<byte>& out )
+    base64_decode_t ( slice<T> data, stream_o<byte>& out )
   {
     uint i;
     if ( codes_empty )
@@ -118,11 +114,11 @@ string  base64_encode(const byte* data, uint data_length)
     // (b) think that we miscalculated our data length
     //     just because of extraneous throw-away junk
 
-    int tempLen = data_length;
+    int tempLen = data.length;
     uint ix;
-    for( ix = 0; ix < data_length; ix++ )
+    for( ix = 0; ix < data.length; ix++ )
     {
-      if ( codes [ data [ ix ] ] < 0 )  //(data[ix] > 255) ||
+      if ( codes [ (byte)data [ ix ] ] < 0 )  //(data[ix] > 255) ||
         --tempLen;    // ignore non-valid chars and padding
     }
     // calculate required length:
@@ -139,17 +135,17 @@ string  base64_encode(const byte* data, uint data_length)
     //byte *out = new byte [ len ];
     //memset ( out, 0, len );
     byte zero = 0;
-    out.size ( len );
+
+    //out.size ( len );
 
     int     shift = 0;   // # of excess bits stored in accum
     int     accum = 0;   // excess bits
     uint    index = 0;
 
     // we now go through the entire array (NOT using the 'tempLen' value)
-    for ( ix = 0; ix < data_length; ix++ )
+    for ( ix = 0; ix < data.length; ix++ )
     {
-      //int value = ( data [ ix ] > 255 ) ? -1 : codes [ data [ ix ] ];
-      int value = codes [ data [ ix ] ];
+      int value = codes [ (byte)data [ ix ] ];
 
       if ( value >= 0 )           // skip over non-code
       {
@@ -159,8 +155,9 @@ string  base64_encode(const byte* data, uint data_length)
         if ( shift >= 8 )       // whenever there are 8 or more shifted in,
         {
           shift -= 8;           // write them out (from the top, leaving any
-          out [ index++ ] =     // excess at the bottom for next iteration.
-            (byte) ( ( accum >> shift ) & 0xff );
+          out.put(    // excess at the bottom for next iteration.
+            (byte) ( ( accum >> shift ) & 0xff ));
+          ++index;
         }
       }
       // we will also have skipped processing a padding null byte ('=') here;
@@ -172,90 +169,21 @@ string  base64_encode(const byte* data, uint data_length)
     }
 
     // if there is STILL something wrong we just have to return false
-    return ( (int)index == out.size () );
+    return ( index == len );
   }
 
   bool
-    base64_decode ( const wchar *data, uint data_length, array<byte>& out )
+    base64_decode ( chars data, stream_o<byte>& out )
   {
-    uint i;
-    if ( codes_empty )
-    {
-      for ( i = 0; i < 256; i++ )
-        codes [ i ] = -1;
-      for ( i = 'A'; i <= 'Z'; i++ )
-        codes [ i ] = (byte) ( i - 'A' );
-      for ( i = 'a'; i <= 'z'; i++ )
-        codes [ i ] = (byte) ( 26 + i - 'a' );
-      for ( i = '0'; i <= '9'; i++ )
-        codes [ i ] = (byte) ( 52 + i - '0' );
-      codes [ '+' ] = 62;
-      codes [ '/' ] = 63;
-      codes_empty = false;
-    }
-
-    // as our input could contain non-BASE64 data (newlines,
-    // whitespace of any sort, whatever) we must first adjust
-    // our count of USABLE data so that...
-    // (a) we don't misallocate the output array, and
-    // (b) think that we miscalculated our data length
-    //     just because of extraneous throw-away junk
-
-    int tempLen = data_length;
-    uint ix;
-    for( ix = 0; ix < data_length; ix++ )
-    {
-      if ( codes [ data [ ix ] ] < 0 )  //(data[ix] > 255) ||
-        --tempLen;    // ignore non-valid chars and padding
-    }
-    // calculate required length:
-    //  -- 3 bytes for every 4 valid base64 chars
-    //  -- plus 2 bytes if there are 3 extra base64 chars,
-    //     or plus 1 byte if there are 2 extra.
-
-    int len = ( tempLen / 4 ) * 3;
-    if ( ( tempLen % 4 ) == 3 )
-      len += 2;
-    if ( ( tempLen % 4 ) == 2 )
-      len += 1;
-
-    //byte *out = new byte [ len ];
-    //memset ( out, 0, len );
-    byte zero = 0;
-    out.size ( len );
-
-    int     shift = 0;   // # of excess bits stored in accum
-    int     accum = 0;   // excess bits
-    uint    index = 0;
-
-    // we now go through the entire array (NOT using the 'tempLen' value)
-    for ( ix = 0; ix < data_length; ix++ )
-    {
-      int value = ( data [ ix ] > 255 ) ? -1 : codes [ data [ ix ] ];
-
-      if ( value >= 0 )           // skip over non-code
-      {
-        accum <<= 6;            // bits shift up by 6 each time thru
-        shift += 6;             // loop, with new bits being put in
-        accum |= value;         // at the bottom.
-        if ( shift >= 8 )       // whenever there are 8 or more shifted in,
-        {
-          shift -= 8;           // write them out (from the top, leaving any
-          out [ index++ ] =     // excess at the bottom for next iteration.
-            (byte) ( ( accum >> shift ) & 0xff );
-        }
-      }
-      // we will also have skipped processing a padding null byte ('=') here;
-      // these are used ONLY for padding to an even length and do not legally
-      // occur as encoded data. for this reason we can ignore the fact that
-      // no index++ operation occurs in that special case: the out[] array is
-      // initialized to all-zero bytes to start with and that works to our
-      // advantage in this combination.
-    }
-
-    // if there is STILL something wrong we just have to return false
-    return ( (int)index == out.size () );
+    return base64_decode_t<char> ( data, out );
   }
+
+  bool
+    base64_decode ( wchars data, stream_o<byte>& out )
+  {
+    return base64_decode_t<wchar> ( data, out );
+  }
+
 
 
 //static int decode_qp(const char* data, uint data_length, char* aOut,

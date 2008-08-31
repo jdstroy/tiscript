@@ -13,6 +13,7 @@
 
 #include "tl_basic.h"
 #include <ctype.h>
+#include <wctype.h>
 #include "assert.h"
 
 namespace tool
@@ -22,11 +23,10 @@ namespace tool
  struct slice
  {
     const T* start;
-    uint     length;
+    uint_ptr length;
 
     slice(): start(0), length(0) {}
-    slice(const T* start_, uint length_) { start = start_; length = length_; }
-
+    slice(const T* start_, uint_ptr length_) { start = start_; length = length_; }
 
     slice(const slice& src): start(src.start), length(src.length) {}
     slice(const T* start_, const T* end_): start(start_), length( max(end_-start_,0)) {}
@@ -35,15 +35,51 @@ namespace tool
 
     const T*      end() const { return start + length; }
 
-    bool operator == ( const slice& r ) const
+	template<class Y>
+      bool operator == ( const slice<Y>& r ) const
     {
       if( length != r.length )
         return false;
-      for( uint i = 0; i < length; ++i )
-        if( start[i] != r.start[i] )
-          return false;
+
+        const T* p1 = end();
+        const Y* p2 = r.end();
+        while( p1 > start )
+      {
+          if( *--p1 != *--p2 )
+			      return false;
+        }
+        return true;
+	  }
+
+  /*
+  classic Duff's device implementation of the above:
+
+	template<class Y>
+    bool operator == ( const slice<Y>& r ) const
+	  {
+      if( length != r.length )
+        return false;
+
+      const T* ours = start;
+      const Y* theirs = r.start;
+
+      int n = (int(length) + 7) / 8;
+      switch (length % 8)
+	  {
+        case 0: do { if(*ours++ != *theirs++) return false;
+        case 7:      if(*ours++ != *theirs++) return false;
+        case 6:      if(*ours++ != *theirs++) return false;
+        case 5:      if(*ours++ != *theirs++) return false;
+        case 4:      if(*ours++ != *theirs++) return false;
+        case 3:      if(*ours++ != *theirs++) return false;
+        case 2:      if(*ours++ != *theirs++) return false;
+        case 1:      if(*ours++ != *theirs++) return false;
+               } while (--n > 0);
+      }
       return true;
+
     }
+    */
 
     bool operator != ( const slice& r ) const { return !operator==(r); }
 
@@ -52,7 +88,7 @@ namespace tool
       assert( idx < length );
       if(idx < length)
         return start[idx];
-      return 0;
+      return T(0);
     }
 
     T last() const
@@ -131,6 +167,66 @@ namespace tool
       return -1;
     }
 
+    void prune(uint from_start, uint from_end = 0)
+      {
+        uint s = from_start >= length? length : from_start;
+        uint e = length - (from_end >= length? length: from_end);
+        start += s;
+        if( s < e ) length = e-s;
+        else length = 0;
+      }
+
+    bool like(const T* pattern) const;
+
+    slice head( const slice& s ) const
+    {
+      int d = index_of( s );
+      if( d < 0 ) return slice();
+      return slice(start,d);
+    }
+    slice tail( const slice& s ) const
+    {
+      int d = index_of( s );
+      if( d < 0 ) return slice();
+      return slice(start + d + s.length, length - d - s.length);
+    }
+    slice r_head( const slice& s ) const
+    {
+      int d = last_index_of( s );
+      if( d < 0 ) return slice();
+      return slice(start,d);
+    }
+    slice r_tail( const slice& s ) const
+    {
+      int d = last_index_of( s );
+      if( d < 0 ) return slice();
+      return slice(start + d + s.length, length - d - s.length);
+    }
+
+    slice head( T c ) const
+    {
+      int d = index_of( c );
+      if( d < 0 ) return slice();
+      return slice(start,d);
+    }
+    slice tail( T c ) const
+    {
+      int d = index_of( c );
+      if( d < 0 ) return slice();
+      return slice(start + d + 1, length - d - 1);
+    }
+    slice r_head( T c ) const
+    {
+      int d = last_index_of( c );
+      if( d < 0 ) return slice();
+      return slice(start,d);
+    }
+    slice r_tail( T c ) const
+    {
+      int d = last_index_of( c );
+      if( d < 0 ) return slice();
+      return slice(start + d + 1, length - d - 1);
+    }
 
  };
 
@@ -217,14 +313,52 @@ typedef slice<char>  chars;
 typedef slice<wchar> wchars;
 typedef slice<byte>  bytes;
 
+// Note: CS here is a string literal!
+#define __WTEXT(quote) L##quote
+#define WTEXT(quote) __WTEXT(quote)
+
+#define CHARS(CS) tool::slice<char>(CS,chars_in(CS))
+#define WCHARS(CS) tool::slice<wchar>(WTEXT(CS),chars_in(WTEXT(CS)))
+
+
 typedef tokens<char> atokens;
 typedef tokens<wchar> wtokens;
 
 inline chars chars_of(const char* str)
 {
-   if( str ) return chars( str, strlen(str) );
+   if( str ) return chars( str, (uint_ptr)strlen(str) );
    return chars();
 }
+
+inline bool icmp(const wchars& s1, const wchars& s2)
+{
+  if( s1.length != s2.length )
+    return false;
+  for( uint i = 0; i < s1.length; ++i )
+    if( towlower(s1[i]) != towlower(s2[i]) )
+      return false;
+  return true;
+}
+
+inline bool icmp(const chars& s1, const chars& s2)
+{
+  if( s1.length != s2.length )
+    return false;
+  for( uint i = 0; i < s1.length; ++i )
+    if( tolower(s1[i]) != tolower(s2[i]) )
+      return false;
+  return true;
+}
+
+inline bool icmp(const chars& s1, const char* s2)
+{
+  uint i = 0;
+  for( ; i < s1.length; ++i )
+    if( tolower(s1[i]) != tolower(s2[i]) )
+      return false;
+  return s2[i] == 0;
+}
+
 
 //int match ( chars cr, const char *pattern );
 //int match ( wchars cr, const wchar *pattern );
@@ -236,34 +370,57 @@ inline chars chars_of(const char* str)
   // extended by [] operations
   //
 
-template <typename CT >
+template <typename CT, CT sep = '-', CT end = ']' >
   struct charset
   {
-    bool codes[sizeof(CT)];
-    void set ( int from, int to, bool v )  { for ( int i = from; i <= to; i++) codes[i]=v; }
+    #define SET_SIZE (1 << (sizeof(CT) * 8))
 
-    void parse ( const CT **pp )
+    unsigned char codes[ SET_SIZE >> 3 ];
+
+    void set ( unsigned from, unsigned to, bool v )
     {
-      const CT *p = (const CT *) *pp;
-      bool inv = *p == '^';
+       for ( unsigned i = from; i <= to; ++i )
+       {
+         unsigned int bit = i & 7;
+         unsigned int octet = i >> 3;
+         if( v ) codes[octet] |= 1 << bit; else codes[octet] &= ~(1 << bit);
+    }
+    }
+    void init ( unsigned char v )  { memset(codes,v,(SET_SIZE >> 3)); }
+
+    void parse ( const CT* &pp )
+    {
+      //assert( sizeof(codes) == sizeof(CT) * sizeof(bool));
+      const CT *p = (const CT *) pp;
+      unsigned char inv = *p == '^'? 0xff:0;
       if ( inv ) { ++p; }
-      set ( 0, 0xff, inv );
-      if ( *p == '-' ) codes [ int('-') ] = !inv;
+      init ( inv );
+      if ( *p == sep ) set(unsigned(sep),unsigned(sep),inv == 0);
       while ( *p )
       {
-        if ( p[0] == ']' ) { p++; break; }
-        if ( p[1] == '-' && p[2] != 0 ) { set ( p[0], p[2], !inv );  p += 3; }
-        else codes [ int(*p++) ] = !inv;
+        if ( p[0] == end ) { p++; break; }
+        if ( p[1] == sep && p[2] != 0 ) { set ( unsigned(p[0]), unsigned(p[2]), inv == 0 );  p += 3; }
+        else { unsigned t = *p++; set(t,t, inv == 0); }
       }
-      *pp = (const CT *) p;
+      pp = (const CT *) p;
     }
-    bool valid ( CT c ) { return codes [ (unsigned)c ]; }
+
+    bool valid ( CT c )
+    {
+      unsigned int bit = unsigned(c) & 7;
+      unsigned int octet = unsigned(c) >> 3;
+      return (codes[octet] & (1 << bit)) != 0;
+    }
+    #undef SET_SIZE
   };
 
 
 template <typename CT >
   inline int match ( slice<CT> cr, const CT *pattern )
   {
+    if( !cr.length || !pattern )
+      return -1;
+
     const CT AnySubstring = '*';
     const CT AnyOneChar = '?';
     const CT AnyOneDigit = '#';
@@ -289,7 +446,7 @@ template <typename CT >
       else if ( *pattern == '[' )
       {
         pattern++;
-        cset.parse ( &pattern );
+        cset.parse ( pattern );
         if ( !cset.valid ( *str ) )
           return -1;
         if ( !matchpos )
@@ -323,12 +480,18 @@ template <typename CT >
 
 inline bool is_like ( chars cr, const char *pattern )
 {
-  return match(cr,pattern) >= 0;
+  return match<char>(cr,pattern) >= 0;
 }
 inline bool is_like ( wchars cr, const wchar *pattern )
 {
-  return match(cr,pattern) >= 0;
+  return match<wchar>(cr,pattern) >= 0;
 }
+
+template<typename T>
+bool slice<T>::like(const T* pattern) const
+  {
+    return is_like(*this,pattern);
+  }
 
 // chars to uint
 // chars to int
@@ -339,6 +502,9 @@ template <typename T>
    unsigned int result = 0,value;
    const T *cp = span.start;
    const T *pend = span.end();
+
+   while ( cp < pend && isspace(*cp) ) ++cp;
+
    if (!base)
    {
        base = 10;
@@ -368,6 +534,8 @@ template <typename T>
 template <typename T>
     int to_int(slice<T>& span, unsigned int base = 10)
 {
+
+   while (span.length > 0 && isspace(span[0]) ) { ++span.start; --span.length; }
    if(span[0] == '-')
    {
       ++span.start; --span.length;

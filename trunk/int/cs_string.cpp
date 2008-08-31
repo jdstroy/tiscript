@@ -42,6 +42,9 @@ static value CSF_htmlUnescape(VM *c);
 static value CSF_urlEscape(VM *c);
 static value CSF_urlUnescape(VM *c);
 
+extern value CSF_head(VM *c);
+extern value CSF_tail(VM *c);
+
 /* from cs_regexp */
 extern value CSF_string_match(VM *c);
 extern value CSF_string_replace(VM *c);
@@ -91,6 +94,10 @@ C_METHOD_ENTRY( "toLowerCase",      CSF_toLowerCase ),
 C_METHOD_ENTRY( "toUpperCase",      CSF_toUpperCase ),
 C_METHOD_ENTRY( "toString",         CSF_toString ),
 C_METHOD_ENTRY( "valueOf",          CSF_toString ),
+
+//C_METHOD_ENTRY( "head",             CSF_head ),
+//C_METHOD_ENTRY( "tail",             CSF_tail ),
+
 
 C_METHOD_ENTRY( "UID",              CSF_UID ),
 
@@ -150,7 +157,7 @@ static value CSF_charAt(VM *c)
     CsParseArguments(c,"S#*i",&str,&len,&index);
 
     if(index >= 0 && index < len)
-      return CsMakeCharString(c,str + index, 1);
+      return CsMakeSubString(c,CsGetArg(c,1), index, 1);
     else
       return CsMakeCharString(c,NULL, 0);
 }
@@ -523,6 +530,80 @@ static value CSF_lastIndexOf(VM *c)
 
 }
 
+
+value CsStringHead(VM *c, value s, value d)
+{
+  tool::wchars ss(CsStringAddress(s),CsStringSize(s));
+  tool::wchars sr;
+  if( CsIntegerP(d) )
+    sr = ss.head( to_int(d));
+  else if( CsStringP(d) )
+  {
+    tool::wchars sd(CsStringAddress(d),CsStringSize(d));
+    sr = ss.head( sd );
+  }
+  else 
+    CsUnexpectedTypeError(c, d, "string or char code");
+  if( sr.start == 0 )
+    return s;
+  return CsMakeString(c,sr);
+}
+
+value CsStringTail(VM *c, value s, value d)
+{
+  tool::wchars ss(CsStringAddress(s),CsStringSize(s));
+  tool::wchars sr;
+  if( CsIntegerP(d) )
+    sr = ss.tail( to_int(d));
+  else if( CsStringP(d) )
+  {
+    tool::wchars sd(CsStringAddress(d),CsStringSize(d));
+    sr = ss.tail( sd );
+  }
+  else 
+    CsUnexpectedTypeError(c, d, "string or char code");
+  if( sr.start == 0 )
+    return s;
+  return CsMakeString(c,sr);
+}
+
+value CsStringHeadR(VM *c, value s, value d)
+{
+  tool::wchars ss(CsStringAddress(s),CsStringSize(s));
+  tool::wchars sr;
+  if( CsIntegerP(d) )
+    sr = ss.r_head( to_int(d));
+  else if( CsStringP(d) )
+  {
+    tool::wchars sd(CsStringAddress(d),CsStringSize(d));
+    sr = ss.r_head( sd );
+  }
+  else 
+    CsUnexpectedTypeError(c, d, "string or char code");
+  if( sr.start == 0 )
+    return s;
+  return CsMakeString(c,sr);
+}
+
+value CsStringTailR(VM *c, value s, value d)
+{
+  tool::wchars ss(CsStringAddress(s),CsStringSize(s));
+  tool::wchars sr;
+  if( CsIntegerP(d) )
+    sr = ss.r_tail( to_int(d));
+  else if( CsStringP(d) )
+  {
+    tool::wchars sd(CsStringAddress(d),CsStringSize(d));
+    sr = ss.r_tail( sd );
+  }
+  else 
+    CsUnexpectedTypeError(c, d, "string or char code");
+  if( sr.start == 0 )
+    return s;
+  return CsMakeString(c,sr);
+}
+
+
 /* CSF_localeCompare - built-in method 'localeCompare' */
 static value CSF_localeCompare(VM *c)
 {
@@ -620,7 +701,7 @@ value CsStringSlice(VM *c, value s, int start, int end)
     if( start > end ) tool::swap(start,end);
 
     /* return the substring */
-    return CsMakeCharString(c,str + start, end - start);
+    return CsMakeSubString(c, s, start, end - start);
 }
 
 
@@ -658,7 +739,8 @@ static value CSF_substring(VM *c)
     if( start > end ) tool::swap(start,end);
 
     /* return the substring */
-    return CsMakeCharString(c,str + start, end - start);
+    //return CsMakeCharString(c,str + start, end - start);
+    return CsMakeSubString(c,CsGetArg(c,1), start, end - start);
 }
 
 /* CSF_substr - built-in method 'substr' */
@@ -694,7 +776,20 @@ static value CSF_substr(VM *c)
         return c->undefinedValue;
 
     /* return the substring */
-    return CsMakeCharString(c,str + i,cnt);
+    return CsMakeSubString(c,CsGetArg(c,1),i,cnt);
+}
+
+value   CsMakeSubString(VM *c,value s, int start, int length)
+{
+    CsPush(c, s);
+    long allocSize = sizeof(CsString) + CsRoundSize( (length + 1) * sizeof(wchar)); /* space for zero terminator */
+    value newo = CsAllocate(c,allocSize);
+    CsSetDispatch(newo,&CsStringDispatch);
+    CsSetStringSize(newo,length);
+    s = CsPop(c);
+    memcpy(CsStringAddress(newo),CsStringAddress(s)+start,length * sizeof(wchar));
+    CsStringAddress(newo)[length] = L'\0'; /* in case we need to use it as a C string */
+    return newo;
 }
 
 
@@ -705,7 +800,8 @@ static value CSF_toInteger(VM *c)
     value dv = 0;
     wchar *pend;
     CsParseArguments(c,"V=*|V",&obj,&CsStringDispatch,&dv);
-    int_t i = wcstol(CsStringAddress(obj),&pend,0);
+    wchar *pstart = CsStringAddress(obj);
+    int_t i = wcstol(pstart,&pend,0);
     if( CsStringAddress(obj) == pend )
       return dv? dv: c->undefinedValue;
     return CsMakeInteger(c,i);
@@ -915,6 +1011,12 @@ value CsMakeCString(VM *c,const wchar *str)
 /* CsMakeCString - make a string value from a C wide string */
 value CsMakeString(VM *c,tool::wchars str)
 {
+    if(str.start >= (wchar*)c->newSpace->base || str.start <= (wchar*)c->newSpace->top)
+    {
+      tool::ustring buf(str);
+      return CsMakeCharString(c,buf, buf.length());
+    }
+    else
     return CsMakeCharString(c,str.start, str.length);
 }
 

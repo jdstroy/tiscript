@@ -20,7 +20,6 @@
 namespace tis
 {
 
-
 /* types */
 typedef struct FrameDispatch FrameDispatch;
 
@@ -46,13 +45,14 @@ FrameDispatch CsCallCDispatch = {
 
 /* call frame */
 typedef struct CallFrame CallFrame;
-struct CallFrame {
-    CsFrame hdr;
+struct CallFrame: CsFrame
+{
     value env;
     value globals;
     value code;
-    int pcOffset;
-    int argc;
+    int   pcOffset;
+    int   argc;
+
     CsEnvironment stackEnv;
 };
 
@@ -64,6 +64,7 @@ FrameDispatch CsTopCDispatch =
     CallCopy
 };
 
+
 /* block frame pdispatch */
 static bool BlockRestore(VM *c);
 static value *BlockCopy(VM *c,CsFrame *frame);
@@ -74,10 +75,10 @@ FrameDispatch CsBlockCDispatch = {
 
 /* block frame */
 typedef struct BlockFrame BlockFrame;
-struct BlockFrame {
-    CsFrame hdr;
-    value *fp;
-    void* align;
+struct BlockFrame: CsFrame
+{
+    //value *fp;
+    //void* align;
     value env;
     CsEnvironment stackEnv;
 };
@@ -91,10 +92,11 @@ inline size_t WordSize(size_t n)
 
 /* prototypes */
 static value ExecuteCall(CsScope *scope,value fun,int argc,va_list ap);
-static bool Execute(VM *c);
+bool Execute(VM *c);
+int  Send(VM *c,FrameDispatch *d,int argc);
 static void UnaryOp(VM *c,int op);
 static void BinaryOp(VM *c,int op);
-static int  Send(VM *c,FrameDispatch *d,int argc);
+
 static bool Call(VM *c,FrameDispatch *d,int argc);
 static void PushFrame(VM *c,int size);
 static value UnstackEnv(VM *c,value env);
@@ -106,7 +108,7 @@ static value GetNextMember(VM *c, value* index, value collection);
 static value CsGetRange(VM *c, value col, value start, value end);
 
 /* CsSaveInterpreterState - save the current interpreter state */
-CsSavedState::CsSavedState(VM *c)
+void CsSavedState::store(VM *c)
 {
     vm = c;
     globals = c->currentScope.globals;
@@ -177,25 +179,6 @@ value CsCallFunctionByName(CsScope *scope,char *fname,int argc,...)
     va_start(ap,argc);
     result = ExecuteCall(scope,fun,argc,ap);
     va_end(ap);
-
-    /* return the result */
-    return result;
-}
-
-/* CsCallFunctionByName - call a function by name */
-value CsCallFunctionByNameV(CsScope *scope, const char *fname, int argc, va_list ap)
-{
-    VM *c = scope->c;
-    value fun,result;
-
-	/* get the symbol value */
-	CsCPush(c,CsInternCString(c,fname));
-	if (!CsGlobalValue(scope,CsTop(c),&fun))
-	    CsThrowKnownError(c,CsErrUnboundVariable,CsTop(c));
-	CsDrop(c,1);
-
-    /* call the function */
-    result = ExecuteCall(scope,fun,argc,ap);
 
     /* return the result */
     return result;
@@ -330,7 +313,7 @@ value CsSendMessage(VM *c,value obj, value selector,int argc,...)
 value CsSendMessage(CsScope *scope,value obj, value selector,int argc,...)
 {
     VM *c = scope->c;
-
+    
     va_list ap;
     int n;
 
@@ -345,7 +328,7 @@ value CsSendMessage(CsScope *scope,value obj, value selector,int argc,...)
       /* push the obj, selector and _next argument */
       CsPush(c,obj);
 	    CsPush(c,selector);
-	    CsPush(c,scope->globals); /* _next */
+	    CsPush(c,obj); /* _next */
 
 	  /* push the arguments */
       va_start(ap,argc);
@@ -370,21 +353,50 @@ value CsSendMessage(CsScope *scope,value obj, value selector,int argc,...)
     return c->val;
 }
 
-
-/* CsSendMessageByName - send a message to an obj by name */
-value CsSendMessageByName(VM *c,value obj, const char *sname,int argc,...)
+value CsSendMessage(VM *c, value obj, value selector, const value* argv, int argc)
 {
-    va_list ap;
-	va_start( ap, argc );
-	value val = CsSendMessageByNameV(c,obj,sname,argc,ap);
-	va_end(ap);
-    return val;
+    int n;
+
+    /* save the interpreter state */
+    CsSavedState state(c);
+
+    TRY
+    {
+      /* reserve space for the obj, selector, _next and arguments */
+      CsCheck(c,argc + 3);
+
+      /* push the obj, selector and _next argument */
+      CsPush(c,obj);
+	    CsPush(c,selector);
+	    CsPush(c,obj); /* _next */
+
+	  /* push the arguments */
+      for (n = argc; --n >= 0; )
+          CsPush(c,*argv++);
+
+      /* setup the call */
+      if (Send(c,&CsTopCDispatch,argc + 2))
+      {
+          return c->val;
+      }
+	    /* execute the method */
+	    Execute(c);
+
+    }
+    CATCH_ERROR(e)
+    {
+       state.restore();
+       RETHROW(e);
+    }
+    return c->val;
 }
 
 
+
 /* CsSendMessageByName - send a message to an obj by name */
-value CsSendMessageByNameV(VM *c,value obj, const char *sname,int argc, va_list ap)
+value CsSendMessageByName(VM *c,value obj,char *sname,int argc,...)
 {
+    va_list ap;
     int n;
 
     /* save the interpreter state */
@@ -403,6 +415,7 @@ value CsSendMessageByNameV(VM *c,value obj, const char *sname,int argc, va_list 
 	    CsPush(c,obj); /* _next */
 
 	    /* push the arguments */
+        va_start(ap,argc);
         for (n = argc; --n >= 0; )
             CsPush(c,va_arg(ap,value));
         va_end(ap);
@@ -427,75 +440,6 @@ value CsSendMessageByNameV(VM *c,value obj, const char *sname,int argc, va_list 
     return c->val;
 }
 
-json::value CsSendMessageByNameJSON(VM *c,value obj, const char *sname,int argc, json::value* argv, bool optional)
-{
-
-    if(obj == c->undefinedValue)
-      return json::value();
-
-    int n;
-
-    tool::ustring funcname(sname);
-
-    value tag = CsInternCString(c,sname);
-    value method;
-    if(!CsGetProperty(c,obj,tag,&method))
-    {
-      if( optional ) return json::value();
-    }
-    //auto_scope as( c,obj );
-
-    c->val = c->undefinedValue;
-
-    TRY
-    {
-      //value method = CsEvalString( CsCurrentScope(c),funcname, funcname.length());
-
-      if( !CsMethodP(method))
-      {
-        //tag = method;
-        if( optional )
-          return json::value();
-        else
-          CsThrowKnownError(c, CsErrUnexpectedTypeError, sname );
-
-      }
-
-
-      /* reserve space for the obj, selector, _next and arguments */
-      CsCheck(c,argc + 3);
-
-      /* push the obj, selector and _next argument */
-      CsPush(c,obj);
-	    CsPush(c,c->undefinedValue); /* filled in below */
-	    CsPush(c,obj); /* _next */
-
-	    /* push the arguments */
-
-        for (n = 0; n < argc; ++n )
-          CsPush(c, value_to_value(c,argv[n]));
-
-	    /* fill in the selector (because interning can cons) */
-	    c->sp[argc + 1] = CsInternCString(c,sname);
-
-      /* setup the call */
-      if (Send(c,&tis::CsTopCDispatch,argc + 2))
-      {
-          return value_to_value(c,c->val);
-      }
-
-	    /* execute the method */
-	    Execute(c);
-    }
-    catch(tis::error_event&)
-    {
-       //e;
-       CsDisplay(c,c->val,c->standardError);
-    }
-    return value_to_value(c,c->val);
-}
-
-
 
 inline void StreamOut(VM *c)
 {
@@ -507,9 +451,8 @@ inline void StreamOut(VM *c)
     c->val = strm;
 }
 
-
 /* Execute - execute code */
-static bool Execute(VM *c)
+bool Execute(VM *c)
 {
     value p1,p2,*p;
     unsigned int off = 0;
@@ -525,10 +468,6 @@ static bool Execute(VM *c)
             break;
         case BC_SEND:
             Send(c,&CsCallCDispatch,*c->pc++);
-            break;
-        case BC_RETURN:
-            if((*c->fp->pdispatch->restore)(c))
-              return true;
             break;
         case BC_UNFRAME:
             if((*c->fp->pdispatch->restore)(c))
@@ -557,10 +496,17 @@ static bool Execute(VM *c)
               bool isPropertyMethod = (*c->pc++) ? true:false;
               c->env = UnstackEnv(c,c->env);
               c->val = isPropertyMethod?
-                CsMakePropertyMethod(c,c->val,c->env,c->scopes->globals):
-                CsMakeMethod(c,c->val,c->env,c->scopes->globals);
+                CsMakePropertyMethod(c,c->val,c->env,CsCurrentScope(c)->globals):
+                CsMakeMethod(c,c->val,c->env,CsCurrentScope(c)->globals);
             }
             break;
+        /*case BC_YIELD:
+            break; */
+        case BC_RETURN:
+            if((*c->fp->pdispatch->restore)(c))
+              return true;
+            break;
+
         case BC_EREF:
             i = *c->pc++;
             for (p2 = c->env; --i >= 0; )
@@ -606,7 +552,7 @@ static bool Execute(VM *c)
             c->pc = c->cbase + off;
             break;
         case BC_SWITCH:
-#ifdef _DEBUG
+#ifdef _DEBUG            
           if( c->val == int_value(-1))
             c->val = c->val;
 #endif
@@ -648,21 +594,21 @@ static bool Execute(VM *c)
             UnaryOp(c,'-');
             break;
         case BC_ADD:
-            if (CsStringP(c->val))
+            if (CsStringP(c->val)) 
             {
                 p1 = CsPop(c);
-                if (!CsStringP(p1))
+                if (!CsStringP(p1)) 
                   c->val = ConcatenateStrings(c,CsToString(c,p1),c->val);
                 else
                   c->val = ConcatenateStrings(c,p1,c->val);
             }
-            else if (CsStringP(CsTop(c)))
+            else if (CsStringP(CsTop(c))) 
             {
                 p1 = CsPop(c);
-                if (!CsStringP(c->val))
+                if (!CsStringP(c->val)) 
                   c->val = ConcatenateStrings(c,p1,CsToString(c,c->val));
                 else
-                c->val = ConcatenateStrings(c,p1,c->val);
+                  c->val = ConcatenateStrings(c,p1,c->val);
             }
             else
                 BinaryOp(c,'+');
@@ -705,6 +651,12 @@ static bool Execute(VM *c)
             break;
         case BC_SHR:
             BinaryOp(c,'R');
+            break;
+        case BC_USHL:
+            BinaryOp(c,'l');
+            break;
+        case BC_USHR:
+            BinaryOp(c,'r');
             break;
         case BC_LT:
             p1 = CsPop(c);
@@ -750,6 +702,7 @@ static bool Execute(VM *c)
             off |= *c->pc++ << 8;
 			      if (!CsGetGlobalValue(c,CsCompiledCodeLiteral(c->code,off),&c->val))
             {
+                //CsDumpScopes(c);
 	              CsThrowKnownError(c,CsErrUnboundVariable,CsCompiledCodeLiteral(c->code,off));
             }
             break;
@@ -762,7 +715,7 @@ static bool Execute(VM *c)
         case BC_GSETC:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            CsCreateGlobalConst(CsCurrentScope(c),CsCompiledCodeLiteral(c->code,off),c->val);
+            CsCreateGlobalConst(c,CsCompiledCodeLiteral(c->code,off),c->val);
             break;
 
         case BC_GETP:
@@ -782,21 +735,31 @@ static bool Execute(VM *c)
         case BC_SETPM: // set method, used in class declarations only
             p2 = CsPop(c);
             p1 = CsPop(c);
+#ifdef _DEBUG
+            {
+              dispatch *pd1 = CsGetDispatch(p1);
+              pd1 = pd1;
+              dispatch *pd2 = CsGetDispatch(p2);
+              pd2 = pd2;
+            }
+#endif
             //CsDumpObject(c,p1);
             //{
             //  dispatch *pd = CsGetDispatch(c->val);
             //  pd = pd;
             //}
-            if ( !CsObjectOrMethodP(p1) && !CsIsType(p1, c->typeDispatch) )
+            if ( CsObjectOrMethodP(p1) || CsIsType(p1, c->typeDispatch) )
+              CsAssignMethod(c,p1,p2,c->val);
+            else
             {
                 dispatch *pd = CsGetDispatch(p1);
                 pd = pd;
-                CsThrowKnownError(c,CsErrUnexpectedTypeError,p1, "<object>" );
+                CsThrowKnownError(c,CsErrUnexpectedTypeError,p1, "either <type> or <object>" );
             }
 
             //if (!CsSetProperty(c,p1,p2,c->val))
             //  CsAlreadyDefined(c,p1);
-            CsAssignMethod(c,p1,p2,c->val);
+            
             //CsDumpObject(c,p1);
             //    CsThrowKnownError(c,CsErrNoProperty,p1,p2);
             break;
@@ -831,26 +794,49 @@ static bool Execute(VM *c)
             break;
         case BC_PUSHSCOPE:
             CsCheck(c,2);
-            CsPush(c,c->scopes->globals);
-            CsPush(c,c->scopes->globals);
-            break;
-        case BC_PUSH_NS:
-            CsCheck(c,1);
             CsPush(c,c->currentScope.globals);
-            c->currentScope.globals = c->val;
+            CsPush(c,c->currentScope.globals);
+            break;
+        case BC_PUSH_NS: // this used in class construction
+            CsCheck(c,1);
+            //CsPush(c,c->currentScope.globals);
+            //c->currentScope.globals = c->val;
+            CsPush(c,c->currentNS);
+            c->currentNS = c->val;
             break;
         case BC_POP_NS:
-            c->currentScope.globals = CsPop(c);
-            //return false;
+            //c->currentScope.globals = CsPop(c);
+            c->currentNS = CsPop(c);
+            break;
+        case BC_NS:
+            c->val = c->getCurrentNS();
             break;
         case BC_DEBUG:
-            c->val = c->val;
+            //c->val = c->val;
             c->standardOutput->put_str("\n-------------->");
-            //CsDumpScopes(c);
+            CsDumpScopes(c);
+            /*{
+              value v;
+              CsGetGlobalValue(c,CsSymbolOf("$"),&v);
+            }*/
             break;
         case BC_NEWOBJECT:
             c->val = CsNewInstance(c,c->val);
             break;
+        case BC_NEWCLASS:
+            {
+              value parentClass = CsPop(c);
+              if( parentClass == c->undefinedValue )
+                  parentClass = c->currentScope.globals;
+              value classNameSymbol = c->val;
+#ifdef _DEBUG
+              dispatch* pd = CsGetDispatch(parentClass);
+              const char* n = CsSymbolPrintName(classNameSymbol);
+#endif
+              c->val = CsNewClassInstance(c,parentClass, classNameSymbol);
+            }
+            break;
+
         case BC_NEWVECTOR:
             if (!CsIntegerP(c->val)) CsTypeError(c,c->val);
             n = CsIntegerValue(c->val);
@@ -917,6 +903,7 @@ static bool Execute(VM *c)
         case BC_NEXT:
             c->val = GetNextMember(c,&c->sp[0],c->sp[1]);
             break;
+
         case BC_PROTO:
             if(CsObjectOrMethodP(c->val))
               c->val = CsObjectClass(c->val);
@@ -952,6 +939,34 @@ static bool Execute(VM *c)
             c->pc = c->cbase + off;
             break;
 
+        case BC_CAR:
+            p1 = CsPop(c); 
+            if( CsStringP(p1) )
+               c->val = CsStringHead(c,p1,c->val);
+            else 
+               CsUnexpectedTypeError(c, p1, "string");
+            break;
+        case BC_CDR:
+            p1 = CsPop(c); 
+            if( CsStringP(p1) )
+               c->val = CsStringTail(c,p1,c->val);
+            else 
+               CsUnexpectedTypeError(c, p1, "string");
+            break;
+        case BC_RCAR:
+            p1 = CsPop(c); 
+            if( CsStringP(p1) )
+               c->val = CsStringHeadR(c,p1,c->val);
+            else 
+               CsUnexpectedTypeError(c, p1, "string");
+            break;
+        case BC_RCDR:
+            p1 = CsPop(c); 
+            if( CsStringP(p1) )
+               c->val = CsStringTailR(c,p1,c->val);
+            else 
+               CsUnexpectedTypeError(c, p1, "string");
+            break;
         default:
             BadOpcode(c,c->pc[-1]);
             break;
@@ -1062,6 +1077,12 @@ static void BinaryOp(VM *c,int op)
         case 'R':
             ival = i1 >> i2;
             break;
+        case 'l':
+            ival = uint(i1) << i2;
+            break;
+        case 'r':
+            ival = uint(i1) >> i2;
+            break;
         default:
             ival = 0; /* never reached */
             break;
@@ -1142,12 +1163,15 @@ value CsInternalSend(VM *c,int argc)
 }
 
 /* Send - setup to call a method */
-static int Send(VM *c,FrameDispatch *d,int argc)
+int Send(VM *c,FrameDispatch *d,int argc)
 {
     value _this = c->sp[argc];
+
+    assert(_this != c->undefinedValue);
+
     value next = c->sp[argc - 2];
     value selector = c->sp[argc - 1];
-    value method;
+    value method = c->undefinedValue;
 
     if( CsMethodP(selector) || CsPropertyMethodP(selector) )
     {
@@ -1228,7 +1252,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     /* parse the argument frame instruction */
     rflag = *pc++ == BC_AFRAMER;
 
-    if (rflag)
+    if (rflag) 
     {
       if( CsCollectGarbageIf(c,2048) ) // we need to allocate array below, so this hack, well - sort of
       {
@@ -1241,7 +1265,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
       }
     }
 
-    rargc = *pc++;
+    rargc = *pc++; 
     oargc = *pc++;
     targc = rargc + oargc;
 
@@ -1277,13 +1301,13 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     CsCheck(c,WordSize(sizeof(CallFrame)) + CsFirstEnvElement);
 
     /* complete the environment frame */
-    CsPush(c,c->undefinedValue);         /* names */
+    CsPush(c,c->undefinedValue);  /* names */
     CsPush(c,CsMethodEnv(method));/* nextFrame */
 
-    /* initialized the frame */
+    /* initialize the frame */
     frame = (CallFrame *)(c->sp - WordSize(sizeof(CallFrame)));
-    frame->hdr.pdispatch = d;
-    frame->hdr.next = c->fp;
+    frame->pdispatch = d;
+    frame->next = c->fp;
     frame->globals = c->currentScope.globals;
     frame->env = c->env;
     frame->code = c->code;
@@ -1321,7 +1345,7 @@ static bool CallRestore(VM *c)
     value env = c->env;
 
     /* restore the previous frame */
-    c->fp = frame->hdr.next;
+    c->fp = frame->next;
     c->currentScope.globals = frame->globals;
     c->env = frame->env;
     if ((c->code = frame->code) != 0) {
@@ -1360,6 +1384,7 @@ static value *CallCopy(VM *c,CsFrame *frame)
     }
     else
         data += count;
+
     return data;
 }
 
@@ -1377,14 +1402,15 @@ static void PushFrame(VM *c,int size)
 
     /* initialized the frame */
     frame = (BlockFrame *)(c->sp - WordSize(sizeof(BlockFrame)));
-    frame->hdr.pdispatch = &CsBlockCDispatch;
-    frame->hdr.next = c->fp;
+    frame->pdispatch = &CsBlockCDispatch;
+    frame->next = c->fp;
     frame->env = c->env;
     CsSetDispatch(ptr_value(&frame->stackEnv),&CsStackEnvironmentDispatch);
     CsSetEnvSize(ptr_value(&frame->stackEnv),CsFirstEnvElement + size);
 
     /* establish the new frame */
     c->env = ptr_value(&frame->stackEnv);
+    dispatch* pd = CsGetDispatch(c->env);
     c->fp = (CsFrame *)frame;
     c->sp = (value *)frame;
 }
@@ -1395,12 +1421,14 @@ static bool BlockRestore(VM *c)
     BlockFrame *frame = (BlockFrame *)c->fp;
 
     /* restore the previous frame */
-    c->fp = frame->hdr.next;
+    c->fp = frame->next;
     c->env = frame->env;
 
     /* fixup moved environments */
     if (c->env && CsMovedEnvironmentP(c->env))
         c->env = CsMovedEnvForwardingAddr(c->env);
+
+    dispatch* pd = CsGetDispatch(c->env);
 
     /* reset the stack pointer */
     c->sp = (value *)frame;
@@ -1557,7 +1585,7 @@ bool CsEql(value obj1,value obj2)
         else
             return false;
     }
-    else*/
+    else*/ 
     if (CsFloatP(obj1)) {
         if (CsFloatP(obj2))
             return CsFloatValue(obj1) == CsFloatValue(obj2);
@@ -1601,9 +1629,9 @@ value CsToBoolean(VM* c, value obj)
 /* CsEql - compare two objects for equality */
 bool CsEqualOp(VM* c, value obj1,value obj2)
 {
-    if ( CsIntegerP(obj1) || CsIntegerP(obj2))
+    if ( CsIntegerP(obj1) || CsIntegerP(obj2)) 
         return CsToInteger(c,obj1) == CsToInteger(c,obj2);
-    else if (CsFloatP(obj1) || CsFloatP(obj2))
+    else if (CsFloatP(obj1) || CsFloatP(obj2)) 
         return CsToFloat(c,obj1) == CsToFloat(c,obj2);
     else if (CsStringP(obj1) || CsStringP(obj2))
         return CompareStrings(CsToString(c,obj1),CsToString(c,obj2)) == 0;
@@ -1620,9 +1648,9 @@ bool CsEqualOp(VM* c, value obj1,value obj2)
 /* CsCompareObjects - compare two objects */
 int CsCompareObjects(VM *c,value obj1,value obj2, bool suppressError)
 {
-    if ( CsIntegerP(obj1) || CsIntegerP(obj2))
+    if ( CsIntegerP(obj1) || CsIntegerP(obj2)) 
         return to_int(CsToInteger(c,obj1)) - to_int(CsToInteger(c,obj2));
-    else if (CsFloatP(obj1) || CsFloatP(obj2))
+    else if (CsFloatP(obj1) || CsFloatP(obj2)) 
     {
         float_t diff = to_float(CsToFloat(c,obj1)) - to_float(CsToFloat(c,obj2));
         return diff < 0 ? -1 : diff == 0 ? 0 : 1;
@@ -1713,6 +1741,7 @@ int GetLineNumber(VM *c, value ccode, int pc )
   return 0;
 }
 
+
 void CsStreamStackTrace(VM *c,stream *s)
 {
     bool calledFromP = false;
@@ -1738,7 +1767,7 @@ void CsStreamStackTrace(VM *c,stream *s)
     while (fp && fp <= (CsFrame *)c->stackTop)
     {
         CallFrame *frame = (CallFrame *)fp;
-        if (frame->hdr.pdispatch == &CsCallCDispatch && frame->code) {
+        if (frame->pdispatch == &CsCallCDispatch && frame->code) {
             value name = CsCompiledCodeName(frame->code);
                 //if (!calledFromP) {
                 //    s->put_str("called from:\n");
@@ -1818,7 +1847,7 @@ value GetNextMember(VM *c, value* index, value collection)
   {
     return (*(pd->getNextElement))(c,index,collection);
   }
-  else
+  else if(collection != c->nothingValue)
     CsThrowKnownError(c,CsErrNoSuchFeature,collection, "enumeration");
   return c->nothingValue;
 }
@@ -1847,8 +1876,60 @@ value CsGetRange(VM *c, value col, value start, value end)
   return c->undefinedValue;
 }
 
-//extern value            cvt_value(VM *c, const sciter::value_t& v );
-//extern sciter::value_t  cvt_value(VM *c, value v );
+/*
+value IteratorNextElement(VM *c, value* index, value gen)
+{
+    if(*index == c->nothingValue) // first
+    {
+      *index = int_value(0);
+      return ptr<generator>(gen)->val;
+    }
+    else if(CsIntegerP(*index))
+    {
+      int_t i = to_int(*index) + 1;
+      *index = int_value(i);
+
+      CsPush(c,gen);  
+      CsSavedState state(c);
+      bool r = false;
+      TRY
+      {
+          Call(c,&CsTopCDispatch,0);
+          r = Execute(c);
+      }
+      CATCH_ERROR(e)
+      {
+          state.restore();
+          gen = CsPop(c);
+          ptr<CsIterator>(gen)->code = c->nothingValue;
+          ptr<CsIterator>(gen)->env = c->nothingValue;
+          ptr<CsIterator>(gen)->globals = c->nothingValue;
+          throw e;
+      }
+      //int pcoff = c->pc - c->cbase;
+      //value val = c->val; //CsPop(c);
+      state.restore();
+      gen = CsPop(c);
+      if(r) // it's finished
+      {
+        ptr<CsIterator>(gen)->code = c->nothingValue;
+        ptr<CsIterator>(gen)->env = c->nothingValue;
+        ptr<CsIterator>(gen)->globals = c->nothingValue;
+      }
+      else
+      {
+        //ptr<CsIterator>(gen)->pcoffset = pcoff;
+        return ptr<CsIterator>(gen)->val;
+      }
+    }
+    else
+      assert(false);
+
+    return c->nothingValue;
+}
+
+*/
+
 
 
 }

@@ -71,7 +71,7 @@ template< typename CHAR_TYPE >
     token_type      get_token()  { return (this->*c_scan)(); }
 
     // get value of TT_WORD, TT_SPACE, TT_ATTR and TT_DATA
-    slice<char_type> get_value() { return value; }
+    slice<CHAR_TYPE> get_value() { return value(); }
 
     // get attribute name
     const char*     get_attr_name()               { attr_name[attr_name_length] = 0; return attr_name; }
@@ -296,7 +296,7 @@ template< typename CHAR_TYPE >
     {
       char buf[32];
       uint i = 0;
-      char_type t;
+      wchar t;
       for(; i < 31 ; ++i )
       {
         t = get_char();
@@ -310,7 +310,7 @@ template< typename CHAR_TYPE >
       //t = resolve_entity(buf,i);
       t = html_unescape(chars(buf,i));
 
-      if(t) return t;
+      if(t) return (char_type)t;
       // no luck ...
       append_value('&');
       for(uint n = 0; n < i; ++n)

@@ -102,6 +102,19 @@ OTDEF otab[] = {
 {       BC_LIKE,      "LIKE",         FMT_NONE        },
 {       BC_DEBUG,     "DEBUG",        FMT_NONE        },
 
+{       BC_S_CALL,    "BC_S_CALL",    FMT_WORD        },
+{       BC_S_RETURN,  "BC_S_RETURN",  FMT_NONE        },
+{       BC_YIELD,     "YIELD",        FMT_WORD        },
+{       BC_NEWCLASS,  "NEWCLASS",     FMT_NONE        },
+{       BC_USHL,       "USHL",        FMT_NONE        },
+{       BC_USHR,       "USHR",        FMT_NONE        },
+{       BC_NS,         "NS",          FMT_NONE        },
+
+{       BC_CAR,       "CAR",          FMT_NONE        },
+{       BC_CDR,       "CDR",          FMT_NONE        },
+{       BC_RCAR,      "RCAR",         FMT_NONE        },
+{       BC_RCDR,      "RCDR",         FMT_NONE        },
+
 {0,0,0}
 };
 

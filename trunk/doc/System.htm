@@ -55,6 +55,32 @@ TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
 <DIV><STRONG>(</STRONG>[<EM>relpath</EM>:string]<STRONG>)</STRONG> returns: <EM>string</EM></DIV>
 <P>Returns home folder of the application - folder where sciter started from. If <EM>relpath</EM> is some string then it will be appended to the return value. Use this if you need to find fully qualified file name residing in sciter folder or subfolder.</P></TD>
   </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>path</EM></STRONG></TD>
+    <TD valign="middle">
+<DIV><STRONG>(</STRONG>system-folder: symbol [,<EM>relpath</EM>:string]<STRONG>)</STRONG> returns: <EM>string</EM></EM></DIV>
+<P>Returns path of one of the system folders. <EM>system-folder</EM> here is one of: </P>
+<UL>
+<LI>#SYSTEM</LI>
+<LI>#SYSTEM_BIN</LI>
+<LI>#PROGRAM_FILES</LI>
+<LI>#USER_APPDATA</LI>
+<LI>#COMMON_APPDATA</LI>
+<LI>#USER_DOCUMENTS</LI>
+<LI>#COMMON_DOCUMENTS</LI></UL>
+</TD>
+  </TR>
+  <TR>
+    <TD colspan="2" bgcolor=#ffffff valign="top"><STRONG><FONT size="4">Prperties</FONT></FONT></STRONG></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>language</EM></STRONG></TD>
+    <TD valign="middle">The abbreviated name of the language, ISO Standard 639 names.</TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>country</EM></STRONG></TD>
+    <TD valign="middle">Country/region name, based on ISO Standard 3166.</TD>
+  </TR>
 </TABLE>
 </DIV>
 <DIV>&nbsp;</DIV>

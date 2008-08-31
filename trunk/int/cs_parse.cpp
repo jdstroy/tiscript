@@ -21,17 +21,19 @@ int CsGetArgCount(VM *c)
   return CsArgCnt(c);
 }*/
 
-/**
-	Retrieves arguments of a function or method according to the specified format string.
 
-*/
-int CsParseArguments(VM *c, const char *fmt, va_list ap )
+/* CsParseArguments - parse the argument list of a method */
+int CsParseArguments(VM *c,char *fmt,...)
 {
     int spec;
     bool optionalP = false; /* no optional specifier seen yet */
     value *argv = c->argv;
     int argc = c->argc;
     value arg;
+    va_list ap;
+
+    /* get the variable argument list */
+    va_start(ap,fmt);
 
     /* handle each argument specifier */
     while (*fmt) {
@@ -182,7 +184,8 @@ int CsParseArguments(VM *c, const char *fmt, va_list ap )
                 }
                 break;
             case 'B':   /* boolean */
-                {   bool *p = va_arg(ap,bool *);
+                {   
+                  bool *p = va_arg(ap,bool *);
                     *p = CsTrueP(c,arg);
                 }
                 break;
@@ -201,6 +204,9 @@ int CsParseArguments(VM *c, const char *fmt, va_list ap )
         }
     }
 
+    /* finished with the variable arguments */
+    va_end(ap);
+
     /* check for too many arguments */
 
     //if (argc > 0)
@@ -210,17 +216,7 @@ int CsParseArguments(VM *c, const char *fmt, va_list ap )
 	      CsTooFewArguments(c);
 
     return argc;
-}
 
-/** CsParseArguments - parses the argument list of a method 
-*/
-int CsParseArguments(VM *c,const char *fmt,...)
-{
-	va_list ap;
-	va_start( ap, fmt );
-	int res = CsParseArguments(c, fmt, ap);
-	va_end( ap );
-	return res;
 }
 
 }

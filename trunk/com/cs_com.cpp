@@ -56,6 +56,7 @@ static void do_block(CsCompiler *c,char *parameter);
 static void do_property_block(CsCompiler *c, const char* valName);
 static void do_get_set(CsCompiler *c, bool get, const char* valName);
 static void do_return(CsCompiler *c);
+static void do_yield(CsCompiler *c);
 static void do_typeof(CsCompiler *c);
 static void do_try(CsCompiler *c);
 static void do_throw(CsCompiler *c);
@@ -71,6 +72,7 @@ static void do_include(CsCompiler *c);
 static void do_var_global(CsCompiler *c);
 static void do_const_global(CsCompiler *c);
 static void do_init_expr(CsCompiler *c);
+static void do_class_ref_expr(CsCompiler *c);
 static void do_right_side_expr(CsCompiler *c,PVAL *pv);
 static void rvalue(CsCompiler *c,PVAL *pv);
 static void chklvalue(CsCompiler *c,PVAL *pv);
@@ -91,7 +93,7 @@ static void do_expr13(CsCompiler *c,PVAL *pv);
 static void do_expr14(CsCompiler *c,PVAL *pv);
 static void do_preincrement(CsCompiler *c,PVAL *pv,int op);
 static void do_postincrement(CsCompiler *c,PVAL *pv,int op);
-static void do_expr15(CsCompiler *c,PVAL *pv);
+static void do_expr15(CsCompiler *c,PVAL *pv, bool allow_call_objects = true);
 static void do_primary(CsCompiler *c,PVAL *pv);
 static void do_primary_json(CsCompiler *c,PVAL *pv);
 static void do_variable(CsCompiler *c,PVAL *pv);
@@ -106,9 +108,11 @@ static void do_literal_regexp(CsCompiler *c,PVAL *pv, int tkn);
 static void do_literal_obj(CsCompiler *c,PVAL *pv);
 //static void do_output_string(CsCompiler *c, const wchar* str);
 static void do_new_obj(CsCompiler *c,PVAL *pv);
-static void do_call(CsCompiler *c,PVAL *pv);
+static void do_call(CsCompiler *c,PVAL *pv); // name( param list )
+static void do_call_object(CsCompiler *c,PVAL *pv); // name object literal. name { field1: value, field2: value, ... }
 static void do_super(CsCompiler *c,PVAL *pv);
 static void do_method_call(CsCompiler *c,PVAL *pv);
+static void do_method_call_object(CsCompiler *c,PVAL *pv);
 static void do_index(CsCompiler *c,PVAL *pv);
 static void do_symbol_index(CsCompiler *c,PVAL *pv);
 static void InjectArgFrame(CsCompiler *c, ATABLE **patable, int *pptr);
@@ -188,11 +192,7 @@ struct qualified_name
     {
       strncpy(local_name, localName, TKNSIZE);
       if(prev_name)
-#ifdef WIN32
-	    _snprintf(name, TKNSIZE*2 , "%s.%s", prev_name, localName);
-#else
-        snprintf(name, TKNSIZE*2 , "%s.%s", prev_name, localName);
-#endif
+        do_snprintf(name, TKNSIZE*2 , "%s.%s", prev_name, localName);
       else
         strncpy(name, localName, TKNSIZE*2);
     }
@@ -220,8 +220,11 @@ CsCompiler *CsMakeCompiler(VM *ic,long csize,long lsize)
     c->lineNumbers = c->currentBlock = NULL;
 
     /* allocate and initialize the literal buffer */
-    CsProtectPointer(ic,&c->literalbuf);
+    //CsProtectPointer(ic,&c->literalbuf);
+   
+    c->literalbuf.pin(ic);
     c->literalbuf = CsMakeVector(ic,lsize);
+    
     c->lptr = 0; c->ltop = lsize;
 
     /* link the compiler and interpreter contexts to each other */
@@ -239,6 +242,7 @@ CsCompiler *CsMakeCompiler(VM *ic,long csize,long lsize)
 /* CsFreeCompiler - free the compiler structure */
 void CsFreeCompiler(CsCompiler *c)
 {
+        c->literalbuf.unpin();
 	if (c->codebuf)
 		CsFree(c->ic,c->codebuf);
 	CsFree(c->ic,c);
@@ -320,6 +324,7 @@ value CsCompileExpr(CsScope *scope, bool add_this)
 
       /* return the function */
       //CsDecodeProcedure(ic,code,ic->standardOutput);
+      FreeLineNumbers(c);
       FreeArguments(c);
       return code;
     }
@@ -403,6 +408,7 @@ value CsCompileExpressions(CsScope *scope, bool serverScript)
 
       /* return the function */
       //CsDecodeProcedure(ic,code,ic->standardOutput);
+      FreeLineNumbers(c);
 
       return code;
     }
@@ -478,6 +484,7 @@ value CsCompileDataExpr(CsScope *scope)
       /* make a closure */
       code = CsMakeMethod(ic,code,ic->undefinedValue,scope->globals);
 
+      FreeLineNumbers(c);
       /* return the function */
 
       return code;
@@ -512,6 +519,7 @@ static void do_statement(CsCompiler *c )
     case T_CASE:        do_case(c);     break;
     case T_DEFAULT:     do_default(c);  break;
     case T_RETURN:      do_return(c);   break;
+    case T_YIELD:       do_yield(c);    break;
     case T_TRY:         do_try(c);      break;
     case T_THROW:       do_throw(c);    break;
     case '{':           do_block(c, 0); break;
@@ -613,7 +621,7 @@ static void compile_code(CsCompiler *c,char *name, bool isPropertyMethod)
 
     tkn = CsToken(c);
 
-    if ( tkn != ')' && tkn != T_DOTDOT && tkn != ':' ) {
+    if ( tkn != ')' && tkn != T_DOTDOT && tkn != ':' && tkn != '{') {
         CsSaveToken(c,tkn);
         do {
             char id[TKNSIZE+1];
@@ -722,17 +730,14 @@ static void compile_code(CsCompiler *c,char *name, bool isPropertyMethod)
     c->lineNumbers = oldlines;
     c->currentBlock = oldcblock;
 
-    //tool::swop(c->tryCatchStack,saveTryCatchStack);
     c->tcStack = save_tcStack;
 
     Optimize(c,bytecodes);
 
     /* make a closure */
     code_literal(c,addliteral(c,code));
-    //
     putcbyte(c,BC_CLOSE);
     putcbyte(c,isPropertyMethod? 1:0);
-
     --c->functionLevel;
 
 }
@@ -797,6 +802,11 @@ static void do_get_set(CsCompiler *c, bool get, const char* valName)
     if(c->savedToken == ';')
        CsToken(c);
 
+    if(!get)
+    {
+      load_argument(c,valName);
+      putcbyte(c,BC_RETURN); // This is needed for cases a.b++; where b is a virtual property.
+    }
     /* handle the end of the statement */
     fixup(c,nxt,codeaddr(c));
 }
@@ -985,7 +995,7 @@ END:
 
 }
 
-/* do_for - compile the 'for' statement */
+/* do_for_in - compile the 'for' .. 'in' statement */
 static void do_for_in(CsCompiler *c, PVAL* pv, const tool::string& name)
 {
     int end,body;
@@ -1688,7 +1698,7 @@ static void do_class_decl(CsCompiler *c)
 
     if ((tkn = CsToken(c)) == ':')
     {
-        do_init_expr(c);
+        do_class_ref_expr(c);
         /*putcbyte(c,BC_PUSH);
         putcbyte(c,BC_PUSH);
         code_literal(c,addliteral(c,CsInternCString(c->ic,"prototype")));
@@ -1699,26 +1709,29 @@ static void do_class_decl(CsCompiler *c)
     }
     else
     {
-        variable_ref(c,"Object");
+        putcbyte(c,BC_NS);
+        //variable_ref(c,"Class");
         root_ns = true;
         CsSaveToken(c,tkn);
     }
 
-    putcbyte(c,BC_NEWOBJECT);
+    putcbyte(c,BC_PUSH);
+
+    do_lit_symbol(c, qn.name);
+    //putcbyte(c,BC_GSETC);
+    //putcword(c,make_lit_symbol(c,".className"));
+
+    putcbyte(c,BC_NEWCLASS);
     putcbyte(c,BC_PUSH);
 
     frequire(c,'{');
 
     putcbyte(c,BC_PUSH_NS);
-    //putcbyte(c,root_ns);
 
     int prev_functionLevel = c->functionLevel; c->functionLevel = 0;
 
     // set strong name
 
-    do_lit_symbol(c, qn.name);
-    putcbyte(c,BC_GSETC);
-    putcword(c,make_lit_symbol(c,".className"));
 
     while ((tkn = CsToken(c)) != '}')
       switch( tkn )
@@ -1905,6 +1918,32 @@ static void do_return(CsCompiler *c)
     putcbyte(c,BC_RETURN);
 }
 
+static void do_yield(CsCompiler *c)
+{
+    //CsParseError(c,"yield is not supported yet");
+
+    int tkn, end = NIL;
+	  if ((tkn = CsToken(c)) == ';')
+		  putcbyte(c,BC_UNDEFINED);
+	  else
+    {
+		  CsSaveToken(c,tkn);
+		  do_init_expr(c);
+      if ((tkn = CsToken(c)) != ';')
+        CsSaveToken(c,tkn);
+		}
+    //putcbyte(c,BC_PUSH);
+    //if (!load_argument(c,"this"))
+    //  CsParseError(c,"Use of yield outside of a function");
+    putcbyte(c,BC_YIELD);
+    end = putcword(c,NIL);
+    UnwindStack(c,c->blockLevel);
+    UnwindTryStack(c,end);
+    fixup(c,end,codeaddr(c));
+    putcbyte(c,BC_RETURN);
+}
+
+
 /* do_typeof - handle the 'typeof' statement */
 static void do_typeof(CsCompiler *c)
 {
@@ -1954,6 +1993,12 @@ static void do_right_side_expr(CsCompiler *c,PVAL *pv)
       do_expr2(c,pv,false);
 }
 
+static void do_class_ref_expr(CsCompiler *c)
+{
+    PVAL pv;
+    do_expr15(c,&pv, false /* no call object expressions */);
+    rvalue(c,&pv);
+}
 
 
 /* rvalue - get the rvalue of a partial expression */
@@ -2017,6 +2062,7 @@ static int do_expr2(CsCompiler *c,PVAL *pv, bool handle_in)
     ||     tkn == T_MULEQ || tkn == T_DIVEQ || tkn == T_REMEQ
     ||     tkn == T_ANDEQ || tkn == T_OREQ  || tkn == T_XOREQ
     ||     tkn == T_SHLEQ || tkn == T_SHREQ
+    ||     tkn == T_USHLEQ || tkn == T_USHREQ
     //||     (handle_in && (tkn == T_IN))
           )
     {
@@ -2056,6 +2102,8 @@ static int do_expr2(CsCompiler *c,PVAL *pv, bool handle_in)
         case T_XOREQ:       do_assignment(c,pv,BC_XOR);     break;
         case T_SHLEQ:       do_assignment(c,pv,BC_SHL);     break;
         case T_SHREQ:       do_assignment(c,pv,BC_SHR);     break;
+        case T_USHLEQ:      do_assignment(c,pv,BC_USHL);    break;
+        case T_USHREQ:      do_assignment(c,pv,BC_USHR);    break;
         }
         pv->fcn = NULL;
     }
@@ -2230,10 +2278,12 @@ static void do_expr11(CsCompiler *c,PVAL *pv)
 {
     int tkn,op;
     do_expr12(c,pv);
-    while ((tkn = CsToken(c)) == T_SHL || tkn == T_SHR) {
+    while ((tkn = CsToken(c)) == T_SHL || tkn == T_SHR ||  tkn == T_USHL || tkn == T_USHR ) {
         switch (tkn) {
         case T_SHL: op = BC_SHL; break;
         case T_SHR: op = BC_SHR; break;
+        case T_USHL: op = BC_USHL; break;
+        case T_USHR: op = BC_USHR; break;
         default:    CsThrowKnownError(c->ic,CsErrImpossible,c); op = 0; break;
         }
         rvalue(c,pv);
@@ -2277,6 +2327,10 @@ static void do_expr13(CsCompiler *c,PVAL *pv)
           case '*': op = BC_MUL; break;
           case '/': op = BC_DIV; break;
           case '%': op = BC_REM; break;
+          case T_CAR: op = BC_CAR; break;
+          case T_CDR: op = BC_CDR; break;
+          case T_RCAR: op = BC_RCAR; break;
+          case T_RCDR: op = BC_RCDR; break;
 
           case T_INSTANCEOF: op = BC_INSTANCEOF; break;
           case T_LIKE: op = BC_LIKE; break;
@@ -2360,12 +2414,13 @@ static void do_postincrement(CsCompiler *c,PVAL *pv,int op)
 }
 
 /* do_expr15 - handle function calls */
-static void do_expr15(CsCompiler *c,PVAL *pv)
+static void do_expr15(CsCompiler *c,PVAL *pv, bool allow_call_objects)
 {
     int tkn;
     do_primary(c,pv);
     while ((tkn = CsToken(c)) == '('
     ||     tkn == '['
+    ||     (allow_call_objects && (tkn == '{'))
     ||     tkn == '.'
     ||     tkn == T_SYMBOL
     ||     tkn == T_INC
@@ -2373,6 +2428,9 @@ static void do_expr15(CsCompiler *c,PVAL *pv)
         switch (tkn) {
         case '(':
             do_call(c,pv);
+            break;
+        case '{':
+            do_call_object(c,pv);
             break;
         case '[':
             do_index(c,pv);
@@ -2407,10 +2465,18 @@ static void do_prop_reference(CsCompiler *c,PVAL *pv)
     do_selector(c);
 
     /* check for a method call */
-    if ((tkn = CsToken(c)) == '(') {
+    if ((tkn = CsToken(c)) == '(') 
+    {
         putcbyte(c,BC_PUSH);
         putcbyte(c,BC_OVER);
         do_method_call(c,pv);
+    }
+    else if (tkn == '{') 
+    { 
+        // call of obj.method { prm1: val,prm2: val }
+        putcbyte(c,BC_PUSH);
+        putcbyte(c,BC_OVER);
+        do_method_call_object(c,pv);
     }
 
     /* handle a property reference */
@@ -2592,6 +2658,7 @@ static void do_primary_json(CsCompiler *c,PVAL *pv)
         break;
 
     case T_IDENTIFIER:
+      /*
         if( strcmp(c->t_token,"true") == 0)
         {
           putcbyte(c,BC_T);
@@ -2604,6 +2671,11 @@ static void do_primary_json(CsCompiler *c,PVAL *pv)
           pv->fcn = NULL;
           break;
         }
+        */
+        do_lit_symbol(c,c->t_token);
+        pv->fcn = NULL;
+        break;
+
         // else fall through
     default:
         CsParseError(c,"Expecting a primary expression");
@@ -2678,8 +2750,15 @@ static void do_function(CsCompiler *c, bool isPropertyMethod)
     qn.append(c->t_token);
     if(qn.is_root())
     {
-      if((tkn = CsToken(c)) == '.')
+      tkn = CsToken(c);
+      if( tkn == '.')
       {
+         do_method(c,qn.local_name, isPropertyMethod);
+         return;
+      }
+      else if(tkn == T_SYMBOL)
+      {
+         CsSaveToken(c,tkn);
          do_method(c,qn.local_name, isPropertyMethod);
          return;
       }
@@ -2709,6 +2788,74 @@ static void do_lambda(CsCompiler *c,PVAL *pv)
     pv->fcn = NULL;
 }
 
+
+
+static void do_method(CsCompiler *c, char* name, bool isPropertyMethod)
+{
+    char selector[256];
+    int tkn;
+
+    //c->lineNumberChangedP = true;
+
+    /* push the class */
+    variable_ref(c,name);
+    putcbyte(c,BC_PUSH);
+
+    /* get the selector */
+    for (;;) 
+    {
+        tkn = CsToken(c);
+        if( tkn == T_IDENTIFIER )
+        {
+           strcpy(selector,c->t_token);
+           tkn = CsToken(c);
+           if (tkn == '(')
+              break;
+           do_lit_symbol(c,selector);
+           putcbyte(c,BC_GETP);
+           putcbyte(c,BC_PUSH);
+           if(tkn != '.')
+             CsSaveToken(c,tkn);
+           continue;
+        }
+        else if( tkn == T_SYMBOL )
+        {
+           do_lit_symbol(c,c->t_token);           
+           putcbyte(c,BC_VREF);
+           putcbyte(c,BC_PUSH);
+           tkn = CsToken(c);
+           if( tkn != '.')
+             CsSaveToken(c,tkn);
+           continue;
+        }
+        CsParseError(c,"Expecting symbol or property name");
+    }
+
+    /* push the selector symbol */
+    CsSaveToken(c,tkn);
+    do_lit_symbol(c,selector);
+
+    putcbyte(c,BC_PUSH);
+
+    int savedLineNumber = c->lineNumber;
+
+    /* compile the code */
+    compile_code(c,selector, isPropertyMethod);
+
+    int newLineNumber = c->lineNumber;
+
+    c->lineNumber = savedLineNumber;
+    c->lineNumberChangedP = true;
+     /* store the method as the value of the property */
+    putcbyte(c,BC_SETPM);
+
+    c->lineNumberChangedP = true;
+    c->lineNumber = newLineNumber;
+
+}
+
+
+#if 0
 static void do_method(CsCompiler *c, char* name, bool isPropertyMethod)
 {
     char selector[256];
@@ -2751,9 +2898,8 @@ static void do_method(CsCompiler *c, char* name, bool isPropertyMethod)
 
     c->lineNumberChangedP = true;
     c->lineNumber = newLineNumber;
-
 }
-
+#endif
 
 
 /* do_literal - parse a literal expression */
@@ -2800,7 +2946,16 @@ static void do_literal_vector(CsCompiler *c,PVAL *pv)
             ++cnt;
             do_init_expr(c);
             putcbyte(c,BC_PUSH);
-        } while ((tkn = CsToken(c)) == ',');
+            tkn = CsToken(c);
+            if(tkn == ',')
+            {
+              if( (tkn = CsToken(c)) == ']' )
+                break;
+              CsSaveToken(c,tkn);
+            }
+            else              
+              break;
+        } while (true);
         require(c,tkn,']');
     }
     do_lit_integer(c,cnt);
@@ -2902,7 +3057,14 @@ static void do_literal_obj(CsCompiler *c,PVAL *pv)
             putcbyte(c,BC_DROP);
 
             tkn = CsToken(c);
-            if ( tkn != ',' && tkn != ';' )
+            if ( tkn == ',' || tkn == ';' )
+            {
+              if( (tkn = CsToken(c)) == '}' )
+                break;
+              //CsSaveToken(c,tkn);
+              continue;
+            }
+            else
                break;
             tkn = CsToken(c);
         };
@@ -2998,6 +3160,32 @@ static void do_call(CsCompiler *c,PVAL *pv)
     pv->fcn = NULL;
 }
 
+/* do_call_object - compile a function call with single parameter - object literal */
+static void do_call_object(CsCompiler *c,PVAL *pv)
+{
+    int n=2;
+
+    /* get the value of the function */
+    rvalue(c,pv);
+    putcbyte(c,BC_PUSH);
+    putcbyte(c,BC_PUSHSCOPE);
+
+    // caller consumed '{'
+
+    do_literal_obj(c,pv);
+    rvalue(c,pv);
+    putcbyte(c,BC_PUSH);
+    ++n;
+
+    /* call the function */
+    putcbyte(c,BC_CALL);
+    putcbyte(c,n);
+
+    /* we've got an rvalue now */
+    pv->fcn = NULL;
+}
+
+
 /* do_super - compile a super.selector() expression */
 static void do_super(CsCompiler *c,PVAL *pv)
 {
@@ -3037,10 +3225,10 @@ static void do_new_obj(CsCompiler *c,PVAL *pv)
     /* get the property */
     if ((tkn = CsToken(c)) == T_IDENTIFIER)
         variable_ref(c,c->t_token);
-    else if (tkn == '(') {
-        do_expr(c);
-        frequire(c,')');
-    }
+    //else if (tkn == '(') {
+    //    do_expr(c);
+    //    frequire(c,')');
+    //}
     else
         CsParseError(c,"Expecting an obj expression");
 
@@ -3088,6 +3276,28 @@ static void do_method_call(CsCompiler *c,PVAL *pv)
     putcbyte(c,n);
     pv->fcn = NULL;
 }
+
+/* do_method_call_object - compile a method call expression 
+   obj.method { prm1: val,prm2: val }
+ */
+static void do_method_call_object(CsCompiler *c,PVAL *pv)
+{
+    int n=2;
+
+    // caller consumed '{'
+
+    do_literal_obj(c,pv);
+    rvalue(c,pv);
+    putcbyte(c,BC_PUSH);
+    ++n;
+
+    /* call the method */
+    putcbyte(c,BC_SEND);
+    putcbyte(c,n);
+    /* we've got an rvalue now */
+    pv->fcn = NULL;
+}
+
 
 /* do_index - compile an indexing operation */
 static void do_index(CsCompiler *c,PVAL *pv)

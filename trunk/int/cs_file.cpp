@@ -81,7 +81,7 @@ static void EnterPort(VM *c,char *name,stream **pStream)
     CsCheck(c,2);
     CsPush(c,CsMakeFile(c,s));
     CsPush(c,CsInternCString(c,name));
-    CsCreateGlobalConst(CsGlobalScope(c),CsTop(c),c->sp[1]);
+    CsCreateGlobalConst(c,CsTop(c),c->sp[1]);
     CsDrop(c,2);
 }
 
@@ -272,7 +272,6 @@ static value CSF_putc(VM *c)
       int ch;
       CsParseArguments(c,"P=*",&s,c->fileDispatch);
       if (!s) return c->undefinedValue;
-
 
       if((ch = s->get()) == stream::EOS)
         return c->undefinedValue;

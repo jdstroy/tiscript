@@ -237,6 +237,7 @@ L1:
 
     filename = s;  /* everything else goes here */
 fillport:
+    hostname.to_lower();
     if ( port == 0 )
     {
 
@@ -506,7 +507,7 @@ string url::name() const
   string ne = name_ext();
   if(ne.is_empty())
     return ne;
-  int lastdotpos = filename.last_index_of('.');
+  int lastdotpos = ne.last_index_of('.');
   if( lastdotpos <= 0)
     return ne;
   return ne.substr(0,lastdotpos);
@@ -517,7 +518,7 @@ string url::ext() const
   string ne = name_ext();
   if(ne.is_empty())
     return ne;
-  int lastdotpos = filename.last_index_of('.');
+  int lastdotpos = ne.last_index_of('.');
   if( lastdotpos <= 0)
     return string();
   return ne.substr(lastdotpos+1);
@@ -628,6 +629,20 @@ string url::compose(bool only_resource_name) const
   // what about username/password, eh?
   return out;
 }
+
+string url::compose_object() const
+{
+  string out;
+
+  out += filename;
+  if(params.length())
+  {
+    out += "?";
+    out += params;
+  }
+  return out;
+}
+
 
 }
 

@@ -1,0 +1,95 @@
+Microsoft Developer Studio Workspace File, Format Version 6.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "dybase"=.\dybase.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "tiscript_dll"=.\tiscript_dll.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name tiscript_lib
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "tiscript_exe"=.\tiscript_exe.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name dybase
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name tiscript_lib
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name tool
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "tiscript_lib"=.\tiscript_lib.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name dybase
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name tool
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "tool"=.\tool.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

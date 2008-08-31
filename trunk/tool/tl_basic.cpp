@@ -186,14 +186,25 @@ void setup_debug_output(void* p, debug_output_func* pf)
   _dof_prm = p;
 }
 
+/*void debug_printf(const char* fmt, ...)
+{
+  char buffer[2049]; buffer[1] = 0;
+  va_list args;
+  va_start ( args, fmt );
+  do_vsnprintf( &buffer[0], 2048, fmt, args );
+  va_end ( args );
+  strcat(buffer,"\n");
+  OutputDebugStringA(buffer);
+}*/
+
 void debug_printf(const char* fmt, ...)
 {
   if( !_dof )
     return;
-  char buffer[2049]; buffer[0]='\a'; buffer[1] = 0;
+  char buffer[2049]; buffer[0] = 0; //buffer[0]='\a'; buffer[1] = 0;
   va_list args;
   va_start ( args, fmt );
-  do_vsnprintf( &buffer[1], 2048, fmt, args );
+  do_vsnprintf( &buffer[0], 2048, fmt, args );
   va_end ( args );
 
   char* p = buffer;
@@ -202,6 +213,7 @@ void debug_printf(const char* fmt, ...)
     _dof( _dof_prm, *p++ );
 
 }
+
 
 void debug_println(const wchar* start, const wchar* end)
 {
