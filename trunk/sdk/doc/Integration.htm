@@ -1,0 +1,97 @@
+<HTML>
+  <HEAD>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="GENERATOR" content="BLOCKNOTE.NET">
+    <BASEFONT face="Verdana" size=2>
+    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+</STYLE>
+  </HEAD>
+<BODY>
+<H1>Integration</H1>
+<P>Integration of TIScript is pretty straightforward. Let's take a look on it step by step. I will use C++ here for the sake of conciseness. C API is also available - just take a look on tiscript.h and comments inside.</P>
+<H2>Step 1. Creating the engine</H2>
+<TABLE align=right border=0 cellpadding=1 cellspacing=1 width=45%>
+  <TR>
+    <TD bgcolor=#fffff2 valign=middle>
+<DIV>side note:</DIV>
+<DIV>std_stream implementation</DIV></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#f2f2ff valign=middle>
+<DIV><FONT face="Courier New" color=#009900>/* console io */</FONT></DIV>
+<DIV><FONT face="Courier New" color=#000099>class</FONT><FONT face="Courier New"> std_stream: </FONT><FONT face="Courier New" color=#000099>public</FONT><FONT face="Courier New"> tiscript::stream</FONT></DIV>
+<DIV><FONT face="Courier New">{</FONT></DIV>
+<BLOCKQUOTE>
+<DIV><FONT face="Courier New" color=#000099>virtual</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#000099>int</FONT><FONT face="Courier New"> &nbsp;get()</FONT></DIV>
+<DIV><FONT face="Courier New"> &nbsp;&nbsp;{ </FONT><FONT face="Courier New" color=#000099>return</FONT><FONT face="Courier New"> fgetc( stdin ); }</FONT></DIV>
+<DIV><FONT face="Courier New" color=#000099>virtual</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#000099>bool</FONT><FONT face="Courier New"> put(int v)</FONT></DIV>
+<DIV><FONT face="Courier New"> &nbsp;&nbsp;{ </FONT><FONT face="Courier New" color=#000099>return</FONT><FONT face="Courier New"> fputc( v, stdout ) != EOF; }</FONT></DIV></BLOCKQUOTE>
+
+<DIV><FONT face="Courier New">};</FONT></DIV></TD>
+  </TR>
+</TABLE>
+<BLOCKQUOTE>
+<P><FONT face="Courier New" color=#009900>/* include TIScript C++ API header. */<BR></FONT><FONT face="Courier New" color=#000099>#include</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#990066>&quot;tiscript.hpp&quot;</FONT></P>
+<P><FONT face="Courier New" color=#009900>/* Create instance of simple stream which will be used by script for its stdio, stdin, stderr */</FONT><FONT face="Courier New"><BR>std_stream cio;</FONT></P>
+<P><FONT face="Courier New" color=#009900>/* Create instance of engine */</FONT><FONT face="Courier New"><BR><STRONG>tiscript::engine tis(&amp;cio);</FONT></STRONG></P></BLOCKQUOTE>
+
+<P>At this point we have working instance of the engine in variable <STRONG>tis<EM>.</EM></STRONG></P>
+<H2>Step 2. Defining native function</H2>
+<P>Let's define C++ function to be called from script, a.k.a. &quot;native function&quot;.</P>
+<BLOCKQUOTE>
+<P><FONT face="Courier New" color=#009900>/* alert function - shows standard message box */</FONT></P>
+<DIV><FONT face="Courier New" color=#000099>struct</FONT><FONT face="Courier New"> alert_fcn: tiscript::function</FONT></DIV>
+<DIV><FONT face="Courier New">{</FONT></DIV>
+<BLOCKQUOTE>
+<DIV><FONT face="Courier New" color=#000099>virtual</FONT><FONT face="Courier New"> tiscript::value </FONT><FONT face="Courier New" color=#000099>operator</FONT><FONT face="Courier New">()( tiscript::value* argv, int argc )</FONT></DIV>
+<DIV><FONT face="Courier New">{</FONT></DIV>
+<BLOCKQUOTE>
+<DIV><FONT face="Courier New" color=#000099>if</FONT><FONT face="Courier New">( argc == 1 &amp;&amp; argv[0].is_string())</FONT></DIV>
+<DIV><FONT face="Courier New">{</FONT></DIV>
+<DIV><FONT face="Courier New"> &nbsp;</FONT><FONT face="Courier New" color=#000099>const</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#000099>wchar</FONT><FONT face="Courier New">_t* str = argv[0].get(L</FONT><FONT face="Courier New" color=#990066>&quot;&quot;</FONT><FONT face="Courier New">);</FONT></DIV>
+<DIV><FONT face="Courier New"> &nbsp;::MessageBoxW(NULL,str,L</FONT><FONT face="Courier New" color=#990066>&quot;script alert&quot;</FONT><FONT face="Courier New">, MB_OK | MB_ICONEXCLAMATION);</FONT></DIV>
+<DIV><FONT face="Courier New">}</FONT></DIV>
+<DIV><FONT face="Courier New" color=#000099>return</FONT><FONT face="Courier New"> tiscript::value(); </FONT><FONT face="Courier New" color=#009900>/* return undefined value here */</FONT></DIV></BLOCKQUOTE>
+
+<DIV><FONT face="Courier New">}</FONT></DIV></BLOCKQUOTE>
+
+<DIV><FONT face="Courier New">};</FONT></DIV>
+<P><FONT face="Courier New" color=#009900>/* add this function into script name space */</FONT></P>
+<P><FONT face="Courier New">tis.add(L&quot;alert&quot;, </FONT><FONT face="Courier New" color=#000099>new</FONT><FONT face="Courier New"> alert_fcn);</FONT></P></BLOCKQUOTE>
+
+<P>At this point we have initialized scripting engine with our function registered. Next is ...</P>
+<H2>Step 3. Running scripts</H2>
+<BLOCKQUOTE>
+<DIV><FONT face="Courier New" color=#009900>/* creating input stream for reading our script code */</FONT></DIV>
+<DIV><FONT face="Courier New">tiscript::file_in_stream in( </FONT><FONT face="Courier New" color=#990066>&quot;c:/test.js&quot;</FONT><FONT face="Courier New"> );</FONT></DIV>
+<DIV><FONT face="Courier New" color=#000099>if</FONT><FONT face="Courier New">(!in.is_valid())</FONT></DIV>
+<DIV><FONT face="Courier New">{</FONT></DIV>
+<BLOCKQUOTE>
+<DIV><FONT face="Courier New">printf( </FONT><FONT face="Courier New" color=#990066>&quot;cannot open %s\n&quot;</FONT><FONT face="Courier New">, </FONT><FONT face="Courier New" color=#990066>&quot;c:/test.js&quot;</FONT><FONT face="Courier New"> );</FONT></DIV>
+<DIV><FONT face="Courier New" color=#000099>return</FONT><FONT face="Courier New"> -1;</FONT></DIV></BLOCKQUOTE>
+
+<DIV><FONT face="Courier New">}</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face="Courier New" color=#009900>/* load and execute script from the <EM>in</EM> stream. */</FONT></DIV>
+<DIV><FONT face="Courier New" color=#000099>if</FONT><FONT face="Courier New">(!tis.load( &amp;in ))</FONT></DIV>
+<DIV><FONT face="Courier New"> &nbsp;&nbsp;</FONT><FONT face="Courier New" color=#000099>return</FONT><FONT face="Courier New"> -2;</FONT></DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT face="Courier New" color=#009900>/* done */</FONT></DIV></BLOCKQUOTE>
+
+<H2>Step 4. <SUP><FONT size=1>(optional)</FONT></SUP> Calling script functions</H2>
+<P>Script execution starts immediately on load but you may want to call scripting functions from your C++ code. Never been easier, see:</P>
+<BLOCKQUOTE>
+<P><FONT face="Courier New" color=#009900>/* defining array of parameters for script function */</FONT></P>
+<DIV><FONT face="Courier New">tiscript::value argv[2] = <BR>{ <BR> tiscript::value(1), </FONT><FONT face="Courier New" color=#009900>// int parameter</FONT><FONT face="Courier New"><BR> tiscript::value(L</FONT><FONT face="Courier New" color=#990066>&quot;hello&quot;</FONT><FONT face="Courier New">) </FONT><FONT face="Courier New" color=#009900>// string parameter</FONT><FONT face="Courier New"><BR>};</FONT></DIV>
+<P><FONT face="Courier New" color=#009900>/* assume that there is MyScriptFunction defined in script, let's call it then: */</FONT></P>
+<P><FONT face="Courier New">tiscript::value r = tis.call(L</FONT><FONT face="Courier New" color=#990066>&quot;MyScriptFunction&quot;</FONT><FONT face="Courier New">, argv, 2 </FONT><FONT face="Courier New" color=#009900>/* argc */</FONT><FONT face="Courier New"> );</FONT></P>
+<DIV><FONT face="Courier New" color=#009900>/* in r we have result returned by MyScriptFunction, report it */</FONT></DIV>
+<DIV><FONT face="Courier New">printf( </FONT><FONT face="Courier New" color=#990066>&quot;got from script:%S\n&quot;</FONT><FONT face="Courier New">, r.get(L</FONT><FONT face="Courier New" color=#990066>&quot;?&quot;</FONT><FONT face="Courier New">) );</FONT></DIV></BLOCKQUOTE>
+
+<P>Done. We have implemented all typical steps of script engine integration into C++ application.</P>
+<P>Full source code of <STRONG>tis.exe</STRONG> - console application using TIScript is in /samples/console/tis.cpp of TIScript SDK.</P>
+</BODY>
+</HTML>

@@ -1,0 +1,44 @@
+// test of custom stdout implementation:
+
+stdout << "Started!\n";
+
+// test of custom C++ defined function.
+// see: tis.cpp struct alert_fcn
+Utils.alert("Hello world!");
+
+var mb = new MessageBox("Hello World!", "Cool message:");
+    mb.show();
+    
+var old_caption = mb.caption;
+    
+    mb.caption = "Boring message:";
+    mb.show();
+    
+    mb.caption = old_caption;
+    mb.message = "Hello Universe!";
+    mb.show();
+    
+    function test()
+    {
+        try {
+          mb.caption = 123; // shall throw error
+        }
+        catch( e )
+        {
+          mb.caption = "Got error:";
+          mb.message = e.toString();
+        }
+        
+        mb.show();
+    }    
+    test();   
+    mb = null;
+    gc(); // here MessageBox_destructor invocation shall happen.
+
+    // this function will be called from C++ code:    
+    function printIt(what)
+    {
+      stdout.printf( "got:%V\n",what );
+    }
+    
+    

@@ -1,0 +1,128 @@
+<HTML>
+  <HEAD>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="GENERATOR" content="BLOCKNOTE.NET">
+    <META name="source">
+    <BASEFONT face="Verdana" size=2>
+    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+</STYLE>
+  </HEAD>
+<BODY>
+<H1>Array object</H1>
+<P>Represents indexed vector (array) of values.</P><DIV align=left>
+<TABLE border=0 cellpadding=4 cellspacing=0 width=100%>
+  <TR>
+    <TD colspan=2><STRONG><FONT size=4>Properties</FONT></STRONG></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>length</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>- <EM>integer</EM>, number of items in the array. Read/write property.</TD>
+  </TR>
+  <TR>
+    <TD width=117 bgcolor=#ffffff valign=top align=right><STRONG><EM>[index]</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle><STRONG>- </STRONG><EM>value</EM>, element of the array at the <EM>index</EM> position, Read-write index accessor. Zero-based index.</TD>
+  </TR>
+  <TR>
+    <TD width=117 bgcolor=#ffffff valign=top align=right><STRONG><EM>[begin..end]</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle><STRONG>- </STRONG><EM>integers</EM>, zero-based indexes of first and last element of the range. Returns slice of vector contains elements from <EM>start</EM> index and up to but not included <EM>end</EM> index. <EM>Begin</EM> or/and <EM>end</EM> are optional. If begin is ommited then it is assumed to be 0, if end - <EM>length</EM> is used as an end value.</TD>
+  </TR>
+  <TR>
+    <TD colspan=2 valign=top><STRONG><FONT size=4>Methods</FONT></STRONG></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>Array</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>([value1 [, value2 [, ... valueN ]]])</STRONG></DIV>
+<P>Creates new array object from arguments provided. Use as <BR>var a = new Array(...);</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>toLocaleString</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>()</STRONG> returns: string</DIV>
+<P>Returns string - comma separated list of values</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>toString</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>()</STRONG> returns: string</DIV>
+<P>Returns string - comma separated list of values</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>valueOf</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>()</STRONG> returns: string</DIV>
+<P>Same as <EM>toString</EM>.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>clone</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>() </STRONG>returns: array</DIV>
+<P>Returns brand new copy of the array.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>push</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>([value1 [, value2 [, ... valueN ]]])</STRONG> returns: value</DIV>
+<P>Appends array by <EM>values</EM>. Returns last inserted element.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>shift</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>()</STRONG> returns: value | undefined</DIV>
+<P>Removes first element of the array. Returns removed element.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>pop</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>()</STRONG> returns: value | undefined</DIV>
+<P>Removes last element of the array. Returns removed element.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>unshift</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>(value)</STRONG> returns: value | undefined</DIV>
+<P>Inserts value at first array position. Returns the value.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>concat</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>([value1 [, value2 [, ... valueN ]]]) </STRONG>returns: array</DIV>
+<P>Appends array by <EM>values</EM>. Returns the array.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>join</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>([delimeter])</STRONG> returns: string</DIV>
+<P>Returns string with all elements of the array separated by the <EM>delimeter</EM> or comma</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>reverse</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>()</STRONG> returns: array</DIV>
+<P>Reverses order of elements in the array in-place. Returns the array.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>slice</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>(start[, end])</STRONG> returns: array | undefined</DIV>
+<P>Returns new array consisting from elements of the array from <EM>start</EM> up to but not including <EM>end</EM> index.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>splice</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>(start[, end])</STRONG> returns: array | undefined</DIV>
+<P>Moves range of elements from <EM>start</EM> to <EM>end</EM> (not including) from the array into new array and returns this new array.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>sort</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign=middle>
+<DIV><STRONG>( [compareFunction] )</STRONG> returns: array</DIV>
+<P>Sorts elements of the array in ascending order. If the <EM>compareFunction</EM> provided it is used for comparing elements during sort. &nbsp;<EM>compareFunction</EM> shall accept two values in parameters and return -1, 0 or +1 as a result.</P></TD>
+  </TR>
+</TABLE>
+</DIV>
+</BODY>
+</HTML>

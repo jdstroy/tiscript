@@ -1,0 +1,125 @@
+<HTML>
+  <HEAD>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="GENERATOR" content="BLOCKNOTE.NET">
+    <META name="source">
+    <META name="source">
+    <META name="source">
+    <META name="source">
+    <BASEFONT face="Verdana" size="2">
+    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+</STYLE>
+  </HEAD>
+<BODY>
+<H1>Stream object</H1><DIV align="left">
+<TABLE border="0" cellpadding="4" cellspacing="0" width="100%">
+  <TR>
+    <TD colspan="2" valign="middle"><STRONG><FONT size="4">Properties</FONT></STRONG></TD>
+  </TR>
+  <TR>
+    <TD width="117" bgcolor=#ffffff align="right">&nbsp;</TD>
+    <TD bgcolor=#fffff0 valign="middle">Stream object has no properties.</TD>
+  </TR>
+  <TR>
+    <TD colspan="2" valign="middle"><STRONG><FONT size="4">Methods</FONT></STRONG></TD>
+  </TR>
+  <TR>
+    <TD colspan="2" bgcolor=#ffffff valign="top" align="center"><FONT color=#cc0033>Stream object has no public constructors so it is impossible to create it using <EM>new</EM> operator.<BR>To create streams use static open*** methods.</FONT></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>openFile</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<P><STRONG>(</STRONG><EM>file-name</EM> [,<EM>mode</EM>]<STRONG>) </STRONG>→ <EM>stream</EM> | <EM>null</EM></P>
+<P>Static method. Opens the file which name is stored in the <EM>file-name</EM> string and returns an instance of Stream object. Operations allowed to the stream returned are defined by the <EM>mode</EM> parameter-string.</P>
+<P>Script engine uses C/C++ runtime for opening file streams. See <A href="http://www.cplusplus.com/ref/cstdio/fopen.html" target="_blank">fopen function definition</A> for the meaning of the <EM>mode</EM> string.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>openSocket</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<P><STRONG>(</STRONG><EM>address:port </EM>[,<EM> timeout</EM> ] <STRONG>)</STRONG> → &nbsp;<EM>stream</EM> | <EM>null</EM></P>
+<P>Static method. Opens the socket stream which address and port is stored in the <EM>address-port </EM>string and returns an instance of Stream object. Opens socket stream in read-write mode. <EM>Address</EM> can be either domain name or IP address. Format of <EM>address:port</EM> string is <FONT color=#006666>&quot;domain<STRONG>:</STRONG>NNN&quot;</FONT> or <FONT color=#006666>&quot;NNN.NNN.NNN.NNN:NNN&quot;</FONT> where N is a decimal digit. <EM>timeout</EM> is a number of seconds to wait on any operations on this socket. If execution of operation on this socket will take more than this limit then exception will be thrown by runtime system.</P>
+<P>Example: following code will print out http server response of terrainformatica.com server:</P>
+<BLOCKQUOTE>
+<DIV><FONT color=#0000cc>var</FONT> sock <FONT color=#0000cc>=</FONT> <EM>Stream</EM>.<EM>openSocket</EM>( <FONT color=#006666>&quot;www.terrainformatica.com:80&quot;</FONT> , 5 <FONT color=#339900>/*seconds timeout*/</FONT> );</DIV>
+<DIV><FONT color=#0000cc>if</FONT>( !sock ) <FONT color=#0000cc>return</FONT>;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>sock.println(<FONT color=#006666>&quot;GET http://www.terrainformatica.com/main.whtm HTTP/1.0&quot;</FONT>);</DIV>
+<DIV>sock.println(&quot;User-Agent: TIScript [en]&quot;);</DIV>
+<DIV>sock.println(&quot;&quot;);</DIV>
+<DIV>&nbsp;</DIV>
+<DIV><FONT color=#0000cc>while</FONT>( <FONT color=#0000cc>true</FONT> )</DIV>
+<DIV>{</DIV>
+<DIV><FONT color=#0000cc>var</FONT> s = sock.readln();</DIV>
+<DIV><FONT color=#0000cc>if</FONT>(s == <FONT color=#0000cc>undefined</FONT>) <FONT color=#0000cc>break</FONT>;</DIV>
+<DIV><FONT color=#0000cc>stdout</FONT>.println(s);</DIV>
+<DIV>}</DIV></BLOCKQUOTE>
+</TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>openString</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>(</STRONG>[<EM>initialSize</EM>:int | <EM>initialValue</EM>:string]<STRONG>) :</STRONG> <EM>stream</EM></DIV>
+<P>Static method. Opens in-memory string output stream with <EM>initialSize (integer)</EM> of its buffer. Use string streams when you plan to update some string frequently or compose string from many components. String streams are also known as StringBuffer/StringBuilder in Java or .NET. To get current content of the string stream use its method <EM>toString</EM>.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>toString</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( ) </STRONG>→ &nbsp;<EM>stream</EM></DIV>
+<P>Returns content of string buffer if this is a string stream or name/address of the stream if it was open as file or socket stream.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>close</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<P><STRONG>( )</STRONG> → <EM>true | false</EM></P>
+<P>Closes this stream - file, socket, string stream buffer.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>print</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>string</EM><STRONG> ) </STRONG>→<STRONG> </STRONG><EM>true</EM> | <EM>false</EM></DIV>
+<P>Outputs <EM>string</EM> into the stream.</P>
+<P>print is an equivalent of: <EM>stream &lt;&lt; string</EM>; operation.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>println</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>string</EM><STRONG> ) </STRONG>→<STRONG> </STRONG><EM>true</EM> | <EM>false</EM></DIV>
+<P>Outputs <EM>string</EM> appended by \r\n into the stream. &nbsp;</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>printf</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>(</STRONG> format, [<A>value1</A>[, value2[, <A>.</A><A>.</A><A>.</A>[, <A>valueN</A>]]]]<STRONG>)</STRONG> → <EM>true</EM> | <EM>false</EM></DIV>
+<P>Prints formatted text by the rules of <A href="http://www.cplusplus.com/ref/cstdio/printf.html" target="_blank">printf C/C++ function</A>.</P>
+<P>Additional format types:</P>
+<UL>
+<LI><P><STRONG>%v</STRONG> and <STRONG>%V</STRONG> - these format types accept any value as an argument and produce source code representation of the value suitable for later parsing by eval() method. Thus if value is an array of values it will be printed as &quot;[element1, element2, element3... elementN]&quot; and object (instance of Object class) will be printed as &quot;{key1:value1, key2:value2,..., keyN:valueN}&quot;. %v produces one line output and %V tries to produce human readable output with line feeds and tabulations.<BR>Use it if you need to serialize objects in AJAX/JSON fashion.</P></LI>
+<LI><P><STRONG>%S</STRONG> - this format type converts its argument into string and outputs it with <EM>HTML escapement</EM>. So characters like '&lt;' will be converted to &quot;&amp;lt;&quot; sequences in the output.</P></LI></UL>
+</TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>putc</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>char-code</EM><STRONG> ) </STRONG>→<STRONG> </STRONG><EM>true</EM> | <EM>false</EM></DIV>
+<P>Outputs <EM>character</EM> into the stream. Character defined by its integer code.</P>
+<P>putc is an equivalent of: <EM>stream &lt;&lt; charcode</EM>; operation.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>getc</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( ) </STRONG>→<STRONG> </STRONG><EM>integer</EM> | <EM>undefined</EM></DIV>
+<P>Reads one character from the stream. Returns its code as <EM>integer</EM> or <EM>undefined </EM>if stream was closed or got EOF.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>readln</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( ) </STRONG>→<STRONG> </STRONG><EM>string</EM> | <EM>undefined</EM></DIV>
+<P>Reads sequence of characters from stream until '\n' character. Returns string read without trailing '\r' and '\n'.</P></TD>
+  </TR>
+</TABLE>
+</DIV>
+</BODY>
+</HTML>
