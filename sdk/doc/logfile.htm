@@ -1,0 +1,148 @@
+<HTML>
+  <HEAD>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="GENERATOR" content="BLOCKNOTE.NET">
+    <META name="source">
+    <META name="source">
+    <META name="source">
+    <META name="source">
+    <BASEFONT face="Verdana" size="2">
+    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+</STYLE>
+  </HEAD>
+<BODY>
+<H3>TIScript.DLL logfile:</H3><DIV align="left">
+<TABLE border="1" cellpadding="3" cellspacing="1" width="100%">
+  <TR>
+    <TD nowrap valign="top" align="center"><STRONG>Build#</STRONG></TD>
+    <TD nowrap valign="top" align="center">Date</TD>
+    <TD align="center">Updates</TD>
+  </TR>
+  <TR>
+    <TD nowrap valign="top">3.0.0.1</TD>
+    <TD nowrap valign="top">03-12-2006</TD>
+    <TD>
+<H3>Version 3.0 of the language. </H3>
+<UL>
+<LI><FONT color=#339900>New</FONT>. Now and beyond TIScript has <A href="http://www.terrainformatica.com/wiki/tiscript:classes">classes</A>.</LI>
+<LI><FONT color=#339900>New</FONT>. Added support of <STRONG>const</STRONG> keyword and <A href="http://www.terrainformatica.com/wiki/tiscript:classes#type_constants">constants</A> accordingly.</LI>
+<LI><FONT color=#339900>New</FONT>. Added support of <A href="http://www.terrainformatica.com/wiki/tiscript:expressions#expr_symbol_form">&lt;expression&gt;&lt;symbol&gt; notation</A>.</LI>
+<LI><FONT color=#cc3399>Change</FONT>. Names of <A href="http://www.terrainformatica.com/wiki/tiscript:classes#constructors">constructor functions</A> is changed to <STRONG>this</STRONG> (used to be <EM>constructor</EM>).</LI>
+<LI><FONT color=#339900>New</FONT>. Documentation of the language was moved to the <A href="http://www.terrainformatica.com/wiki/tiscript:start">Terrarium</A>.</LI></UL>
+</TD>
+  </TR>
+  <TR>
+    <TD nowrap valign="top">2.0.0.3</TD>
+    <TD nowrap valign="top">26-11-2006</TD>
+    <TD>
+<DIV>Added short notation of anonymous (a.k.a. <EM>lambda</EM>) functions:</DIV>
+<H3><FONT size="2">Anonymous functions can be declared in place in of the three forms:</FONT></H3>
+<BLOCKQUOTE>
+<BLOCKQUOTE>
+<H5>classic JavaScript form</H5>
+<BLOCKQUOTE>
+<P><STRONG>function</STRONG> <STRONG>(</STRONG> <EM><FONT color=#999999>&lt;parameters&gt;</FONT> </EM><STRONG>) {</STRONG> &lt;<EM><FONT color=#999999>statements&gt;</FONT></EM> <STRONG>}</STRONG></P></BLOCKQUOTE>
+
+<H5><FONT color=#339900>single expression lambda function form</FONT></H5>
+<BLOCKQUOTE>
+<P><STRONG>:</STRONG><EM><FONT color=#999999> &lt;parameters&gt; </FONT></EM><STRONG>: </STRONG><EM><FONT color=#999999>&lt;statement&gt;</FONT></EM></P></BLOCKQUOTE>
+
+<H5><FONT color=#339900>&quot;block with parameters&quot; form</FONT></H5>
+<BLOCKQUOTE>
+<P><STRONG>:</STRONG><EM><FONT color=#999999> &lt;parameters&gt; </FONT></EM><STRONG>{</STRONG> <EM><FONT color=#999999>&lt;statements</FONT></EM>&gt; <STRONG>}</STRONG></P></BLOCKQUOTE>
+</BLOCKQUOTE>
+</BLOCKQUOTE>
+
+<DIV>Example below will sort of the array in descending order:</DIV>
+<BLOCKQUOTE>
+<DIV>var a = [1,2,3,4];</DIV>
+<DIV>a.sort(:v1,v2:v2 - v3);</DIV></BLOCKQUOTE>
+
+<DIV>This is a direct equivalent of:</DIV>
+<BLOCKQUOTE>
+<DIV>a.sort( <FONT color=#999999>function(</FONT>v1,v2<FONT color=#999999>) { return </FONT>v2 - v3<FONT color=#999999>; }</FONT> );</DIV></BLOCKQUOTE>
+</TD>
+  </TR>
+  <TR>
+    <TD nowrap valign="top">2.0.0.2</TD>
+    <TD nowrap valign="top">19-11-2006</TD>
+    <TD>
+<UL>
+<LI><FONT color=#ff0000>Fix</FONT> of AV in String.indexOf and String.lastIndexOf.</LI>
+<LI><FONT color=#ff0000>Fix</FONT> of rand(0) function. Test case is here: <A href="http://www.terrainformatica.com/bb/viewtopic.php?t=510">some bugs</A></LI></UL>
+</TD>
+  </TR>
+  <TR>
+    <TD nowrap valign="top">2.0.0.1</TD>
+    <TD nowrap valign="top">13-11-2006</TD>
+    <TD>
+<H3>New 2.0 version of the language and the engine.</H3>
+<DIV><FONT color=#339900>New</FONT> features, language:</DIV>
+<UL>
+<LI>Built-in persistent storage, classes <EM>Storage</EM> and <EM>Index</EM>.</LI>
+<LI>Built-in XML/HTML tokenizer class.</LI>
+<LI>Improved memory management.</LI></UL>
+
+<DIV><FONT color=#339900>New</FONT> features, API:</DIV>
+<UL>
+<LI>API ::<EM>TIS_define_class</EM> - allows to define native packages and classes. See struct <EM>TIS_class_def</EM> in tiscript.h file. See implementation of sample classes in SDK/samples/console/native_classes.cpp.</LI>
+<LI>SDK now includes json_value.h and json_aux.h files. Use of json::value allows to pass objects, arrays and scalar types between native and script code.</LI></UL>
+
+<DIV>Various <FONT color=#ff0000>fix</FONT>es.</DIV></TD>
+  </TR>
+  <TR>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">1.0.0.7</TD>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">01-03-2006</TD>
+    <TD bgcolor=#f4f4f4>
+<DIV><FONT color=#ff0000>Fix</FONT>. Custom functon call was causing AV.</DIV>
+<DIV><FONT color=#339900>New</FONT> methods of <A href="String.htm">String</A> class:</DIV>
+<UL>
+<LI>htmlEscape/htmlUnescape</LI>
+<LI>urlEscape/urlUnescape</LI></UL>
+</TD>
+  </TR>
+  <TR>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">1.0.0.6</TD>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">22-12-2005</TD>
+    <TD bgcolor=#f4f4f4><FONT color=#ff0000>Fix</FONT> of parsing source code containing unicode (wide) characters.</TD>
+  </TR>
+  <TR>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">1.0.0.5</TD>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">26-11-2005</TD>
+    <TD bgcolor=#f4f4f4>
+<DIV><FONT color=#339900>New</FONT>. Implementation of range/slice operators for strings and arrays.</DIV>
+<BLOCKQUOTE>
+<DIV><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#0000ff>var</FONT><FONT face="Courier New"> s3 </FONT><FONT face="Courier New" color=#0000ff>=</FONT><FONT face="Courier New"> &quot;hello world&quot;;</FONT></DIV>
+<DIV><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#0000ff>if</FONT><FONT face="Courier New">( s3[2</FONT><FONT face="Courier New" color=#0000ff>..</FONT><FONT face="Courier New">5] </FONT><FONT face="Courier New" color=#0000ff>!=</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#cc3399>&quot;llo&quot;</FONT><FONT face="Courier New"> ) </FONT><FONT face="Courier New" color=#0000ff>throw</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#cc3399>&quot;range 1&quot;</FONT><FONT face="Courier New">;</FONT></DIV>
+<DIV><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#0000ff>if</FONT><FONT face="Courier New">( s3[</FONT><FONT face="Courier New" color=#0000ff>..</FONT><FONT face="Courier New">5] </FONT><FONT face="Courier New" color=#0000ff>!=</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#cc3399>&quot;hello&quot;</FONT><FONT face="Courier New"> ) </FONT><FONT face="Courier New" color=#0000ff>throw</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#cc3399>&quot;range 2&quot;</FONT><FONT face="Courier New">;</FONT></DIV>
+<DIV><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#0000ff>if</FONT><FONT face="Courier New">( s3[6</FONT><FONT face="Courier New" color=#0000ff>..</FONT><FONT face="Courier New">] </FONT><FONT face="Courier New" color=#0000ff>!=</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#cc3399>&quot;world&quot;</FONT><FONT face="Courier New"> ) </FONT><FONT face="Courier New" color=#0000ff>throw</FONT><FONT face="Courier New"> </FONT><FONT face="Courier New" color=#cc3399>&quot;range 3&quot;</FONT><FONT face="Courier New">;</FONT></DIV>
+<DIV>&nbsp;</DIV></BLOCKQUOTE>
+</TD>
+  </TR>
+  <TR>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">1.0.0.4</TD>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">17-11-2005</TD>
+    <TD bgcolor=#f4f4f4>
+<UL>
+<LI><FONT color=#ff0000>Fix</FONT> of the bug causing Access Violation in garbage collector.</LI>
+<LI>Logical negation operator (!) works better now with variables having undefined or null values.</LI></UL>
+</TD>
+  </TR>
+  <TR>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">1.0.0.2/3</TD>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">13-09-2005</TD>
+    <TD bgcolor=#f4f4f4>C API: Declarations of <EM>TIS_call</EM>, <EM>TIS_eval</EM> and <EM>func_impl</EM> (CALLBACK) &nbsp;have been changed to eleminate returning struct from the functions. C++ external interface was not changed though - only implementation of correspondent wrapping methods were updated.</TD>
+  </TR>
+  <TR>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">1.0.0.1</TD>
+    <TD nowrap bgcolor=#f4f4f4 valign="top">10-09-2005</TD>
+    <TD bgcolor=#f4f4f4>Initial upload.</TD>
+  </TR>
+</TABLE>
+</DIV>
+<DIV>&nbsp;</DIV>
+</BODY>
+</HTML>

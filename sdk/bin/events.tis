@@ -1,0 +1,7 @@
+self.caption = "hello, world!";
+self.move(10,10,300,300);
+
+self.onMove = function(x,y,w,h)
+{
+  this.text = String.printf("pos:%d,%d,%d,%d",x,y,w,h);
+}

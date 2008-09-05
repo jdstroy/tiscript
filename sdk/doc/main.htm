@@ -1,0 +1,82 @@
+<HTML>
+  <HEAD>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="GENERATOR" content="BLOCKNOTE.NET">
+    <META name="source">
+    <BASEFONT face="Verdana" size="2">
+    <TITLE>+ Terra Informatica Script</TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+</STYLE>
+  </HEAD>
+<BODY>
+<P><IMG src="logo.jpg" align="left" border="0" hspace="6" width="117" height="60">Terra Informatica Script (TIScript <STRONG><FONT color=#cc3300>v.3.0</FONT></STRONG>) is a scripting engine - implementation of compiler and runtime of a scripting language.</P>
+<P>TIScript uses well known, proven and popular language contructs of ECMAScript.</P>
+<P><STRONG>Simple engine integration</STRONG>. In fact there are just 4 (four) main API functions in TIScript SDK you need to know to enable scripting in your application. Principles of TIScript embedding are defined in &nbsp;<A href="Integration.whtm">Integration</A> chapter.</P>
+<P><STRONG>Fast</STRONG>. TIScript compiles input text into bytecodes and runs them in VM (virtual machine). Memory management is based on copying garbage collector.</P>
+<H2>Extended set of classes and objects</H2>
+<UL>
+<LI>ECMAScript: <STRONG>Global</STRONG>, <STRONG>Object</STRONG>, <STRONG>String</STRONG> (extended by <EM>printf</EM> function), <STRONG>Array</STRONG>, <STRONG>Date</STRONG>, <STRONG>RegExp</STRONG>, <STRONG>Math</STRONG> and <STRONG>Error</STRONG>.</LI>
+<LI>Extended: <STRONG>Stream</STRONG> (file and socket streams), <STRONG>Integer</STRONG>, <STRONG>Float</STRONG> and <STRONG>Bytes</STRONG> (binary data).</LI></UL>
+
+<H2>Script and Hypertext Preprocessor Script</H2>
+<BLOCKQUOTE>
+<DIV>TIScript supports two execution modes - &nbsp;Script and <STRONG>Hypertext Preprocessor Script </STRONG>when script included inside text:</DIV>
+<BLOCKQUOTE>
+<P>...text... <FONT color=#cc3300>&lt;%</FONT> ... script ... <FONT color=#cc3300>%&gt;</FONT> ...text... &nbsp;</P></BLOCKQUOTE>
+
+<DIV>PHP hypertext preprocessor is using the same mode. Now you can use this technology in your application with single and simple component. See SDK/scripts/hypertext/month.html.jsp as an example of how to generate dynamicly html. SDK/scripts/hypertext/enumgen.cpp.jsp shows of how TIScript can be used as a C/C++ preprocessor.</DIV></BLOCKQUOTE>
+
+<H2>User defined classes</H2>
+<BLOCKQUOTE>
+<DIV>TIScript allows you to define classes more &quot;naturaly&quot; than in ECMAScript. This example defines class Message with <EM>constructor</EM> and method <EM>say</EM>:</DIV>
+<BLOCKQUOTE>
+<DIV>Message =</DIV>
+<DIV>{</DIV>
+<DIV><FONT color=#0000cc>constructor</FONT>: <FONT color=#0000cc>function</FONT>( text ) { &nbsp;<FONT color=#0000cc>this</FONT>.text = text; &nbsp;},</DIV>
+<DIV> &nbsp;&nbsp;&nbsp;&nbsp;<FONT color=#0000cc>say</FONT>: <FONT color=#0000cc>function</FONT>( &nbsp;) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ &nbsp;<FONT color=#0000cc>stdout</FONT>.println( <FONT color=#0000cc>this</FONT>.text ); &nbsp;}</DIV>
+<DIV>}</DIV></BLOCKQUOTE>
+
+<DIV>To create instance object of such class you will do the following:</DIV>
+<BLOCKQUOTE>
+<DIV><FONT color=#0000cc>var</FONT> msg = <FONT color=#0000cc>new</FONT> Message(&quot;Hello World!&quot;);</DIV>
+<DIV>msg.say(); <FONT color=#009900>// will print <EM>Hello World!</FONT></EM></DIV></BLOCKQUOTE>
+
+<P>See section <A href="Syntax.htm#classes">Classes</A> in TIScript Syntax chapter for more details.</P></BLOCKQUOTE>
+
+<H2>Bytecodes and persistence</H2>
+<P>TIScript engine allows you to compile and store your code into bytecodes. You may choose to store such bytecodes as a binary resource of your application and load/execute them without additional compilation phase. See description of <EM>compile</EM> and <EM>loadbc</EM> functions in <A href="Global.htm">Global namespace</A> chapter.</P>
+<H3>Persistence</H3>
+<P>From Wikipedia:</P>
+<BLOCKQUOTE>
+<P><EM><FONT size="1">&quot;Persistence</EM> describes a capability used by a computer programmer to store data structures in non-volatile storage such as a file system or a relational database. Without this capability data structures only exist in memory, and will be lost when a program exits. Persistence allows, for example, a program to be restarted and reloaded with the data structures from a previous invocation of the program.&quot;</FONT></P></BLOCKQUOTE>
+
+<P>TIScript supports two models of object persistence: binary and textual persistence.</P><DIV align="left">
+<TABLE border="0" cellpadding="4" cellspacing="0" width="100%">
+  <TR>
+    <TD>&nbsp;</TD>
+    <TD bgcolor=#ffffe6 valign="middle"><STRONG>Binary</STRONG></TD>
+    <TD bgcolor=#fff0e6 valign="middle"><STRONG>Textual</STRONG></TD>
+  </TR>
+  <TR>
+    <TD valign="top" align="right">format:</TD>
+    <TD bgcolor=#ffffe6 valign="top">Stores data in binary form. More compact representation.</TD>
+    <TD bgcolor=#fff0e6 valign="top">Stores data in textual, human readable form. Use this format if you have plans to modify persisted data in text editor.</TD>
+  </TR>
+  <TR>
+    <TD valign="top">functions:</TD>
+    <TD valign="top"><EM>store</EM> and <EM>fetch</EM> in <A href="Global.htm">Global namespace</A>.</TD>
+    <TD valign="top"><EM>eval</EM> in <A href="Global.htm">Global namespace</A> and Stream.<EM>printf</EM>(<FONT color=#339999>&quot;return %V;&quot;</FONT>, obj), see <EM>printf</EM> in <A href="Stream.htm">Stream</A> chapter.</TD>
+  </TR>
+  <TR>
+    <TD valign="top" align="right">samples:</TD>
+    <TD bgcolor=#ffffe6 valign="top"><EM>/scripts/persistence/binary.js</EM></TD>
+    <TD bgcolor=#fff0e6 valign="top"><EM>/scripts/persistence/textual.js</EM></TD>
+  </TR>
+</TABLE>
+</DIV>
+<P align="left">Textual persistence is also known as <A href="http://en.wikipedia.org/wiki/JSON">JSON</A> interchange format widely used in <A href="http://en.wikipedia.org/wiki/AJAX">AJAX</A>.</P><HR>
+<P>TIScript code is derived from my C-SMILE scripting engine published at: <A href="http://c-smile.sourceforge.net">http://c-smile.sourceforge.net</A> .</P>
+</BODY>
+</HTML>
