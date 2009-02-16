@@ -11,10 +11,11 @@
 *
 */
 #include "tl_url.h"
+#include "tl_wregexp.h"
 #include <ctype.h>
 
 #if !defined(_WIN32)
-#define strnicmp	strncasecmp
+#define strnicmp  strncasecmp
 #endif
 
 #ifdef _DEBUG
@@ -147,6 +148,8 @@ namespace tool
 
       s += 2;
 
+      protocol_path = true;
+
 
       if(protocol == "file")
       {
@@ -210,11 +213,12 @@ namespace tool
 
       if ( tslash == NULL )       /* nothing further */
       {
+        if(protocol == "http" || protocol == "https" || protocol == "ftp")
         filename = "/";
         goto fillport;
       }
-      *tslash = '/';	/* restore the slash */
-      s = tslash;			/* and stay there, don't step beyond */
+      *tslash = '/';  /* restore the slash */
+      s = tslash;     /* and stay there, don't step beyond */
     }
 
     // request (GET) params
@@ -260,17 +264,32 @@ fillport:
   * as spec'd in RFCs 1738, 1808 and 2068.)
   */
   bool
-    is_url_char ( unsigned char c )
+    is_url_char ( unsigned int c )
   {
     if ( c > 128 )
       return false;
-    if ( isalnum ( c ) )
+    if ( iswalnum ( c ) )
       return true;
-    if ( strchr ( "/:$-_.!*'(),", c ) )
+    if ( strchr ( "/:$-_.!*'(),?&=", c ) )
       return true;
     return false;
   }
 
+  bool url::looks_like_encoded(const string& s)
+  {
+     //const char* unsafe = " <>#{}|\\^~[]`";
+    bool has_only_url_chars = true;
+    bool has_percent = false;
+    for( int n = 0; n < s.length(); ++n )
+    {
+      char c = s[n];
+      if( c == '%' )
+        has_percent = true;
+      else if( !is_url_char(c) )
+        has_only_url_chars = false;
+    }
+    return has_percent && has_only_url_chars;
+  }
 
   string
     url::escape ( const char *src, bool space_to_plus )
@@ -348,18 +367,18 @@ inline bool is_path_delim(int c)
 
 int common_path(const string &p1, const string &p2)
 {
-	int i = 0,
-			p1_len = p1.length(),
-			p2_len = p2.length();
-	while (i < p1_len && i < p2_len && toupper(p1[i]) == toupper(p2[i])) ++i;
-	if (   (i < p1_len && i < p2_len)
-	    || (i < p1_len && !is_path_delim(p1[i]) && i == p2_len)
-	    || (i < p2_len && !is_path_delim(p2[i]) && i == p1_len)) {
-		if (i) --i;     // here was the last match
-		while (i && (p1[i] != '/') && (p1[i] != '\\')) --i; // && (p1[i] != '#')
+  int i = 0,
+      p1_len = p1.length(),
+      p2_len = p2.length();
+  while (i < p1_len && i < p2_len && toupper(p1[i]) == toupper(p2[i])) ++i;
+  if (   (i < p1_len && i < p2_len)
+      || (i < p1_len && !is_path_delim(p1[i]) && i == p2_len)
+      || (i < p2_len && !is_path_delim(p2[i]) && i == p1_len)) {
+    if (i) --i;     // here was the last match
+    while (i && (p1[i] != '/') && (p1[i] != '\\')) --i; // && (p1[i] != '#')
 //    if (i) --i;     // here was the last /
-	}
-	return i;
+  }
+  return i;
 }
 
 
@@ -370,44 +389,44 @@ string relpath(const string& abspath,const string& basepath)
 // than some directory), it'll be rendered using ..'s. If they are completely
 // different, then the absolute path will be used as relative path.
 {
-	int abslen = abspath.length();
-	int baselen = basepath.length();
+  int abslen = abspath.length();
+  int baselen = basepath.length();
 
-	int i = common_path(abspath, basepath);
+  int i = common_path(abspath, basepath);
 
-	if (i == 0) {
-		// actually no match - cannot make it relative
-		return abspath;
-	}
+  if (i == 0) {
+    // actually no match - cannot make it relative
+    return abspath;
+  }
 
-	// Count how many dirs there are in basepath above match
-	// and append as many '..''s into relpath
-	string buf;
-	int    j = i + 1;
+  // Count how many dirs there are in basepath above match
+  // and append as many '..''s into relpath
+  string buf;
+  int    j = i + 1;
 
-	while (j < baselen)
+  while (j < baselen)
   {
-		if (basepath[j] == '/')
+    if (basepath[j] == '/')
     {
-			if (j + 1 == baselen)
-				break;
-			buf += "../";
-		}
-		++j;
-	}
+      if (j + 1 == baselen)
+        break;
+      buf += "../";
+    }
+    ++j;
+  }
 
-	// append relative stuff from common directory to abspath
-	if (abspath[i] == '/')
-		++i;
-	for (; i < abslen; ++i)
-		buf += abspath[i];
-	// remove trailing /
-	if (buf.length() && (buf[buf.length()-1] == '/'))
-		buf.length(buf.length() - 1);
-	// substitute empty with .
-	if (buf.length() == 0)
-		buf = '.';
-	return buf;
+  // append relative stuff from common directory to abspath
+  if (abspath[i] == '/')
+    ++i;
+  for (; i < abslen; ++i)
+    buf += abspath[i];
+  // remove trailing /
+  if (buf.length() && (buf[buf.length()-1] == '/'))
+    buf.length(buf.length() - 1);
+  // substitute empty with .
+  if (buf.length() == 0)
+    buf = '.';
+  return buf;
 }
 
 string url::relative(const url& href) const
@@ -419,14 +438,14 @@ string url::relative(const url& href) const
   if(href.port != port)
     return href.src;
 
-	int abslen = href.filename.length();
-	int baselen = filename.length();
+  int abslen = href.filename.length();
+  int baselen = filename.length();
 
   string buf;
 
-	int i = common_path(href.filename,filename);
+  int i = common_path(href.filename,filename);
 
-	if (i == 0) // root-rel
+  if (i == 0) // root-rel
   {
     if(href.filename.length() && (href.filename[0] == '/'))
     {
@@ -443,30 +462,30 @@ string url::relative(const url& href) const
   }
   else if(href.filename.length() != filename.length() || (filename.length() != i))
   {
-	  // Count how many dirs there are in basepath above match
-	  // and append as many '..''s into relpath
+    // Count how many dirs there are in basepath above match
+    // and append as many '..''s into relpath
     int j = i + 1;
-	  while (j < baselen)
+    while (j < baselen)
     {
-		  if (filename[j] == '/')
+      if (filename[j] == '/')
       {
-			  if (j + 1 == baselen)
-				  break;
-			  buf += "../";
-		  }
-		  ++j;
-	  }
-	  // append relative stuff from common directory to abspath
-	  if (href.filename[i] == '/')
-		  ++i;
-	  for (; i < abslen; ++i)
-		  buf += href.filename[i];
-	  // remove trailing /
-	  if (buf.length() && (buf[buf.length()-1] == '/'))
-		  buf.length(buf.length() - 1);
-	  // substitute empty with .
-	  if (buf.length() == 0)
-		  buf = '.';
+        if (j + 1 == baselen)
+          break;
+        buf += "../";
+      }
+      ++j;
+    }
+    // append relative stuff from common directory to abspath
+    if (href.filename[i] == '/')
+      ++i;
+    for (; i < abslen; ++i)
+      buf += href.filename[i];
+    // remove trailing /
+    if (buf.length() && (buf[buf.length()-1] == '/'))
+      buf.length(buf.length() - 1);
+    // substitute empty with .
+    if (buf.length() == 0)
+      buf = '.';
   }
 
   if(href.anchor.length())
@@ -479,7 +498,7 @@ string url::relative(const url& href) const
     buf += "?";
     buf += href.params;
   }
-	return buf;
+  return buf;
 }
 
 string url::dir() const
@@ -565,6 +584,9 @@ void url::absolute( const url& abs)
     if(is_absolute())
       return; //nothing to do
 
+    if( protocol.length() && (protocol != abs.protocol))
+      return;  //nothing to do
+        
     protocol = abs.protocol;
     port = abs.port;
     hostname = abs.hostname;
@@ -598,7 +620,7 @@ string url::compose(bool only_resource_name) const
          out += protocol;
          out += ':';
       }
-      if(is_external()) // internet url
+    if(is_external() || protocol_path) // internet url
          out += "//";
 
       out += hostname;
@@ -606,12 +628,17 @@ string url::compose(bool only_resource_name) const
       if( dport && (dport != port) )
         out += string::format(":%d", port);
 
-      if(!filename.like("/*"))
+      if(!filename.like("/*") && is_external())
         out += '/';
     }
     else if( is_local() )
     {
       out += "file://";
+    }
+    else if(!protocol.is_empty())
+    {
+       out += protocol; 
+       out += ':';
     }
   }
 
@@ -642,6 +669,80 @@ string url::compose_object() const
   }
   return out;
 }
+
+
+// Filter TCP/IP addresses
+#define RE_TCP_IP_ADDR_NAME L"[_a-zA-Z0-9\\-]+([\\.]+[_a-zA-Z0-9\\-]+)*"
+#define RE_TCP_IP_ADDR_IP   L"[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+"
+#define RE_TCP_IP_ADDR      L"(" RE_TCP_IP_ADDR_IP L"|" RE_TCP_IP_ADDR_NAME L")"
+// Filter an e-mail address
+#define RE_EMAIL_ADDR       L"[_a-zA-Z0-9\\-\\.]+@(" RE_TCP_IP_ADDR L")"
+// Filter an unix path
+#define RE_UNIX_PATH        L"(/[_a-zA-Z0-9\\.\\-]*)+"
+
+#define RE_PARAMS        L"(\\?[_a-zA-Z0-9\\&\\=\\%]+)?"
+#define RE_ANCHOR        L"(\\#[_a-zA-Z0-9\\%]+)?"
+// filters an URL - ftp or http.
+
+#define RE_URL           L"([Ff][Tt][Pp]|[Hh][Tt][Tt][Pp][Ss]?)://(" RE_TCP_IP_ADDR L")(:[0-9]+)?(" RE_UNIX_PATH L")*" RE_PARAMS RE_ANCHOR L"$"
+#define RE_WWW           L"[Ww][Ww][Ww]\\."
+#define RE_FTP           L"[Ff][Tt][Pp]\\."
+
+tool::wregexp re_canonic_url( L"^" RE_URL );
+tool::wregexp re_email( L"^([Mm][Aa][Ii][Ll][Tt][Oo]:)?(" RE_EMAIL_ADDR L")" );
+tool::wregexp re_www(   L"^" RE_WWW RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" RE_PARAMS RE_ANCHOR );
+tool::wregexp re_ftp(   L"^" RE_FTP RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" );
+
+bool is_hyperlink_char(wchar uc)
+{
+  if(uc > 127)
+    return false;
+  if(strchr(".:/-_@?=%&#",uc))
+    return true;
+  if(isalnum(uc))
+    return true;
+  return false;
+}
+
+bool is_hyperlink(const tool::ustring& text, tool::ustring& out)
+  {
+    if(re_canonic_url.exec(text))
+    {
+      out = text;
+      return true;
+    }
+  
+    if(re_email.exec(text))
+    {
+      if(re_email.get_match(1).equals(L"mailto:"))
+      {
+        out = text;
+        return true;
+      }
+      out = L"mailto:" + text;
+      return true;
+    }
+  
+    if(re_www.exec(text))
+    {
+      out = L"http://" + text;
+      return true;
+    }
+  
+    if(re_ftp.exec(text))
+    {
+      out = L"ftp://" + text;
+      return true;
+    }
+    return false;
+  }
+
+  bool is_hyperlink(tool::ustring& text)
+  // might modify the text if successfully tested
+  {
+    tool::ustring in = text;
+    return is_hyperlink(in,text);
+  }
 
 
 }

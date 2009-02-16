@@ -24,7 +24,7 @@ C_METHOD_ENTRY( "this",     CSF_ctor          ),
 //C_METHOD_ENTRY( "toLocaleString",  CSF_std_toLocaleString  ),
 C_METHOD_ENTRY( "test",            CSF_test          ),
 C_METHOD_ENTRY( "exec",            CSF_exec          ),
-C_METHOD_ENTRY(	0,                  0                  )
+C_METHOD_ENTRY( 0,                  0                  )
 };
 
 /* file properties */
@@ -35,12 +35,12 @@ static value CSF_index(VM *c,value obj);
 static value CSF_lastIndex(VM *c,value obj);
 
 static vp_method properties[] = {
-VP_METHOD_ENTRY( "length",         CSF_length,		0			),
-VP_METHOD_ENTRY( "input",          CSF_input,			0			),
-VP_METHOD_ENTRY( "source",         CSF_source,		0			),
-VP_METHOD_ENTRY( "index",          CSF_index,		  0			),
-VP_METHOD_ENTRY( "lastIndex",      CSF_lastIndex,	0			),
-VP_METHOD_ENTRY( 0,                0,					    0			)
+VP_METHOD_ENTRY( "length",         CSF_length,    0     ),
+VP_METHOD_ENTRY( "input",          CSF_input,     0     ),
+VP_METHOD_ENTRY( "source",         CSF_source,    0     ),
+VP_METHOD_ENTRY( "index",          CSF_index,     0     ),
+VP_METHOD_ENTRY( "lastIndex",      CSF_lastIndex, 0     ),
+VP_METHOD_ENTRY( 0,                0,             0     )
 };
 
 inline tool::wregexp* RegExpValue(VM *c, value obj) 
@@ -409,12 +409,6 @@ value CSF_string_split(VM *c)
     tool::ustring t;
     tool::wchars test = value_to_wchars(obj,t);
 
-    if( CsFreeSpace(c) < test.length * 3)
-    {
-      t = test; 
-      test = t;
-    }
-
     const wchar * start = test.start;
     const wchar * end = start;
     tool::array< tool::wchars > slices;
@@ -428,7 +422,7 @@ value CSF_string_split(VM *c)
       bool g = pre->m_global;
       pre->m_nextIndex = 0;
 
-      start = pre->text().start;
+      //start = pre->text().start;
 
       pre->m_global = true;
       if( pre->exec(test.start) )
@@ -436,13 +430,16 @@ value CSF_string_split(VM *c)
         maxn = min(maxn, pre->get_number_of_matches());
         for(int i = 0; i < maxn; ++i )
         {
-          end = pre->get_n_match(i).start;
+          end = test.start + pre->get_n_match(i).begin;
           slices.push( tool::wchars( start, end ) );
-          start = pre->get_n_match(i).end();
+          start = test.start + pre->get_n_match(i).end;
         }
-        end = pre->text().end();
+        end = test.end();
         slices.push( tool::wchars( start, end ) );
       }
+      else
+        slices.push( test );
+
 
       pre->m_global = g;
     }

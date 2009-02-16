@@ -25,7 +25,7 @@
 #pragma warning(disable:4996) // 'wcstombs' was declared deprecated
 
 #if !defined(_WIN32)
-#define stricmp	strcasecmp
+#define stricmp strcasecmp
 #include <cstdlib>
 #endif
 
@@ -54,9 +54,11 @@ namespace tool
   // for all functions that accept a length, a length of -1 specifies the rest
   // of the string.
 
+  class ustring;
+
   class string
   {
-	  //inline friend std::istream &operator>> ( std::istream &stream, string &s );
+    //inline friend std::istream &operator>> ( std::istream &stream, string &s );
     //inline friend std::ostream &operator<< ( std::ostream &stream, const string &s );
     friend string operator+ ( const char *s1, const string &s2 );
     friend string operator+ ( const chars s1, const string &s2 );
@@ -72,6 +74,7 @@ namespace tool
 
     // fast string "narrower", wchars shall contain only ascii chars
     friend string  ascii(const wchars& us);
+        
   public:
     string ();
     string ( const string &s );
@@ -80,6 +83,7 @@ namespace tool
     string ( chars s );
     string ( const wchar *s );
     string ( const wchar *s, int count );
+    string ( const ustring& s );
     string ( char c, int n = 1 );
     ~string ();
     operator const char * () const;
@@ -89,8 +93,10 @@ namespace tool
     char &operator[] ( int index );
     char operator[] ( int index ) const;
     string &operator= ( const string &s );
+    string &operator= ( const ustring& s );
     string &operator= ( const char *s );
     string &operator= ( const wchar *s );
+    
     string &operator= (char c);
 
     string operator+ ( const string &s ) const;
@@ -236,7 +242,7 @@ namespace tool
     array<string> tokens ( const char *separators = " \t\n\v\r\f" ) const;
     array<string> tokens ( char separator ) const;
 #endif
-	  //string& read_line ( std::istream &stream );
+    //string& read_line ( std::istream &stream );
     //bool    read_token ( std::istream &stream, const char *separators = " \t\n\v\r\f" );
     //bool    read_until ( std::istream &stream, const char *separators );
 
@@ -245,7 +251,7 @@ namespace tool
 
     struct data
     {
-      data () : ref_count ( 0 ), length ( 0 ), allocated(0) { chars [ 0 ] = '\0'; }
+      data () : ref_count ( 0 ), allocated(0), length ( 0 ) { chars [ 0 ] = '\0'; }
       void add_ref() { ref_count++; }
       unsigned int ref_count;
       int allocated;
@@ -261,6 +267,7 @@ namespace tool
     static data *new_data ( int length, int ref_count );
     void set_length ( int length, bool preserve_content = false );
     void set_data ( data *data );
+    void init( const wchar *us, int uslen );
 
     void release_data ()
     {

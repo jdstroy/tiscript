@@ -15,6 +15,21 @@ Package=<4>
 
 ###############################################################################
 
+Project: "tis"=..\sdk\samples\console\tis.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name tiscript_dll
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "tiscript_dll"=.\tiscript_dll.dsp - Package Owner=<4>
 
 Package=<5>
@@ -65,6 +80,18 @@ Package=<4>
     Begin Project Dependency
     Project_Dep_Name tool
     End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "tiscriptsqlite"=..\sdk\sqlite3\tiscriptsqlite.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
 }}}
 
 ###############################################################################

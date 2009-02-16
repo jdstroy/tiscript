@@ -88,6 +88,20 @@ tool::ustring htmlEscape( const wchar* wc )
                   v = CsToString(c,v);
                   str = CsStringAddress(v);
               }
+#ifdef _DEBUG
+   if(!str || str[0] > 127 || str[0] <= ' ') 
+   {
+     dispatch *pd = CsGetDispatch(v);
+              if (CsStringP(v))
+                  str = CsStringAddress(v);
+              else
+              {
+                  v = CsToString(c,v);
+                  str = CsStringAddress(v);
+              }
+
+   }
+#endif
               if( *pc == 'S' )
               {
                 tool::ustring us = htmlEscape(str);
@@ -170,7 +184,7 @@ tool::ustring htmlEscape( const wchar* wc )
             }
             else if ( *pc == 0 || *pc == '%' )
               break;
-            else if( isdigit(*pc) )
+            else if( isdigit(*pc) || *pc == '.' )
               cfmt += *pc;
             else
             {

@@ -115,24 +115,27 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
       trueValue = CsMakeSymbol(this,"true",4);
     }
 
-	  /* fixup the symbol table */
-	  //CsSetObjectClass(this->symbols,this->undefinedValue);
+    /* fixup the symbol table */
+    //CsSetObjectClass(this->symbols,this->undefinedValue);
     //CsSetObjectProperties(this->symbols,this->undefinedValue);
 
     /* initialize the global scope */
     this->globalScope.c = this;
     this->globalScope.globals = CsMakeObject(this,this->undefinedValue);
+    this->globalScope.ns = this->undefinedValue;
     this->globalScope.next = this->scopes;
     this->scopes = &this->globalScope;
 
     /* initialize the current scope */
     this->currentScope.c = this;
     this->currentScope.globals = this->globalScope.globals;
+    this->currentScope.ns = this->currentScope.globals;
     this->currentScope.next = this->scopes;
     this->scopes = &this->currentScope;
 
+    this->currentNS = this->currentScope.globals;
     
-	/* enter undefined into the symbol table */
+  /* enter undefined into the symbol table */
     CsSetGlobalValue(CsCurrentScope(this),this->undefinedValue,this->undefinedValue);
     CsSetGlobalValue(CsCurrentScope(this),this->nothingValue,this->nothingValue);
 
@@ -265,6 +268,7 @@ CsScope *CsMakeScope(VM *c,CsScope *proto)
     if (scope) {
         scope->c = c;
         scope->globals = CsMakeObject(c,CsScopeObject(proto));
+        scope->ns = VM::undefinedValue;
         scope->next = c->scopes;
         c->scopes = scope;
     }
@@ -280,6 +284,7 @@ CsScope *CsMakeScopeFromObject(VM *c,value gobject)
         scope->c = c;
         scope->globals = gobject;
         scope->next = c->scopes;
+        scope->ns = VM::undefinedValue;
         c->scopes = scope;
         CsSetObjectClass(scope->globals,CsGlobalScope(c)->globals);
     }
@@ -388,16 +393,19 @@ value CsAllocate(VM *c,size_t size)
     if ((expandSize = c->expandSize) == 0)
         CsInsufficientMemory(c);
 
-    size += (c->newSpace->free - c->newSpace->base);
+    long neededSize = 
+      (c->newSpace->free - c->newSpace->base) // allocated already
+      + size; // plus size requested 
 
     /* make sure we allocate at least as much as needed */
     //if (size > expandSize)
     //    expandSize = size;
 
-    expandSize = (size / expandSize) * expandSize + (size % expandSize? expandSize : 0);
+    //expandSize = (size / expandSize) * expandSize + (size % expandSize? expandSize : 0);
+    neededSize = (neededSize / expandSize) * expandSize + (neededSize % expandSize? expandSize : 0);
 
     /* allocate more old space, it will be used as newSpace in CsCollectGarbage */
-    if (!(oldSpace = NewMemorySpace(c,expandSize)))
+    if (!(oldSpace = NewMemorySpace(c,neededSize)))
         CsInsufficientMemory(c);
 
     tool::swap( oldSpace, c->oldSpace ); 
@@ -415,7 +423,7 @@ value CsAllocate(VM *c,size_t size)
     CsCollectGarbage(c);
 
     /* reallocate another half */
-    if (!(oldSpace = NewMemorySpace(c,expandSize)))
+    if (!(oldSpace = NewMemorySpace(c,neededSize)))
        CsInsufficientMemory(c);
 
     tool::swap( oldSpace, c->oldSpace );
@@ -424,6 +432,7 @@ value CsAllocate(VM *c,size_t size)
     /* return some of the newly allocated space */
     val = (value)(uint_ptr)c->newSpace->free;
     c->newSpace->free += size;
+    assert( c->newSpace->free <= c->newSpace->top );
     return val;
 #else
     CsInsufficientMemory(c);
@@ -490,14 +499,14 @@ bool CsCollectGarbageIf(VM *c, size_t threshold)
 #ifdef _DEBUG 
 void printPins(VM* c, const char* msg)
 {
-		c->standardError->printf(L"pins:%S\n", msg);
+    c->standardError->printf(L"pins:%S\n", msg);
     pvalue *t = c->pins.next;
     while(t != &c->pins)
     {
       if(t->is_set()) 
       {
         dispatch* pd = CsGetDispatch(t->val);
-		    c->standardError->printf(L"pinned %x %S\n", t, pd->typeName);
+        c->standardError->printf(L"pinned %x %S\n", t, pd->typeName);
       }
       else
         t = t;
@@ -535,7 +544,7 @@ void CsCollectGarbage(VM *c)
     value obj;
     int i;
 #ifdef _DEBUG
-	  c->standardError->put_str("[GC");
+    c->standardError->put_str("[GC");
 #endif
 
     /* run prepare opened storages for garbage collection */
@@ -566,7 +575,10 @@ void CsCollectGarbage(VM *c)
     
     /* copy global variable scopes */
     for (scope = c->scopes; scope != NULL; scope = scope->next)
+    {
         scope->globals = CsCopyValue(c,scope->globals);
+        scope->ns = CsCopyValue(c,scope->ns);
+    }
 
     /* copy basic types */
     c->vectorObject = CsCopyValue(c,c->vectorObject);
@@ -590,11 +602,21 @@ void CsCollectGarbage(VM *c)
     c->GC_started();
 
     /* copy "pinned" values */
+    pvalue *t = c->pins.next;
+    while(t != &c->pins)
+    {
+      if(t->is_set()) 
+        t->val = CsCopyValue(c,t->val);
+      else
+        t = t;
+      t = t->next;
+    }
 
 
     /* copy the saved interpreter states */
     for (ss = c->savedState; ss != NULL; ss = ss->next) {
         ss->globals = CsCopyValue(c,ss->globals);
+        ss->ns = CsCopyValue(c,ss->ns);
         ss->env = CsCopyValue(c,ss->env);
         if (ss->code != 0)
             ss->code = CsCopyValue(c,ss->code);
@@ -616,21 +638,11 @@ void CsCollectGarbage(VM *c)
     if (c->protectHandler)
         (*c->protectHandler)(c,c->protectData);
 
-    pvalue *t = c->pins.next;
-    while(t != &c->pins)
-    {
-      if(t->is_set()) 
-        t->val = CsCopyValue(c,t->val);
-      else
-        t = t;
-      t = t->next;
-    }
-
 
     /* scan and copy until all accessible objects have been copied */
 
     scan = c->newSpace->base;
-	  while (scan < c->newSpace->free) {
+    while (scan < c->newSpace->free) {
         obj = ptr_value((header*)scan);
         scan += ValueSize(obj);
         ScanValue(c,obj);
@@ -645,23 +657,23 @@ void CsCollectGarbage(VM *c)
 
 #ifdef _DEBUG
 
-		c->standardError->printf(
-			  L" - %ld bytes free out of %ld, total memory %lu, allocations %lu]\n",
-				c->newSpace->top - c->newSpace->free,
-				c->newSpace->top - c->newSpace->base,
-				c->totalMemory,
-				c->allocCount);
+    c->standardError->printf(
+        L" - %ld bytes free out of %ld, total memory %lu, allocations %lu]\n",
+        c->newSpace->top - c->newSpace->free,
+        c->newSpace->top - c->newSpace->base,
+        c->totalMemory,
+        c->allocCount);
 #endif
 
   /* run CollectGarbage() through all opened storages */
   for( i = c->storages.size() - 1; i >= 0; i-- )
   {
-	  if( c->storages[i] && CsBrokenHeartP(c->storages[i]))
-	  {
+    if( c->storages[i] && CsBrokenHeartP(c->storages[i]))
+    {
       value newStorage = CsBrokenHeartForwardingAddr(c->storages[i]);
-		  StoragePostGC(c, newStorage);
+      StoragePostGC(c, newStorage);
       c->storages[i] = newStorage;
-	  }
+    }
   }
 
   /* destroy any unreachable cobjects */
@@ -769,7 +781,7 @@ void CsDumpObject(VM *c, value obj)
 /* default handlers */
 
 /* CsDefaultGetProperty - get the value of a property */
-bool CsDefaultGetProperty(VM *c,value obj,value tag,value *pValue)
+bool CsDefaultGetProperty(VM *c,value& obj,value tag,value *pValue)
 {
   return false;
 }
@@ -777,7 +789,7 @@ bool CsDefaultGetProperty(VM *c,value obj,value tag,value *pValue)
 /* CsDefaultSetProperty - set the value of a property */
 bool CsDefaultSetProperty(VM *c,value obj,value tag,value value)
 {
-	return false;
+  return false;
 }
 
 value CsDefaultGetItem(VM *c,value obj,value tag)
@@ -793,7 +805,7 @@ void     CsDefaultSetItem(VM *c,value obj,value tag,value value)
 /* CsDefaultNewInstance - create a new instance */
 value CsDefaultNewInstance(VM *c,value proto)
 {
-	CsThrowKnownError(c,CsErrNewInstance,proto);
+  CsThrowKnownError(c,CsErrNewInstance,proto);
   return c->undefinedValue; /* never reached */
 }
 
@@ -837,7 +849,7 @@ value CsDefaultCopy(VM *c,value obj)
 #endif
 
 
-	/* find a place to put the new obj */
+  /* find a place to put the new obj */
     newObj = ptr_value((header*)c->newSpace->free);
 
     /* copy the obj */
@@ -938,6 +950,9 @@ void pvalue::pin(VM* c, value v)
 void pvalue::unpin() 
 {
    if( !pvm || !next || !prev) return;
+
+   assert(next->prev == this);
+   assert(prev->next == this);
 
    next->prev = prev;
    prev->next = next;

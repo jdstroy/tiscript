@@ -40,15 +40,16 @@ namespace tool
 void  base64_encode(bytes data, stream_o<char>& out)
 {
     char        buf[4];
+    bool quad = false;
+    bool trip = false;
 
     //
     // 3 bytes encode to 4 chars.  Output is always an even
     // multiple of 4 characters.
     //
     for (uint i=0, index=4; i < data.length; i+=3, index+=4) {
-        bool quad = false;
-        bool trip = false;
-
+        quad = false;
+        trip = false;
         int val = (0xFF & (int) data[i]);
         val <<= 8;
         if ((i+1) < data.length) {
@@ -69,11 +70,11 @@ void  base64_encode(bytes data, stream_o<char>& out)
         buf[0] = alphabet[val & 0x3F];
 
         out.put(buf,4);
-        if(index == 64)
+        if(index == 64 && ((i+3) < data.length))
           { index = 0; out.put("\r\n",2); }
-
     }
-    out.put("=",1); //4!!! out.push('\0');
+    if(!quad && !trip) 
+      out.put("=",1); 
 }
 
   /**
@@ -134,13 +135,13 @@ void  base64_encode(bytes data, stream_o<char>& out)
 
     //byte *out = new byte [ len ];
     //memset ( out, 0, len );
-    byte zero = 0;
+    //byte zero = 0;
 
     //out.size ( len );
 
     int     shift = 0;   // # of excess bits stored in accum
     int     accum = 0;   // excess bits
-    uint    index = 0;
+    int     index = 0;
 
     // we now go through the entire array (NOT using the 'tempLen' value)
     for ( ix = 0; ix < data.length; ix++ )
@@ -191,7 +192,7 @@ void  base64_encode(bytes data, stream_o<char>& out)
 bool
   qp_decode ( const char *data, uint data_length, array<byte>& out )
 {
-	uint i, data_pos, line_length, next_line_start, num_chars, chars_end;
+  uint i, data_pos, line_length, next_line_start, num_chars, chars_end;
 
     //outPos,
 
@@ -292,8 +293,6 @@ bool
     out.push(0);
     return !isError;
 }
-
-
 
 static char hextab[] = "0123456789ABCDEF";
 #define MAXLINE  76

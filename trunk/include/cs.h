@@ -49,9 +49,9 @@ struct  error_event
   #define EXPAND_SIZE (800 * 1024)
   #define STACK_SIZE  (64 * 1024)
 #else
-#define HEAP_SIZE   (1024 * 1024)
-#define EXPAND_SIZE (2 * 1024 * 1024)
-#define STACK_SIZE  (64 * 1024)
+  #define HEAP_SIZE   (1024 * 1024)
+  #define EXPAND_SIZE (2 * 1024 * 1024)
+  #define STACK_SIZE  (64 * 1024)
 #endif
 
 #define FEATURE_FILE_IO   0x00000001
@@ -124,28 +124,38 @@ template<typename T>
 // pinned value
 struct pvalue
 {
+private:
+  pvalue(const pvalue& pv): val(0), pvm(0), next(0) ,prev(0) { pin(pv.pvm,pv.val); }
+public:
   value         val;
   VM*           pvm;
   pvalue*       next;
   pvalue*       prev;
 
   pvalue(): val(0), pvm(0), next(0) ,prev(0) {}
-  pvalue(const pvalue& pv): val(0), pvm(0), next(0) ,prev(0) { pin(pv.pvm,pv.val); }
- 
-  pvalue(VM* c): val(0), pvm(0), next(0) ,prev(0)  { pin(c,0); }
-  pvalue(VM* c, value v): val(0), pvm(0), next(0) ,prev(0) { pin(c,v); }
+  
+  explicit pvalue(VM* c): val(0), pvm(0), next(0) ,prev(0)  { pin(c,0); }
+  explicit pvalue(VM* c, value v): val(0), pvm(0), next(0) ,prev(0) { pin(c,v); }
 
-  ~pvalue() { 
-    unpin(); 
+  ~pvalue() {
+    unpin();
   }
 
   void pin(VM* c, value v = 0);
   void unpin();
 
-  operator value&() { return val; } 
-  pvalue& operator =( value v) { assert( !v || pvm); val = v; return *this; } 
+  operator value() { return val; }
+  pvalue& operator =( value v) { 
+    assert( !v || pvm); 
+    val = v; 
+    return *this; 
+  }
+  void set( value v) { 
+    assert( !v || pvm); 
+    val = v; 
+  }
 
-  bool is_set() const { return val != 0; } 
+  bool is_set() const { return val != 0; }
 
 };
 
@@ -153,22 +163,21 @@ struct header;
 
 // ATTENTION: this assumes that sizeof(void*) == 32 !
 
+
 // ATTENTION: this assumes little endianess !
 //inline dword hidword(const value& v) { return ((dword*)(&v))[1]; }
 inline dword hidword(const value& v) {
-  dword dw;
-  dw = v>>32;
-  return dw&0xFFFFFFFFL;
+  return dword(v >> 32);
 }
 //inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }
 inline dword lodword(const value& v) {
-  dword dw;
-  dw = (v&0xFFFFFFFFL);
-  return dw;
+  return dword(v);
 }
-//inline dword& hidword(value& v) { return ((dword*)(&v))[1]; }
-//inline dword& lodword(value& v) { return ((dword*)(&v))[0]; }
 
+/*inline dword& hidword(value& v) { return ((dword*)(&v))[1]; }
+inline dword& lodword(value& v) { return ((dword*)(&v))[0]; }
+inline dword hidword(const value& v) { return ((dword*)(&v))[1]; }
+inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
 
 #ifdef __GNUC__
     inline value ptr_value( header* ph )    { return (value)(uint_ptr)ph; } // This is clearly bug in all GCC versions  (uint64)ptr != (uint64)(uint32)ptr
@@ -216,10 +225,11 @@ inline int      symbol_idx( const value& v)     { assert(is_symbol(v)); return l
 
 inline void dprint_value(value v) { dword d1 = hidword(v); dword d2 = lodword(v); printf("value=%x %x\n", d1,d2); }
 
+void check_thrown_error( VM *c);
 
 /* output conversion functions */
 inline void CsIntegerToString(char *buf,int_t v) { sprintf(buf,"%ld",(long)(v)); }
-inline void CsFloatToString(char *buf, float_t v)	{ sprintf(buf,"%g",(double)(v)); }
+inline void CsFloatToString(char *buf, float_t v) { sprintf(buf,"%g",(double)(v)); }
 
 /* forward types */
 typedef struct CsScope CsScope;
@@ -241,7 +251,8 @@ typedef struct constant constant;
 struct CsSavedState
 {
     VM   *vm;
-	  value globals;		   // global variables
+    value globals;       // global variables
+    value ns;            // namespace
     value *sp;           // stack pointer
     CsFrame *fp;         // frame pointer
     value env;           // environment
@@ -276,7 +287,7 @@ typedef value (*c_method_ext_t)(VM *c, value self, void* tag);
 typedef value (*c_get_item_t)(VM *c,value obj,value key);
 typedef void  (*c_set_item_t)(VM *c,value obj,value key, value value);
 
-#define C_METHOD_ENTRY(name,fcn)		  c_method( name,fcn )
+#define C_METHOD_ENTRY(name,fcn)      c_method( name,fcn )
 
 /* virtual property handlers */
 typedef value (*vp_get_t)(VM *c,value obj);
@@ -285,9 +296,9 @@ typedef void  (*vp_set_t)(VM *c,value obj,value value);
 typedef value (*vp_get_ext_t)(VM *c,value obj, void* tag);
 typedef void  (*vp_set_ext_t)(VM *c,value obj,value value, void* tag);
 
-#define VP_METHOD_ENTRY(name,get,set)	vp_method(name,get,set)
+#define VP_METHOD_ENTRY(name,get,set) vp_method(name,get,set)
 
-#define CONSTANT_ENTRY(name,val)	    constant( name, val )
+#define CONSTANT_ENTRY(name,val)      constant( name, val )
 
 
 /* scope structure */
@@ -295,6 +306,7 @@ struct CsScope
 {
     VM *c;
     value globals;
+    value ns;
     CsScope *next;
     //CsScope *next;
 };
@@ -325,14 +337,14 @@ struct _VM
     //CsUnwindTarget *unwindTarget;  /* unwind target */
     CsSavedState *savedState;      /* saved state */
     value *argv;                 /* arguments for current function */
-    int argc;                       /* argument count for current function */
+    int    argc;                 /* argument count for current function */
     value *stack;                /* stack base */
     value *stackTop;             /* stack top */
     value *sp;                   /* stack pointer */
-    CsFrame *fp;                   /* frame pointer */
+    CsFrame *fp;                 /* frame pointer */
     value code;                  /* code obj */
-    byte *cbase;                   /* code base */
-    byte *pc;                      /* program counter */
+    byte *cbase;                 /* code base */
+    byte *pc;                    /* program counter */
     value val;                   /* value register */
     value env;                   /* environment register */
     value currentNS;             /* current namespace register */
@@ -341,7 +353,7 @@ struct _VM
     value classObject;           /* rack for Class methods and properties */
     value methodObject;          /* obj for the Method type */
     value propertyObject;        /* obj for the Property type */
-    //value iteratorObject;        /* obj for the Iterator type */ 
+    //value iteratorObject;        /* obj for the Iterator type */
     value vectorObject;          /* obj for the Vector type */
     value symbolObject;          /* obj for the Symbol type */
     value stringObject;          /* obj for the String type */
@@ -355,20 +367,20 @@ struct _VM
 
 
     //value symbols;               /* symbol table */
-    //CsSymbolBlock *symbolSpace;	   /* current symbol block */
+    //CsSymbolBlock *symbolSpace;    /* current symbol block */
 
     value prototypeSym;          /* "prototype" */
 
                                    /* error handler for uncaught errors*/
     //CsProtectedPtrs *protectedPtrs;/* protected pointers */
-    
+
     CsMemorySpace *oldSpace;       /* old memory space */
-    //CsMemorySpace **pNextOld;      /* place to link the next old space */
+    //CsMemorySpace **pNextOld;    /* place to link the next old space */
     CsMemorySpace *newSpace;       /* new memory space */
-    //CsMemorySpace **pNextNew;      /* place to link the next new space */
-    long expandSize;                /* size of each expansion */
-    unsigned long totalMemory;      /* total memory allocated */
-    unsigned long allocCount;       /* number of calls to CsAlloc */
+    //CsMemorySpace **pNextNew;    /* place to link the next new space */
+    long expandSize;               /* size of each expansion */
+    unsigned long totalMemory;     /* total memory allocated */
+    unsigned long allocCount;      /* number of calls to CsAlloc */
     stream *standardInput;       /* standard input stream */
     stream *standardOutput;      /* standard output stream */
     stream *standardError;       /* standard error stream */
@@ -403,7 +415,7 @@ struct VM: _VM, loader
     loader* ploader;
 
     VM( unsigned int features = 0xFFFFFFFF,
-      long size = HEAP_SIZE,long expandSize = EXPAND_SIZE,long stackSize = STACK_SIZE );
+      long size = HEAP_SIZE, long expandSize = EXPAND_SIZE,long stackSize = STACK_SIZE );
 
     // reset current VM
     void reset();
@@ -414,9 +426,13 @@ struct VM: _VM, loader
     virtual tool::ustring combine_url( const tool::ustring& base, const tool::ustring& relative );
     virtual stream* open( const tool::ustring& url );
 
-    value   getCurrentNS() { return currentNS == undefinedValue? currentScope.globals: currentNS; }
-
+    value   getCurrentNS() const { 
+      return currentNS == undefinedValue? currentScope.globals: currentNS; 
+    }
+    
     virtual ~VM();
+
+    tool::ustring nativeThrowValue;
 
     static value undefinedValue;        /* undefined value */
     static value nullValue;             /* null value */
@@ -503,7 +519,7 @@ inline void   CsDrop(VM* c, int n)      { c->sp += n; }
 typedef void (*destructor_t)(VM *c,value obj);
 typedef value (*new_instance_t)(VM *c,value proto);
 typedef bool (*print_t)(VM *c,value obj,stream *s, bool toLocale);
-typedef bool (*get_property_t)(VM *c,value obj,value tag,value *pValue);
+typedef bool (*get_property_t)(VM *c,value& obj,value tag,value *pValue); // in: obj is the obj, out: "vtbl" (class) where property is found
 typedef bool (*set_property_t)(VM *c,value obj,value tag,value value);
 typedef bool (*add_constant_t)(VM *c,value obj,value tag,value value);
 
@@ -512,30 +528,36 @@ typedef void  (*set_item_t)(VM *c,value obj,value key, value value);
 typedef void  (*scan_t)(VM *c,value obj);
 
 typedef value (*get_next_element_t)(VM *c,value* index, value obj);
+typedef long  (*thing_size_t)(value obj);
+typedef value (*thing_copy_t)(VM *c,value obj);
+typedef int_t (*thing_hash_t)(value obj);
+
+typedef bool  (*call_method_t)(VM *c, value tag, int argc, value* pretval);
 
 /* type pdispatch structure */
 struct dispatch {
     char *typeName;
     dispatch *baseType;
-    get_property_t  getProperty;
-    set_property_t  setProperty;
-    new_instance_t  newInstance;
-    print_t         print;
-    long (*size)(value obj);
-    value (*copy)(VM *c,value obj);
-    scan_t scan;
-    int_t (*hash)(value obj);
-    get_item_t getItem;
-    set_item_t setItem;
-    get_next_element_t getNextElement;
-    add_constant_t      addConstant;
-    dispatch**      interfaces;
-    value obj;
-    long dataSize;
-    destructor_t  destroy;
-    void *        destroyParam;
-    dispatch *proto;
-    dispatch *next;
+    get_property_t            getProperty;
+    set_property_t            setProperty;
+    new_instance_t            newInstance;
+    print_t                   print;
+    thing_size_t              size;
+    thing_copy_t              copy;
+    scan_t                    scan;
+    thing_hash_t              hash;
+    get_item_t                getItem;
+    set_item_t                setItem;
+    get_next_element_t        getNextElement;
+    add_constant_t            addConstant;
+    call_method_t             handleCall; // native call used by e.g. Sciter behavior
+    dispatch**                interfaces;
+    value                     obj; // a.k.a. class vtbl;
+    long                      dataSize;
+    destructor_t              destroy;
+    void*                     destroyParam;
+    dispatch*                 proto;
+    dispatch*                 next;
 };
 
 extern dispatch CsIntegerDispatch;
@@ -550,7 +572,7 @@ struct header {
 };
 
 struct persistent_header: header {
-    value		      vstorage;
+    value         vstorage;
     unsigned int  oid;
     uint32        status;
 
@@ -567,7 +589,11 @@ struct persistent_header: header {
 inline  bool        CsPointerP(value o)                 { return is_ptr(o); }
 
 
-inline  dispatch*   CsQuickGetDispatch(value o)         { return ptr<header>(o)->pdispatch; }
+inline  dispatch*   CsQuickGetDispatch(value o)         
+{ 
+   assert(ptr<header>(o)->pdispatch); 
+   return ptr<header>(o)->pdispatch; 
+}
 inline  dispatch*   CsGetDispatch(value o) {
                       if( is_ptr(o) )
                         return CsQuickGetDispatch(o);
@@ -581,8 +607,13 @@ inline  dispatch*   CsGetDispatch(value o) {
                       {
                         dispatch* pd = CsQuickGetDispatch(o);
                         if( pd->interfaces )
-                          return pd->interfaces[iface_no(o)];
-                        //else 
+                        {
+                          int ifno = iface_no(o);
+                          assert(ifno < 16);
+                          assert(pd->interfaces[ifno]);
+                          return pd->interfaces[ifno];
+                        }
+                        //else
                         //  return pd;
                         assert(pd->interfaces);
                       }
@@ -602,10 +633,10 @@ inline  const char* CsQuickTypeName(value o)            { return CsQuickGetDispa
 inline void         CsCheckArgType(VM* c,int n,dispatch* t) { CsIsType(CsGetArg(c,n),t); }
 
 inline  void        CsSetDispatch(value o, dispatch* d)      { ptr<header>(o)->pdispatch = d; }
-inline  bool        CsGetProperty1(VM* c,value o,value t,value* pv) { return CsGetDispatch(o)->getProperty(c,o,t,pv); }
+inline  bool        CsGetProperty1(VM* c,value& o,value t,value* pv) { return CsGetDispatch(o)->getProperty(c,o,t,pv); }
 inline  bool        CsSetProperty(VM* c,value o,value t, value v)  { return CsGetDispatch(o)->setProperty(c,o,t,v); }
 inline  bool        CsAddConstant(VM* c,value o,value t, value v)  { dispatch* pd = CsGetDispatch(o); if(pd->addConstant) return pd->addConstant(c,o,t,v); return false; }
-        bool        CsAssignMethod(VM* c,value o,value t, value v);
+        bool        CsSetProperty1(VM* c,value o,value t, value v);
 
 inline  value       CsNewInstance(VM* c,value o)             { return CsGetDispatch(o)->newInstance(c,o); }
 extern  value       CsNewClassInstance(VM* c,value parentClass, value nameSymbol);
@@ -615,19 +646,23 @@ inline  bool        CsPrintValue(VM* c,value o, stream* s, bool toLocale = false
                       dispatch* d = CsGetDispatch(o);
                       return d->print(c,o,s, toLocale);
                     }
-inline  value       CsCopyValue(VM* c, value o)              
-                    { 
+inline  value       CsCopyValue(VM* c, value o)
+                    {
                       if(is_iface_ptr(o))
                       {
                         value obase = iface_base ( o );
                         int   n = iface_no( o );
-                        return iface_value( (tis::header *)CsGetDispatch(obase)->copy(c,obase) , n); 
+                        return iface_value( (tis::header *)CsGetDispatch(obase)->copy(c,obase) , n);
                       }
-                      return CsGetDispatch(o)->copy(c,o); 
+#ifdef _DEBUG
+                      dispatch *pd = CsGetDispatch(o);
+                      return pd->copy(c,o);
+#endif 
+                      return CsGetDispatch(o)->copy(c,o);
                     }
 inline  int_t       CsHashValue(value o)                     { return CsGetDispatch(o)->hash(o); }
 
-               bool CsGetObjectProperty(VM *c,value obj,value tag,value *pValue);
+               bool CsGetObjectProperty(VM *c,value& obj,value tag,value *pValue);
                bool CsSetObjectPropertyNoLoad(VM *c,value obj,value tag,value value);
                bool CsSetObjectProperty(VM *c,value obj,value tag,value value);
                long CsObjectSize(value obj);
@@ -686,6 +721,9 @@ inline size_t  CsStringSize(value o)
 {
   return ptr<CsString>(o)->size;
 }
+
+inline tool::wchars CsStringChars(value o)    { return tool::wchars((wchar*)(ptr<byte>(o) + sizeof(CsString)),ptr<CsString>(o)->size); }
+
 
 inline void   CsSetStringSize(value o,size_t sz) { ptr<CsString>(o)->size = sz; }
 
@@ -800,7 +838,11 @@ bool    CsGlobalValue(CsScope *scope,value sym,value *pValue);
 bool    CsGetGlobalValue(VM *c,value sym,value *pValue);
 void    CsSetGlobalValue(CsScope *scope,value sym,value value);
 
-void    CsCreateGlobalConst(VM *c,value sym,value val);
+bool    CsGetGlobalOrNamespaceValue(VM *c,value tag,value *pValue);
+bool    CsSetGlobalOrNamespaceValue(VM *c,value tag,value val);
+
+void    CsSetNamespaceValue(VM *c,value sym,value val);
+void    CsSetNamespaceConst(VM *c,value sym,value val);
 
 value   CsGetGlobalValueByPath(VM *c,const char* path);
 
@@ -818,6 +860,7 @@ struct object: public persistent_header
 struct klass: public object
 {
     value name; // namespace
+    value undefinedPropHandler; 
     klass() {}
 };
 
@@ -836,12 +879,16 @@ extern const char* CsObjectClassName(VM* c, value obj);
 extern const char* CsClassClassName(VM* c, value cls);
 
 extern dispatch CsClassDispatch;
-inline bool   CsClassP(value o)      { return CsIsType(o,&CsClassDispatch); }
+inline bool   CsClassP(value o)       { return CsIsType(o,&CsClassDispatch); }
 
 inline bool   CsTypeP(VM* c, value o) { return CsIsType(o,c->typeDispatch); }
 
 inline value  CsClassName(value o)  { return ptr<klass>(o)->name; }
 inline void   CsSetClassName(value o,value v) { ptr<klass>(o)->name = v; }
+
+inline value  CsClassUndefinedPropHandler(value o)  { return ptr<klass>(o)->undefinedPropHandler; }
+inline void   CsSetClassUndefinedPropHandler(value o,value v) { ptr<klass>(o)->undefinedPropHandler = v; }
+
 
 // set modified flag in this object
 inline void CsSetModified(value obj, bool onOff)  { ptr<persistent_header>(obj)->modified(onOff); }
@@ -858,16 +905,17 @@ void  CsRemoveObjectProperty(VM *c,value obj, value tag);
 value CsMakeClass(VM *c,value proto);
 
 
-
-/* CsScanOnject - scans all key/values in the given object  */
+/* CsScanOnject - scans all key/values in the given object  
 
 struct object_scanner
 {
   virtual bool item( VM *c, value key, value val ) = 0; // true - continue, false - stop;
 };
 
+
 void   CsScanObject( VM *c, value o, object_scanner& osc );
 void   CsScanObjectNoLoad( VM *c, value o, object_scanner& osc );
+*/
 
 
 /* COBJECT */
@@ -899,10 +947,10 @@ value CsMakeCObject(VM *c,dispatch *d);
 dispatch *CsMakeCPtrObjectType(VM *c,dispatch *proto,char *typeName,c_method *methods,vp_method *properties, constant *constants = 0);
 value CsMakeCPtrObject(VM *c,dispatch *d,void *ptr);
 void CsEnterCObjectMethods(VM *c,dispatch *d,c_method *methods,vp_method *properties, constant *constants = 0);
-bool CsGetVirtualProperty(VM *c,value obj,value proto,value tag,value *pValue);
+bool CsGetVirtualProperty(VM *c,value& obj,value proto,value tag,value *pValue);
 bool CsSetVirtualProperty(VM *c,value obj,value proto,value tag,value value);
 
-bool CsGetCObjectProperty(VM *c,value obj,value tag,value *pValue);
+bool CsGetCObjectProperty(VM *c,value& obj,value tag,value *pValue);
 bool CsSetCObjectProperty(VM *c,value obj,value tag,value val);
 bool CsAddCObjectConstant(VM *c,value obj,value tag,value val);
 
@@ -1042,7 +1090,10 @@ struct vp_method: public header
       if(tag)
         val = (*((vp_get_ext_t)get_handler))(c,obj,tag);
       else
+      {
         val = (*get_handler)(c,obj);
+        check_thrown_error(c);
+      }
       return true;
     }
     inline bool set(VM* c, value obj, value val )
@@ -1051,7 +1102,10 @@ struct vp_method: public header
       if(tag)
         (*((vp_set_ext_t)set_handler))(c,obj,val,tag);
       else
+      {
         (*set_handler)(c, obj, val);
+        check_thrown_error(c);
+      }
       return true;
     }
 
@@ -1119,15 +1173,16 @@ struct CsMethod: public object/* CsMethod is an Object! */
     value        code;
     value        env;
     value        globals;
+    value        ns; // namespace
 };
 
 struct generator: public header
 {
-	  value globals;		   // global variables
+    value globals;       // global variables
     value env;           // environment
     value code;          // code obj
     value val;
-    value localFrames;   // environments of local frames. 
+    value localFrames;   // environments of local frames.
     int   argc;
     int   pcoffset;      // program counter offset
 
@@ -1141,9 +1196,11 @@ inline bool   CsMethodP(value o)         { return CsIsBaseType(o,&CsMethodDispat
 inline value  CsMethodCode(value o)      { return ptr<CsMethod>(o)->code; }
 inline value  CsMethodEnv(value o)               { return ptr<CsMethod>(o)->env; }
 inline value  CsMethodGlobals(value o)           { return ptr<CsMethod>(o)->globals; }
+inline value  CsMethodNamespace(value o)         { return ptr<CsMethod>(o)->ns; }
 inline void   CsSetMethodCode(value o,value v)         { ptr<CsMethod>(o)->code = (v); }
 inline void   CsSetMethodEnv(value o,value v)          { ptr<CsMethod>(o)->env = (v); }
 inline void   CsSetMethodGlobals(value o,value v)      { ptr<CsMethod>(o)->globals = (v); }
+inline void   CsSetMethodNamespace(value o,value v)      { ptr<CsMethod>(o)->ns = (v); }
 
 inline bool   CsPropertyMethodP(value o)         { return CsIsBaseType(o,&CsPropertyMethodDispatch); }
 
@@ -1167,8 +1224,8 @@ inline void   CsSetGeneratorValue(value o,value v)    { CsSetBasicVectorElement(
 
 //#define CsMethodSize                   3
 
-value CsMakeMethod(VM *c,value code,value env,value globals);
-value CsMakePropertyMethod(VM *c,value code,value env,value globals);
+value      CsMakeMethod(VM *c,value code,value env,value globals, value ns);
+value      CsMakePropertyMethod(VM *c,value code,value env,value globals, value ns);
 value      CsMakeGenerator(VM *c);
 
 /* COMPILED CODE */
@@ -1181,10 +1238,18 @@ inline value  CsCompiledCodeLiteral(value o,int_t i)  { return CsBasicVectorElem
 inline value  CsCompiledCodeBytecodes(value o)        { return CsBasicVectorElement(o,0); }
 inline value  CsCompiledCodeLineNumbers(value o)      { return CsBasicVectorElement(o,1); }
 inline value  CsCompiledCodeFileName(value o)         { return CsBasicVectorElement(o,2); }
-inline value  CsCompiledCodeName(value o)             { return CsBasicVectorElement(o,3); }
-#define CsFirstLiteral                 3
+inline value  CsCompiledCodeArgNames(value o)         { return CsBasicVectorElement(o,3); }
+inline value  CsCompiledCodeName(value o)             { return CsBasicVectorElement(o,4); }
 
-value CsMakeCompiledCode(VM *c,long size,value bytecodes, value linenumbers, const wchar* filename );
+inline void CsSetCompiledCodeBytecodes(value o,value v)   { CsSetBasicVectorElement(o,0,v); }
+inline void CsSetCompiledCodeLineNumbers(value o,value v) { CsSetBasicVectorElement(o,1,v); }
+inline void CsSetCompiledCodeFileName(value o,value fn)   { CsSetBasicVectorElement(o,2,fn); }
+inline void CsSetCompiledCodeArgNames(value o,value nv)   { CsSetBasicVectorElement(o,3,nv); }
+inline void CsSetCompiledCodeName(value o,value nv)       { CsSetBasicVectorElement(o,4,nv); }
+
+#define CsFirstLiteral                 5
+
+value CsMakeCompiledCode(VM *c,long size,value bytecodes, value linenumbers, value argnames, const wchar* filename );
 
 
 /* ENVIRONMENT */
@@ -1428,9 +1493,9 @@ enum CsErrorCodes
    CsErrBadParseCode          ,
    CsErrImpossible            ,
    CsErrNoHashValue           ,
-   CsErrReadOnlyProperty		  ,
-   CsErrWriteOnlyProperty		  ,
-   CsErrFileNotFound			    ,
+   CsErrReadOnlyProperty      ,
+   CsErrWriteOnlyProperty     ,
+   CsErrFileNotFound          ,
    CsErrNewInstance           ,
    CsErrNoProperty            ,
    CsErrStackEmpty            ,
@@ -1466,7 +1531,7 @@ CsCompiler *CsMakeCompiler(VM *ic,long csize,long lsize);
 void CsFreeCompiler(CsCompiler *c);
 value CsCompileExpr(CsScope *scope, bool add_this);
 /* compile sequence of expressions */
-value CsCompileExpressions(CsScope *scope, bool serverScript);
+value CsCompileExpressions(CsScope *scope, bool serverScript, int line_no = 0);
 
 /* compile data expression, JSON style of data declaration.
    Example: { one:1, two:2 }
@@ -1478,7 +1543,7 @@ value CsCompileDataExpr(CsScope *scope);
 /* cs_int.c prototypes */
 
 value CsCallFunction(CsScope *scope,value fun,int argc,...);
-value CsCallFunctionByName(CsScope *scope,char *fname,int argc,...);
+//value CsCallFunctionByName(CsScope *scope,char *fname,int argc,...);
 
 struct vargs
 {
@@ -1488,8 +1553,8 @@ struct vargs
 };
 
 value CsCallFunction(CsScope *scope,value fun, vargs& args);
+value CsCallMethod(VM *c,value obj, value method, value ofClass, int argc,...);
 
-//value CsSendMessage(VM *c,value obj, value cls, value selector,int argc,...);
 value       CsSendMessage(CsScope *scope, value obj, value selectorOrMethod,int argc,...);
 value       CsSendMessage(VM *c,value obj, value selectorOrMethod,int argc,...);
 value       CsSendMessage(VM *c,value obj, value selectorOrMethod, const value* argv, int argc);
@@ -1568,7 +1633,7 @@ void CsFree(VM *c,void *ptr);
 void CsInsufficientMemory(VM *c);
 
 /* default type handlers */
-bool CsDefaultGetProperty(VM *c,value obj,value tag,value *pValue);
+bool CsDefaultGetProperty(VM *c,value& obj,value tag,value *pValue);
 bool CsDefaultSetProperty(VM *c,value obj,value tag,value value);
 value CsDefaultNewInstance(VM *c,value proto);
 value CsDefaultCopy(VM *c,value obj);
@@ -1577,10 +1642,11 @@ int_t CsDefaultHash(value obj);
 
 /* default index [tag] = value getter and setter */
 value CsDefaultGetItem(VM *c,value obj,value tag);
-void     CsDefaultSetItem(VM *c,value obj,value tag,value value);
+void  CsDefaultSetItem(VM *c,value obj,value tag,value value);
 
 value CsObjectGetItem(VM *c,value obj,value tag);
-void     CsObjectSetItem(VM *c,value obj,value tag,value value);
+void  CsObjectSetItem(VM *c,value obj,value tag,value value);
+value CsObjectNextElement(VM *c, value* index, value obj);
 
 /* cs_hash.c prototypes */
 int_t CsHashString(const wchar *str,int length);
@@ -1670,9 +1736,12 @@ value CsEvalDataStream(CsScope *scope,stream *s);
 
 // these two return result of last return statement seen
 value CsLoadFile(CsScope *scope,const wchar *fname, stream *os);
-value CsLoadStream(CsScope *scope,stream *is, stream *os);
+value CsLoadStream(CsScope *scope,stream *is, stream *os, int line_no = 0);
 
 value CsInclude(CsScope *scope, const tool::ustring& name);
+value CsIncludeLibrary(CsScope *scope, const tool::ustring& name);
+
+bool CsLoadExtLibrary(VM *c, tool::ustring fullpath);
 
 /* cs_wcode.c prototypes */
 bool CsCompileFile(CsScope *scope,const wchar *iname,const wchar *oname, bool serverScript);
@@ -1742,8 +1811,10 @@ value          string_to_value(VM *c,const tool::ustring& s);
 tool::ustring  value_to_string(value v);
 tool::wchars   value_to_wchars(value v,tool::ustring& t);
 
-//value          value_to_value(VM *c, const json::value& v);
-//json::value    value_to_value(VM *c, value v);
+value          value_to_value(VM *c, const tool::value& v);
+tool::value    value_to_value(VM *c, value v);
+// removes all object proxies - converst all managed objects to tool::value counterparts
+bool           isolate_value(tool::value& v);
 
 bool CsStoreValue(VM* c,value v,stream *s);
 bool CsFetchValue(VM* c,value *pv,stream *s);
@@ -1754,7 +1825,9 @@ struct auto_scope: CsScope
   {
     c = pvm;
     globals = c->currentScope.globals;
+    ns = c->currentNS;
     c->currentScope.globals = gobject;
+    c->currentNS = gobject;
     next = pvm->currentScope.next;
     c->currentScope.next = this;
   }
@@ -1763,6 +1836,7 @@ struct auto_scope: CsScope
     assert( c->currentScope.next == this );
     c->currentScope.next = next;
     c->currentScope.globals = globals;
+    c->currentNS = ns;
     //c->scopes = next;
   }
 };
@@ -1779,19 +1853,19 @@ typedef tool::hash_table<oid_t, value> storageHash;
 class storage // to enable it as a member of l2 list use following: :public tool::l2elem<storage>
 {
 public:
-	storage_t	dbS;
-	storageHash	hashS;
+  storage_t   dbS;
+  storageHash hashS;
   tool::hash_table<tool::string, value> hashNameProto;
   bool autocommit;
 
 public:
   storage(): dbS(0), hashS(1024), hashNameProto(16), autocommit(true) {}
-	~storage();
+  ~storage();
 
 public:
-	/* remove obj from hash */
-	void DetachObj( oid_t oid );
-	void DetachAllObjs(VM* c = 0);
+  /* remove obj from hash */
+  void DetachObj( oid_t oid );
+  void DetachAllObjs(VM* c = 0);
 
   void CommitHash(VM* c);
 
@@ -1814,7 +1888,7 @@ public:
     if(v)
       this->hashNameProto[className] = v;
     else
-      c->standardError->printf(L"class %S not found while loading object from Storage\n", className.c_str()); 
+      c->standardError->printf(L"class %S not found while loading object from Storage\n", className.c_str());
 
     return v;
     //if( this->hashNameProto.exists(className) )
@@ -1833,19 +1907,19 @@ private:
 union dbvtag
 {
   byte     b;
-	int_t    i;
-	float_t  d;
-	byte*	   s; // string
-	uint64	 i64;
-	oid_t    oid;
+  int_t    i;
+  float_t  d;
+  byte*    s; // string
+  uint64   i64;
+  oid_t    oid;
 };
 typedef dbvtag dbvtype;
 
 typedef struct db_tripletTag
 {
-	dbvtype data;
-	int_t   type;
-	int_t   len;
+  dbvtype data;
+  int_t   type;
+  int_t   len;
 
   // init as NULL string
   db_tripletTag();
@@ -1890,12 +1964,13 @@ inline void  _CsInitPersistent( value obj )
 // make obj persistent - fill its storage/oid info and register it in the storage
 oid_t  CsSetPersistent( VM *c, value vs, value obj );
 
-
 value  CsFetchObject( VM *c, value vs, oid_t oid );
 value  CsFetchVector( VM *c, value vs, oid_t oid );
 // fetch data of objects with storage/oid set (persistent)
 value  CsFetchObjectData( VM *c, value obj );
 value  CsFetchVectorData( VM *c, value vec );
+
+inline value  CsFetchObject( VM *c, value obj ) {  return _CsIsPersistent(obj) ? CsFetchObjectData(c, obj) : obj; }
 
 oid_t  CsStoreObject( VM *c, value vs, value obj );
 oid_t  CsStoreVector( VM *c, value vs, value obj );
@@ -1920,9 +1995,58 @@ inline bool CsIsPersistent( VM *c, value v)
   return CsPersistentP(c,v) && ptr<persistent_header>(v)->vstorage != 0;
 }
 
-#pragma pack(pop)
+value CsBinaryOp(VM *c,int op, value p1, value p2);
+
+//each_property generator
+
+$generator(each_property)
+{
+   int    i,cnt;
+   pvalue props;
+   pvalue prop;
+
+   each_property(VM *c, value obj, bool fetch = true)
+   { 
+      props.pin(c);
+      prop.pin(c);  
+      if(fetch) obj = CsFetchObject(c,obj);
+      props = CsObjectProperties( obj ); 
+   }
+   ~each_property() 
+   {
+     props.unpin();
+     prop.unpin();
+   }
+
+//#pragma optimize( "g", off )
+   $emit2(value,value) // will emit key/value pair
+
+     if (CsHashTableP(props.val)) 
+     {
+          cnt = CsHashTableSize(props.val);
+          for (i = 0; i < cnt; ++i) 
+          {
+              prop.val = CsHashTableElement(props.val,i);
+              for (; prop.val != VM::undefinedValue; prop.val = CsPropertyNext(prop.val))
+              {
+                $yield2 ( CsPropertyTag(prop.val),CsPropertyValue(prop.val) );
+              }
+          }
+      }
+      else
+          for (prop.val = props.val; prop.val != VM::undefinedValue; prop.val = CsPropertyNext(prop.val) )
+          {
+             $yield2 ( CsPropertyTag(prop.val),CsPropertyValue(prop.val) );
+          }
+   $stop; // stop, end of sequence. End of body of the generator.
+//#pragma optimize( "g", on )
+};
 
 void finalize();
+
+tool::value call_by_tool(tis::pvalue& method, const tool::value& self, uint argc, const tool::value* argv);
+
+#pragma pack(pop)
 
 }
 

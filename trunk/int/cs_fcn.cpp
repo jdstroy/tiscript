@@ -10,7 +10,7 @@
 #include <string.h>
 #include "cs.h"
 
-namespace tis
+namespace tis 
 {
 
 
@@ -106,7 +106,7 @@ C_METHOD_ENTRY( "cm",               CSF_cm               ),
 
 
 //C_METHOD_ENTRY( "quit",             CSF_quit            ),
-C_METHOD_ENTRY( 0,					0					)
+C_METHOD_ENTRY( 0,          0         )
 };
 
 /* CsEnterLibrarySymbols - enter the built-in functions and symbols */
@@ -400,7 +400,7 @@ value CsTypeOf(VM *c, value val)
 {
     //char *str = "undefined";
     dispatch *d;
-
+        
     if(val == c->undefinedValue)
       return symbol_value(S_UNDEFINED);
     if(val == c->nothingValue)
@@ -411,7 +411,7 @@ value CsTypeOf(VM *c, value val)
 
     if(val == c->nullValue)
       return symbol_value(S_OBJECT); // #11.4.3
-
+    
     d = CsGetDispatch(val);
     if(d == &CsIntegerDispatch)
       return symbol_value(S_INTEGER);
@@ -448,52 +448,56 @@ static value CSF_crackUrl(VM *c)
       pvalue pkey(c);
       pvalue pval(c);
         
-      pkey = CsMakeString(c,WCHARS("port"));
+      pkey = CsSymbolOf("port");
       pval = CsMakeInteger(c,u.port);
       CsObjectSetItem(c,pobj,pkey,pval);
 
-      pkey = CsMakeString(c,WCHARS("protocol"));
+      pkey = CsSymbolOf("protocol");
       pval = CsMakeCString(c,u.protocol);
       CsObjectSetItem(c,pobj,pkey,pval);
 
-      pkey = CsMakeString(c,WCHARS("hostname"));
+      pkey = CsSymbolOf("hostname");
       pval = CsMakeCString(c,u.hostname);
       CsObjectSetItem(c,pobj,pkey,pval);
 
-      pkey = CsMakeString(c,WCHARS("anchor"));
+      pkey = CsSymbolOf("anchor");
       pval = CsMakeCString(c,u.anchor);
       CsObjectSetItem(c,pobj,pkey,pval);
 
       if( !u.is_local() )
       {
-        pkey = CsMakeString(c,WCHARS("username"));
+        pkey = CsSymbolOf("username");
         pval = CsMakeCString(c,u.username);
         CsObjectSetItem(c,pobj,pkey,pval);
 
-        pkey = CsMakeString(c,WCHARS("password"));
+        pkey = CsSymbolOf("password");
         pval = CsMakeCString(c,u.password);
         CsObjectSetItem(c,pobj,pkey,pval);
       }
 
-      pkey = CsMakeString(c,WCHARS("params"));
+      pkey = CsSymbolOf("params");
       pval = CsMakeCString(c,u.params);
       CsObjectSetItem(c,pobj,pkey,pval);
 
       tool::string dir = u.dir();
-      pkey = CsMakeString(c,WCHARS("dir"));
+      pkey = CsSymbolOf("dir");
       pval = CsMakeCString(c,dir);
       CsObjectSetItem(c,pobj,pkey,pval);
 
       tool::string name = u.name();
-      pkey = CsMakeString(c,WCHARS("name"));
+      pkey = CsSymbolOf("name");
       pval = CsMakeCString(c,name);
       CsObjectSetItem(c,pobj,pkey,pval);
 
       tool::string ext = u.ext();
-      pkey = CsMakeString(c,WCHARS("ext"));
+      pkey = CsSymbolOf("ext");
       pval = CsMakeCString(c,ext);
       CsObjectSetItem(c,pobj,pkey,pval);
 
+      tool::string name_ext = u.name_ext();
+      pkey = CsSymbolOf("name_ext");
+      pval = CsMakeCString(c,name_ext);
+      CsObjectSetItem(c,pobj,pkey,pval);
       return pobj;
     }
   }

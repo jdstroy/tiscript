@@ -61,7 +61,7 @@ C_METHOD_ENTRY( "indexOf",          CSF_indexOf         ),
 C_METHOD_ENTRY( "remove",           CSF_remove          ),
 C_METHOD_ENTRY( "removeByValue",    CSF_removeByValue   ),
 
-C_METHOD_ENTRY(	0,                  0                   )
+C_METHOD_ENTRY( 0,                  0                   )
 };
 
 /* Vector properties */
@@ -69,7 +69,7 @@ static vp_method properties[] = {
 VP_METHOD_ENTRY( "length",         CSF_length,          CSF_set_length  ),
 VP_METHOD_ENTRY( "first",          CSF_first,           CSF_set_first       ),
 VP_METHOD_ENTRY( "last",           CSF_last,            CSF_set_last        ),
-VP_METHOD_ENTRY( 0,                0,					0					)
+VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
 /* prototypes */
@@ -689,7 +689,7 @@ int CsCompareVectors(VM* c, value v1, value v2, bool suppressError)
 /* VECTOR */
 
 /* Vector handlers */
-static bool GetVectorProperty(VM *c,value obj,value tag,value *pValue);
+static bool GetVectorProperty(VM *c,value& obj,value tag,value *pValue);
 static bool SetVectorProperty(VM *c,value obj,value tag,value value);
 static value VectorNewInstance(VM *c,value proto);
 static long VectorSize(value obj);
@@ -813,7 +813,7 @@ static void     CsVectorSetItem(VM *c,value obj,value tag,value value)
 }
 
 /* GetVectorProperty - Vector get property handler */
-static bool GetVectorProperty(VM *c,value obj,value tag,value *pValue)
+static bool GetVectorProperty(VM *c,value& obj,value tag,value *pValue)
 {
     return CsGetVirtualProperty(c,obj,c->vectorObject,tag,pValue);
 }
@@ -852,7 +852,7 @@ static void VectorScan(VM *c,value obj)
 /* MOVED VECTOR */
 
 /* MovedVector handlers */
-static bool GetMovedVectorProperty(VM *c,value obj,value tag,value *pValue);
+static bool GetMovedVectorProperty(VM *c,value& obj,value tag,value *pValue);
 static bool SetMovedVectorProperty(VM *c,value obj,value tag,value value);
 static value MovedVectorCopy(VM *c,value obj);
 static value CsMovedVectorGetItem(VM *c,value obj,value tag);
@@ -899,9 +899,10 @@ static void     CsMovedVectorSetItem(VM *c,value obj,value tag,value val)
  }
 
 /* GetMovedVectorProperty - MovedVector get property handler */
-static bool GetMovedVectorProperty(VM *c,value obj,value tag,value *pValue)
+static bool GetMovedVectorProperty(VM *c,value& obj,value tag,value *pValue)
 {
-    return GetVectorProperty(c,CsVectorForwardingAddr(obj),tag,pValue);
+    obj = CsVectorForwardingAddr(obj);
+    return GetVectorProperty(c,obj,tag,pValue);
 }
 
 /* SetMovedVectorProperty - MovedVector set property handler */
@@ -1047,10 +1048,10 @@ dispatch *CsEnterFixedVectorType(CsScope *scope,dispatch *proto,char *typeName,c
     if (!(d = CsMakeFixedVectorType(c,proto,typeName,methods,properties,size)))
         return NULL;
 
-	/* add the type symbol */
-	CsCPush(c,CsInternCString(c,typeName));
+  /* add the type symbol */
+  CsCPush(c,CsInternCString(c,typeName));
     CsSetGlobalValue(scope,CsTop(c),d->obj);
-	CsDrop(c,1);
+  CsDrop(c,1);
 
     /* return the new obj type */
     return d;

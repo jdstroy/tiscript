@@ -448,11 +448,11 @@ ustring::trim() const
     register const wchar *p;
 
     for (p = head(); *p; p++)
-      if (isspace(*p)) start++;
+      if (iswspace(*p)) start++;
       else break;
 
     for (p = head() + length() - 1; p >= (head() + start); p--)
-      if (isspace(*p))
+      if (iswspace(*p)) 
         end--;
       else
         break;
@@ -670,8 +670,8 @@ int ustring::replace ( const wchar *from, const wchar *to )
 inline unsigned int get_next_utf8(const byte *pc, const byte *last)
 {
   unsigned int val = *pc;
-	// Take a character from the buffer
-	// or from the actual input stream.
+  // Take a character from the buffer
+  // or from the actual input stream.
   assert(pc < last);
   //unfinished multi-byte UTF-8 sequence at EOF
 
@@ -679,7 +679,7 @@ inline unsigned int get_next_utf8(const byte *pc, const byte *last)
   assert((val & 0xc0) == 0x80);
   //bad continuation of multi-byte UTF-8 sequence
 
-	// Return the significant bits.
+  // Return the significant bits.
   return (val & 0x3f);
 }
 
@@ -689,10 +689,9 @@ inline uint get_next_utf8(unsigned int val)
   assert((val & 0xc0) == 0x80);
   //bad continuation of multi-byte UTF-8 sequence
 
-	// Return the significant bits.
+  // Return the significant bits.
   return (val & 0x3f);
 }
-
 
 ustring ustring::utf8(const char *src, size_t len)
 {
@@ -714,28 +713,28 @@ void from_utf8(const char *src, size_t len, array<wchar>& buf)
       b1 = *pc++;
       isSurrogate = false;
 
-			// Determine whether we are dealing
-			// with a one-, two-, three-, or four-
-			// byte sequence.
+      // Determine whether we are dealing
+      // with a one-, two-, three-, or four-
+      // byte sequence.
       if ((b1 & 0x80) == 0)
       {
-	      // 1-byte sequence: 000000000xxxxxxx = 0xxxxxxx
-	      buf += (wchar)b1;
+        // 1-byte sequence: 000000000xxxxxxx = 0xxxxxxx
+        buf += (wchar)b1;
       }
       else if ((b1 & 0xe0) == 0xc0)
       {
-	      // 2-byte sequence: 00000yyyyyxxxxxx = 110yyyyy 10xxxxxx
-	      buf +=
-	        (wchar)(((b1 & 0x1f) << 6) | get_next_utf8(pc++, last));
+        // 2-byte sequence: 00000yyyyyxxxxxx = 110yyyyy 10xxxxxx
+        buf +=
+          (wchar)(((b1 & 0x1f) << 6) | get_next_utf8(pc++, last));
       }
       else if ((b1 & 0xf0) == 0xe0)
       {
         uint b2 = get_next_utf8(pc++, last);
         uint b3 = get_next_utf8(pc++, last);
 
-	      // 3-byte sequence: zzzzyyyyyyxxxxxx = 1110zzzz 10yyyyyy 10xxxxxx
-	      buf +=
-	        (wchar)(((b1 & 0x0f) << 12) | (b2 << 6) | b3);
+        // 3-byte sequence: zzzzyyyyyyxxxxxx = 1110zzzz 10yyyyyy 10xxxxxx
+        buf +=
+          (wchar)(((b1 & 0x0f) << 12) | (b2 << 6) | b3);
 
         if( buf.size() == 1 && buf[0] == 0xFEFF) // bom
           buf.size(0);
@@ -743,21 +742,21 @@ void from_utf8(const char *src, size_t len, array<wchar>& buf)
       }
       else if ((b1 & 0xf8) == 0xf0)
       {
-	      // 4-byte sequence: 11101110wwwwzzzzyy + 110111yyyyxxxxxx
-	      //     = 11110uuu 10uuzzzz 10yyyyyy 10xxxxxx
-	      // (uuuuu = wwww + 1)
-	      isSurrogate = true;
-	      uint b2 = get_next_utf8(pc++, last);
-	      uint b3 = get_next_utf8(pc++, last);
-	      uint b4 = get_next_utf8(pc++, last);
-	      buf +=
-	        (wchar)(0xd800 |
-		       ((((b1 & 0x07) << 2) | ((b2 & 0x30) >> 4) - 1) << 6) |
-		       ((b2 & 0x0f) << 2) |
-		       ((b3 & 0x30) >> 4));
-	      buf +=
-	        (wchar)(0xdc | ((b3 & 0x0f) << 6) | b4);
-				      // TODO: test that surrogate value is legal.
+        // 4-byte sequence: 11101110wwwwzzzzyy + 110111yyyyxxxxxx
+        //     = 11110uuu 10uuzzzz 10yyyyyy 10xxxxxx
+        // (uuuuu = wwww + 1)
+        isSurrogate = true;
+        uint b2 = get_next_utf8(pc++, last);
+        uint b3 = get_next_utf8(pc++, last);
+        uint b4 = get_next_utf8(pc++, last);
+        buf +=
+          (wchar)(0xd800 |
+           ((((b1 & 0x07) << 2) | ((b2 & 0x30) >> 4) - 1) << 6) |
+           ((b2 & 0x0f) << 2) |
+           ((b3 & 0x30) >> 4));
+        buf +=
+          (wchar)(0xdc | ((b3 & 0x0f) << 6) | b4);
+              // TODO: test that surrogate value is legal.
       }
       else
       {
@@ -780,48 +779,48 @@ wchar getc_utf8(FILE *f)
     b1 = (unsigned int) t;
     isSurrogate = false;
 
-		// Determine whether we are dealing
-		// with a one-, two-, three-, or four-
-		// byte sequence.
+    // Determine whether we are dealing
+    // with a one-, two-, three-, or four-
+    // byte sequence.
     if ((b1 & 0x80) == 0)
     {
-	    // 1-byte sequence: 000000000xxxxxxx = 0xxxxxxx
-	    return (wchar)b1;
+      // 1-byte sequence: 000000000xxxxxxx = 0xxxxxxx
+      return (wchar)b1;
     }
     else if ((b1 & 0xe0) == 0xc0)
     {
-	    // 2-byte sequence: 00000yyyyyxxxxxx = 110yyyyy 10xxxxxx
-	    uint r = (b1 & 0x1f) << 6;
+      // 2-byte sequence: 00000yyyyyxxxxxx = 110yyyyy 10xxxxxx
+      uint r = (b1 & 0x1f) << 6;
            r |= get_next_utf8(getc(f));
       return (wchar) r;
     }
     else if ((b1 & 0xf0) == 0xe0)
     {
-	    // 3-byte sequence: zzzzyyyyyyxxxxxx = 1110zzzz 10yyyyyy 10xxxxxx
+      // 3-byte sequence: zzzzyyyyyyxxxxxx = 1110zzzz 10yyyyyy 10xxxxxx
       uint r = (b1 & 0x0f) << 12;
            r |= get_next_utf8(getc(f)) << 6;
            r |= get_next_utf8(getc(f));
-	    return (wchar) r;
+      return (wchar) r;
     }
     else if ((b1 & 0xf8) == 0xf0)
     {
-	    // 4-byte sequence: 11101110wwwwzzzzyy + 110111yyyyxxxxxx
-	    //     = 11110uuu 10uuzzzz 10yyyyyy 10xxxxxx
-	    // (uuuuu = wwww + 1)
-	    isSurrogate = true;
+      // 4-byte sequence: 11101110wwwwzzzzyy + 110111yyyyxxxxxx
+      //     = 11110uuu 10uuzzzz 10yyyyyy 10xxxxxx
+      // (uuuuu = wwww + 1)
+      isSurrogate = true;
       return L'?';
       /*
-	    int b2 = get_next_utf8(pc++);
-	    int b3 = get_next_utf8(pc++);
-	    int b4 = get_next_utf8(pc++);
-	    buf +=
-	      (wchar)(0xd800 |
-		     ((((b1 & 0x07) << 2) | ((b2 & 0x30) >> 4) - 1) << 6) |
-		     ((b2 & 0x0f) << 2) |
-		     ((b3 & 0x30) >> 4));
-	    buf +=
-	      (wchar)(0xdc | ((b3 & 0x0f) << 6) | b4);
-				    // TODO: test that surrogate value is legal.
+      int b2 = get_next_utf8(pc++);
+      int b3 = get_next_utf8(pc++);
+      int b4 = get_next_utf8(pc++);
+      buf +=
+        (wchar)(0xd800 |
+         ((((b1 & 0x07) << 2) | ((b2 & 0x30) >> 4) - 1) << 6) |
+         ((b2 & 0x0f) << 2) |
+         ((b3 & 0x30) >> 4));
+      buf +=
+        (wchar)(0xdc | ((b3 & 0x0f) << 6) | b4);
+            // TODO: test that surrogate value is legal.
       */
     }
     else
@@ -852,24 +851,24 @@ wchar getc_utf8(const bytes& buf, int& pos)
       return 0;
     isSurrogate = false;
 
-		// Determine whether we are dealing
-		// with a one-, two-, three-, or four-
-		// byte sequence.
+    // Determine whether we are dealing
+    // with a one-, two-, three-, or four-
+    // byte sequence.
     if ((b1 & 0x80) == 0)
     {
-	    // 1-byte sequence: 000000000xxxxxxx = 0xxxxxxx
-	    return (wchar)b1;
+      // 1-byte sequence: 000000000xxxxxxx = 0xxxxxxx
+      return (wchar)b1;
     }
     else if ((b1 & 0xe0) == 0xc0)
     {
-	    // 2-byte sequence: 00000yyyyyxxxxxx = 110yyyyy 10xxxxxx
-	    uint r = (b1 & 0x1f) << 6;
+      // 2-byte sequence: 00000yyyyyxxxxxx = 110yyyyy 10xxxxxx
+      uint r = (b1 & 0x1f) << 6;
            r |= get_next_utf8(getb(buf,pos));
       return (wchar)r;
     }
     else if ((b1 & 0xf0) == 0xe0)
     {
-	    // 3-byte sequence: zzzzyyyyyyxxxxxx = 1110zzzz 10yyyyyy 10xxxxxx
+      // 3-byte sequence: zzzzyyyyyyxxxxxx = 1110zzzz 10yyyyyy 10xxxxxx
       uint r = (b1 & 0x0f) << 12;
            r |= get_next_utf8(getb(buf,pos)) << 6;
            r |= get_next_utf8(getb(buf,pos));
@@ -877,23 +876,23 @@ wchar getc_utf8(const bytes& buf, int& pos)
     }
     else if ((b1 & 0xf8) == 0xf0)
     {
-	    // 4-byte sequence: 11101110wwwwzzzzyy + 110111yyyyxxxxxx
-	    //     = 11110uuu 10uuzzzz 10yyyyyy 10xxxxxx
-	    // (uuuuu = wwww + 1)
-	    isSurrogate = true;
+      // 4-byte sequence: 11101110wwwwzzzzyy + 110111yyyyxxxxxx
+      //     = 11110uuu 10uuzzzz 10yyyyyy 10xxxxxx
+      // (uuuuu = wwww + 1)
+      isSurrogate = true;
       return L'?';
       /*
-	    int b2 = get_next_utf8(pc++);
-	    int b3 = get_next_utf8(pc++);
-	    int b4 = get_next_utf8(pc++);
-	    buf +=
-	      (wchar)(0xd800 |
-		     ((((b1 & 0x07) << 2) | ((b2 & 0x30) >> 4) - 1) << 6) |
-		     ((b2 & 0x0f) << 2) |
-		     ((b3 & 0x30) >> 4));
-	    buf +=
-	      (wchar)(0xdc | ((b3 & 0x0f) << 6) | b4);
-				    // TODO: test that surrogate value is legal.
+      int b2 = get_next_utf8(pc++);
+      int b3 = get_next_utf8(pc++);
+      int b4 = get_next_utf8(pc++);
+      buf +=
+        (wchar)(0xd800 |
+         ((((b1 & 0x07) << 2) | ((b2 & 0x30) >> 4) - 1) << 6) |
+         ((b2 & 0x0f) << 2) |
+         ((b3 & 0x30) >> 4));
+      buf +=
+        (wchar)(0xdc | ((b3 & 0x0f) << 6) | b4);
+            // TODO: test that surrogate value is legal.
       */
     }
     else

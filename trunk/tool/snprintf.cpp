@@ -46,7 +46,6 @@
  */
 
 #include <stdlib.h>
-#include <limits.h>			  // apkbox: for MB_LEN_MAX
 #include <stdarg.h>
 #include <string.h>
 #include <wchar.h>
@@ -137,8 +136,8 @@ size_t do_w_sprintf(wchar_t *ptr, const wchar_t *format, ...);
 #define LDOUBLE double
 #endif
 
-#if HAVE_LONG_LONG && NEED_LONG_LONG
-  #ifdef __MSC_VER
+#if defined(HAVE_LONG_LONG) && defined(NEED_LONG_LONG)
+  #ifdef _MSC_VER
     #define LLONG __int64
   #else
     #define LLONG long long
@@ -163,7 +162,7 @@ static void fmtstr_w_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, si
 		    wchar_t *value, int flags, int min, int max);
 
 static void fmtint(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    long value, int base, int min, int max, int flags);
+        LLONG value, int base, int min, int max, int flags);
 
 static void fmtfp(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
 		   LDOUBLE fvalue, int min, int max, int flags);
@@ -750,10 +749,10 @@ static void fmtstr_w_m(do_outch_t* dopr_outch, void *buffer, size_t *currlen, si
 /* Have to handle DP_F_NUM (ie 0x and 0 alternates) */
 
 static void fmtint(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    long value, int base, int min, int max, int flags)
+        LLONG value, int base, int min, int max, int flags)
 {
 	int signvalue = 0;
-	unsigned long uvalue;
+  unsigned LLONG uvalue;
 	char convert[20];
 	int place = 0;
 	int spadlen = 0; /* amount to space pad */
@@ -960,7 +959,6 @@ static void fmtfp (do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t
 		fracpart -= POW10(max);
 	}
 
-
 	/* Convert integer part */
 	do {
 		temp = intpart;
@@ -988,6 +986,9 @@ static void fmtfp (do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t
 			fconvert[fplace++] =
 			(caps? "0123456789ABCDEF":"0123456789abcdef")[index];
 		} while(fracpart && (fplace < 311));
+        while(fplace < max)
+          fconvert[fplace++] = '0';
+
 		if (fplace == 311) fplace--;
 	}
 	fconvert[fplace] = 0;

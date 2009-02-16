@@ -150,10 +150,11 @@ namespace tool
     int millis  = src.millis;
     int micros  = src.micros;
 
+    int month   = limit(int(src.month),1,12);
+
     int nanos100 = ( src.nanos + 50 ) / 100;
 
-    if ( src.year > 29000 || src.year < -29000 ||
-         src.month < 1 || src.month > 12 )
+    if ( src.year > 29000 || src.year < -29000 )
       return false;
 
     bool is_leap_year = ( ( src.year & 3 )   == 0 ) &&
@@ -180,14 +181,17 @@ namespace tool
 
     //It is a valid date; make Jan 1, 1AD be 1
     date = src.year * 365L + src.year / 4 - src.year / 100 + src.year / 400 +
-           month_day_in_year [ src.month - 1 ] + days;
+           month_day_in_year [ month - 1 ] + days;
 
-    //  If leap year and it's before March, subtract 1:
-    if ( src.month <= 2 && is_leap_year )
-      --date;
+    if(src.month)
+    {
+      //  If leap year and it's before March, subtract 1:
+      if ( month <= 2 && is_leap_year )
+        --date;
 
-    //  Offset so that 01/01/1601 is 0
-    date -= 584754L;
+      //  Offset so that 01/01/1601 is 0
+      date -= 584754L;
+    }
 
     // Change date to seconds
     date *= 86400L;
@@ -226,7 +230,7 @@ namespace tool
     secs_in_day        = (long) ( temptime % 86400L );
     temptime          /= 86400L;
     days_absolute      = (long) ( temptime );
-    days_absolute     += 584754L;	//  adjust days from 1/1/0 to 01/01/1601
+    days_absolute     += 584754L; //  adjust days from 1/1/0 to 01/01/1601
 
     // Calculate the day of week (mon=0...sun=6)
     //   -2 because 1/1/0 is Sat.  
@@ -690,5 +694,197 @@ namespace tool
 #endif
   }
 
+  void date_time::time_format(time_format_hours&      hours, 
+                              time_format_marker_pos& marker_pos,
+                              ustring& am,
+                              ustring& pm)
+  {
+#ifdef WIN32
+  #ifdef _WIN32_WCE
+      LCID lcid = LOCALE_USER_DEFAULT;
+  #else
+      LCID lcid = GetThreadLocale();
+  #endif
+    BOOL bResult;
+    DWORD val = 0;
+    
+    bResult = GetLocaleInfoW(lcid, LOCALE_ITIME | LOCALE_RETURN_NUMBER, (wchar*)&val, sizeof(val));
+    hours = (time_format_hours)val;
+    bResult = GetLocaleInfoW(lcid, LOCALE_ITIMEMARKPOSN | LOCALE_RETURN_NUMBER, (wchar*)&val, sizeof(val));
+    marker_pos = (time_format_marker_pos) val;
 
-};
+    wchar sz[12]; sz[0] = 0;
+    bResult = GetLocaleInfoW(lcid, LOCALE_S1159, sz, 12);
+    am = sz;
+    bResult = GetLocaleInfoW(lcid, LOCALE_S2359, sz, 12);
+    pm = sz;
+    return;
+#endif
+  }
+
+
+  // parses date or time in ISO format. accepts YYYY-MM-DD[('T'|' ')HH:MM:SS] and HH:MM:SS formats
+  date_time _parse_iso/*8601*/( const char* strz, uint &t  )
+  {
+    datetime_t dst = 0;
+    uint typ = 0;
+    date_time::datetime_s src;
+    src.year   = 0;
+    src.month  = 0;
+    src.day    = 0;
+    src.hour   = 0;
+    src.minute = 0;
+    src.second = 0;
+    src.millis = 0;
+    src.micros = 0;
+    src.nanos  = 0;
+
+    int tz_sign = 0; 
+    int tz_hour = 0;
+    int tz_minute = 0;
+
+    //like:  "2001-08-31T04:24:14Z" 
+    char *pc = 0;
+    
+    src.year = strtoul(strz, &pc, 10);
+    if (*pc == ':') 
+    {
+      src.hour = src.year;
+      src.year = 0;
+      goto TIME_ONLY;
+    }
+    if (*pc++ != '-') goto FAIL;
+    src.month = strtoul(pc, &pc, 10);
+    if (*pc++ != '-') goto FAIL;
+    src.day = strtoul(pc, &pc, 10);
+  typ |= date_time::DT_HAS_DATE;
+    if (*pc == 0 ) goto OK;
+    if (toupper(*pc) != 'T' && *pc != ' ') goto FAIL;
+    ++pc;
+    src.hour = strtoul(pc, &pc, 10);
+TIME_ONLY:
+    if (*pc++ != ':') goto FAIL;
+    src.minute = strtoul(pc, &pc, 10);
+  typ |= date_time::DT_HAS_TIME;
+    if (*pc == 0 ) goto OK;
+    if (toupper(*pc) == 'Z') goto OK_UTC;
+    if (*pc == '+' || *pc == '-') goto TZ;
+    if (*pc++ != ':') goto FAIL;
+    src.second = strtoul(pc, &pc, 10);
+  typ |= date_time::DT_HAS_SECONDS;
+    if (*pc == 0 ) goto OK;
+    if (toupper(*pc) == 'Z') goto OK_UTC;
+    if (*pc == '+' || *pc == '-') goto TZ;
+FAIL:
+  t = date_time::DT_UNKNOWN;
+    return date_time();
+TZ:
+    tz_sign = *pc++ == '-'? -1:1;
+    tz_hour = strtoul(pc, &pc, 10);
+    if (*pc == 0) goto OK_TZ;
+    if (*pc++ != ':') goto FAIL;
+    src.minute = strtoul(pc, &pc, 10);
+    if (*pc == 0 ) goto OK_TZ;
+    goto FAIL;
+
+OK_TZ:
+    date_time::cvt(dst,src);
+    dst += tz_sign * (tz_hour * 60 * 60 + tz_minute * 60) * 10000000L;
+    typ |= date_time::DT_UTC;
+    t = (date_time::type)typ; 
+    return date_time(dst);
+OK_UTC:
+    date_time::cvt(dst,src);
+    typ |= date_time::DT_UTC;
+    t = (date_time::type)typ;
+    return date_time(dst);
+OK:
+    date_time::cvt(dst,src);
+    t = (date_time::type)typ;
+    return date_time (dst);
+ }
+
+
+  date_time date_time::parse_iso/*8601*/( chars str, uint &typ  )
+  {
+    trim(str);
+    char data[64];
+    memcpy(data,str.start,min(64,str.length));
+    data[min(63,str.length)] = 0;
+    return _parse_iso(data,typ);
+    //date_time out;
+  }
+  date_time date_time::parse_iso/*8601*/( wchars str, uint &typ  )
+  {
+    trim(str);
+    char data[64];
+    if(str.length > 63) str.length = 63;
+    uint i;
+    for(i = 0; i < str.length; ++i)
+      data[i] = (char)str[i];
+    data[i] = 0;
+    return _parse_iso(data,typ);
+  }
+
+  string date_time::emit_iso(uint t) const
+  {
+    datetime_s dst;
+    cvt ( dst, _time );
+    bool utc = (t & DT_UTC) != 0;
+    switch(t & 0xF)
+    {
+      default:
+      case DT_HAS_DATE:
+        return utc? format("%Y-%m-%dZ"):format("%Y-%m-%d");
+      case DT_HAS_DATE | DT_HAS_TIME:
+        return utc? format("%Y-%m-%dT%H:%MZ"):format("%Y-%m-%dT%H:%M");
+      case DT_HAS_DATE | DT_HAS_TIME | DT_HAS_SECONDS:
+        return utc? format("%Y-%m-%dT%H:%M:%SZ"):format("%Y-%m-%dT%H:%M:%S");
+      case DT_HAS_TIME:
+        return utc? format("%H:%MZ"):format("%H:%M");
+      case DT_HAS_TIME | DT_HAS_SECONDS:
+        return utc? format("%H:%M:%SZ"):format("%%H:%M:%S");
+    }
+    assert(false);
+    return string();
+  }
+
+#ifdef _DEBUG  
+  struct unit_test
+  {
+    unit_test()
+    {
+      uint dtyp;
+      date_time dt = date_time::parse_iso/*8601*/( CHARS("2001-08-31T04:24:14Z"), dtyp );
+      assert( dtyp == (date_time::DT_HAS_DATE | date_time::DT_HAS_TIME | date_time::DT_HAS_SECONDS | date_time::DT_UTC) );
+      assert( dt.year() == 2001 );
+      assert( dt.month() == 8 );
+      assert( dt.day() == 31 );
+      assert( dt.hours() == 4 );
+      assert( dt.minutes() == 24 );
+      assert( dt.seconds() == 14 );
+      assert( dt.emit_iso(dtyp) == "2001-08-31T04:24:14Z" );
+
+      dt = date_time::parse_iso/*8601*/( CHARS("2001-08-31"), dtyp );
+      assert( dtyp == date_time::DT_HAS_DATE );
+      //dt.to_utc();
+      assert( dt.year() == 2001 );
+      assert( dt.month() == 8 );
+      assert( dt.day() == 31 );
+      assert( dt.hours() == 0 );
+      assert( dt.minutes() == 0 );
+      assert( dt.seconds() == 0 );
+
+      assert( dt.emit_iso(dtyp) == "2001-08-31" );
+
+      dt = date_time::parse_iso/*8601*/( CHARS("12:01"), dtyp );
+      assert( dtyp == date_time::DT_HAS_TIME );
+      assert( dt.emit_iso(dtyp) == "12:01" );
+
+    }
+  } the_test;
+
+#endif
+
+
+}

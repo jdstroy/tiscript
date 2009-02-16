@@ -8,7 +8,7 @@
 #include "cs.h"
 #include <limits.h>
 
-namespace tis
+namespace tis 
 {
 
 
@@ -26,15 +26,15 @@ C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
 C_METHOD_ENTRY( "toString",         CSF_toString        ),
 C_METHOD_ENTRY( "min",              CSF_min             ),
 C_METHOD_ENTRY( "max",              CSF_max             ),
-C_METHOD_ENTRY(	0,                  0                   )
+C_METHOD_ENTRY( 0,                  0                   )
 };
 
 /* Integer properties */
 static vp_method properties[] = {
-VP_METHOD_ENTRY( 0,                0,					0					)
+VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
-static constant constants[] =
+static constant constants[] = 
 {
   CONSTANT_ENTRY("MAX"    , int_value(INT_MAX     )),
   CONSTANT_ENTRY("MIN"    , int_value(INT_MIN     )),
@@ -82,10 +82,10 @@ static value minimum( VM *c, value *argv, int argc )
       if (!CsIntegerP(arg))
         CsUnexpectedTypeError(c,arg,"integer");
       gotone = true;
-      int_t t = CsIntegerValue(arg);
+      int_t t = CsIntegerValue(arg);       
       if( t < r ) r = t;
     }
-    return gotone? CsMakeInteger(c,r): c->undefinedValue;
+    return gotone? CsMakeInteger(c,r): c->undefinedValue; 
 }
 
 static value maximum( VM *c, value *argv, int argc )
@@ -103,23 +103,23 @@ static value maximum( VM *c, value *argv, int argc )
       if (!CsIntegerP(arg))
         CsUnexpectedTypeError(c,arg,"integer");
       gotone = true;
-      int_t t = CsIntegerValue(arg);
+      int_t t = CsIntegerValue(arg);       
       if( t > r ) r = t;
     }
-    return gotone? CsMakeInteger(c,r): c->undefinedValue;
+    return gotone? CsMakeInteger(c,r): c->undefinedValue; 
 }
 
 
 static value CSF_min(VM *c)
 {
-    value *argv = c->argv - 2;
+    value *argv = c->argv - 2; 
     int argc = c->argc - 2;
 
     return minimum(c,argv - argc, argc);
 }
 static value CSF_max(VM *c)
 {
-   value *argv = c->argv - 2;
+   value *argv = c->argv - 2; 
    int argc = c->argc - 2;
 
    return maximum(c,argv - argc, argc);
@@ -150,7 +150,7 @@ static value CSF_toString(VM *c)
 }
 
 
-static bool GetIntegerProperty(VM *c,value obj,value tag,value *pValue);
+static bool GetIntegerProperty(VM *c,value& obj,value tag,value *pValue);
 static bool SetIntegerProperty(VM *c,value obj,value tag,value value);
 static bool IntegerPrint(VM *c,value obj,stream *s, bool toLocale);
 static long IntegerSize(value obj);
@@ -173,7 +173,7 @@ dispatch CsIntegerDispatch = {
 };
 
 /* GetIntegerProperty - Integer get property handler */
-static bool GetIntegerProperty(VM *c,value obj,value tag,value *pValue)
+static bool GetIntegerProperty(VM *c,value& obj,value tag,value *pValue)
 {
     return CsGetVirtualProperty(c,obj,c->integerObject,tag,pValue);
 }
@@ -212,7 +212,7 @@ static int_t IntegerHash(value obj)
   return tool::hash(CsIntegerValue(obj));
 }
 
-/* CsMakeInteger - make a new integer value
+/* CsMakeInteger - make a new integer value 
 value CsMakeInteger(VM *c,int_t val)
 {
     if (CsSmallIntegerValueP(val))

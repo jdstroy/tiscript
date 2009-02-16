@@ -152,68 +152,8 @@ namespace tool
 
   namespace xjson
   {
-    class scanner
-  {
-      public:
-
-       enum token_t 
-       { 
-              T_END = 0,
-              // +,-,etc. are coming literally
-              T_NUMBER = 256,
-              T_COLOR, // #XXX
-              T_STRING, // "..." or '...'
-              T_NAME,  // e.g. abc12
-       };
-
-      private /* data */: 
-
-     const wchar  *input;
-     const wchar  *end;
-     const wchar  *pos;
-
-       int   line_no;
-
-       //wchars       token_value_src;
-     array<wchar> token_value;
-     token_t saved_token;
-
-      private /* methods */: 
-
-     token_t scan_number();
-       token_t scan_color();
-     token_t scan_string(wchar delimeter);
-     token_t scan_nmtoken();
-       void    skip_comment( bool toeol );
-       wchar   scan_escape();
-       bool    scan_ws()
-       {
-         while( pos < end ) 
-         {
-           if( *pos == '\n')
-             ++line_no;
-           else if(!isspace(*pos))
-             break;
-           ++pos;
-         }
-         return pos < end;
-       }
-       token_t scan_parenthesis();
-
-    public:
-       scanner(wchars expr): input(expr.start),end(expr.end()), pos(expr.start), saved_token(T_END), line_no(1) {}
-      ~scanner() {}
-     token_t get_token();
-       wchars  get_parsed() { return wchars(input, pos - input); } // get fragment parsed so far
-       wchars  get_value() { if(token_value.size() == 0 || token_value.last() != 0) { token_value.push(0); token_value.pop(); }
-                             return token_value(); }
-     void push_back(token_t t)
-     {
-       saved_token = t;
-     }
-       //virtual void raise_error() 
-  };
-
+    value parse(wchars& text, bool open_model);
+    void emit(const value& v, array<wchar>& out_buf, bool open_model);
   }
 
 }

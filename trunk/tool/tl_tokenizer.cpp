@@ -9,6 +9,8 @@
 
 #include "tl_tokenizer.h"
 #include "tl_ustring.h"
+#include "tl_value.h"
+#include "tl_streams.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -153,7 +155,7 @@ namespace tool
       {
         switch ( _p_state )
         {
-        case IN_WHITE:						      // these are identical,
+        case IN_WHITE:                  // these are identical,
           _p_state    = IN_QUOTE;       // change states
           _p_curquote = _quotes [ qp ];  // save quote char
           _quote_used = _p_curquote;    // set it as long as
@@ -169,7 +171,7 @@ namespace tool
             return TT_STRING_VALUE;
           }
           else
-            _token += c;			             // treat as regular char
+            _token += c;                   // treat as regular char
           break;
 
         case IN_TOKEN:
@@ -195,7 +197,7 @@ namespace tool
           break;
         }
       }
-      else if ( c == _eschar && (_pos < (_text_end - 1)) )	           // escape
+      else if ( c == _eschar && (_pos < (_text_end - 1)) )             // escape
       {
         nc = *(_pos + 1);
         switch ( _p_state )
@@ -416,6 +418,71 @@ namespace tool
 
   namespace xjson
   {
+    class scanner
+    {
+      public:
+
+       enum token_t 
+       { 
+              T_END = 0,
+              // +,-,etc. are coming literally
+              T_NUMBER = 256, //12, 0xff, etc.
+              T_CURRENCY,     //123$44.
+              T_DATETIME,     //0d2008-00-12T12:00
+              T_COLOR,        //#RRGGBB or #RRGGBBAA
+              T_STRING, // "..." or '...'
+              T_NAME,  // e.g. abc12
+       };
+
+      private /* data */: 
+
+       const wchar  *input;
+       const wchar  *end;
+       const wchar  *pos;
+
+       int   line_no;
+
+       //wchars       token_value_src;
+       array<wchar> token_value;
+       token_t saved_token;
+
+      private /* methods */: 
+
+       token_t scan_number();
+       token_t scan_color();
+       token_t scan_string(wchar delimeter);
+       token_t scan_nmtoken();
+       void    skip_comment( bool toeol );
+       wchar   scan_escape();
+       bool    scan_ws()
+       {
+         while( pos < end ) 
+         {
+           if( *pos == '\n')
+             ++line_no;
+           else if(!isspace(*pos))
+             break;
+           ++pos;
+         }
+         return pos < end;
+       }
+       token_t scan_parenthesis();
+
+      public:
+       scanner(wchars expr): input(expr.start),end(expr.end()), pos(expr.start), saved_token(T_END), line_no(1) {}
+      ~scanner() {}
+       token_t get_token();
+       wchars  get_parsed() { return wchars(input, pos - input); } // get fragment parsed so far
+       wchars  get_value() { if(token_value.size() == 0 || token_value.last() != 0) { token_value.push(0); token_value.pop(); }
+                             return token_value(); }
+       void push_back(token_t t)
+       {
+         saved_token = t;
+       }
+       //virtual void raise_error() 
+    };
+
+
 
     void scanner::skip_comment( bool toeol )
     {
@@ -486,17 +553,31 @@ namespace tool
   scanner::token_t scanner::scan_number()
     {
       int n_dots = 0;
+      bool is_currency = false;
 
       if( *pos == '-' || *pos == '+' ) 
         token_value.push(*pos++);
+      else if((*pos == '0') && ((pos+2) < end))
+      {
+        if((*(pos+1) == 'x' || *(pos+1) == 'X') && isxdigit(*(pos+2)) )
+          goto HEX_NUMBER;
+        if((*(pos+1) == 'd' || *(pos+1) == 'D') && isdigit(*(pos+2)) )
+          goto DATE_LITERAL;
+      }
 
       while( pos < end )
       {
         if( isdigit(*pos) )
           token_value.push(*pos);
-        else if( *pos == '.' )
+        else if( *pos == '.')
         {
           if( ++n_dots > 1) break;
+          token_value.push(*pos);
+        }
+        else if( *pos == '$')
+        {
+          if( ++n_dots > 1) break;
+          is_currency = true;
           token_value.push(*pos);
         }
         else if( *pos == 'e' || *pos == 'E' )
@@ -517,7 +598,32 @@ namespace tool
           break;
         ++pos;
       }
+      return is_currency? T_CURRENCY:T_NUMBER;
+HEX_NUMBER:
+      // skip '0x' 
+      token_value.push(pos,2);
+      pos += 2;
+      while( pos < end )
+      {
+        if( isxdigit(*pos) )
+          token_value.push(*pos);
+        else
+          break;
+        ++pos;
+      }
       return T_NUMBER;
+DATE_LITERAL:
+      // skip '0d' 
+      pos += 2;
+      while( pos < end )
+      {
+        if( wcschr( L"0123456789-+TZtz:",*pos) )
+          token_value.push(*pos);
+        else
+          break;
+        ++pos;
+      }
+      return T_DATETIME;
     }
 
     scanner::token_t scanner::scan_color()
@@ -624,6 +730,399 @@ namespace tool
       }
       return T_NAME;
     }
+
+
+    static value parse_value(scanner& s, scanner::token_t tok);
+    static value parse_array(scanner& s);
+    static value parse_map(scanner& s);
+    static value parse_name(scanner& s);
+
+    struct parse_error 
+    {
+      wchars parsed;
+      parse_error( scanner& s ) { parsed = s.get_parsed(); }
+    };
+
+    value parse_array(scanner& s)
+    {
+      value a = value::make_array(0);
+      scanner::token_t tok; 
+      // caller consumed '['
+      while(tok = s.get_token())
+      {
+        if(tok == ']')
+          goto END;
+        value v = parse_value(s, tok);
+        a.push( v );
+        switch (tok = s.get_token())
+        {
+          case ']': goto END;
+          case scanner::T_NAME:
+          case scanner::T_NUMBER:
+          case scanner::T_DATETIME:
+          case scanner::T_STRING:
+          case scanner::T_COLOR:
+          case '{': 
+          case '[': s.push_back(tok); continue; // relaxing json rules
+          case ',': 
+          case ';': continue;
+          default: throw parse_error(s);
+        } 
+      }
+  END:
+      return a;
+    }
+
+    value parse_map(scanner& s)
+    {
+      value m = value::make_map( );
+      scanner::token_t tok; 
+      // caller consumed '{' ///// 
+      while(tok = s.get_token())
+      {
+        if(tok == '}')
+          return m;
+        value k = parse_value(s, tok);
+        if(s.get_token() != ':')
+          throw parse_error(s);
+        tok = s.get_token();
+        value v = parse_value(s,tok);
+        m.push(k,v);
+        tok = s.get_token();
+        switch(tok)
+        {
+          case '}': return m;
+          case tool::xjson::scanner::T_NAME:
+          case tool::xjson::scanner::T_NUMBER:
+          case tool::xjson::scanner::T_DATETIME:
+          case tool::xjson::scanner::T_STRING:
+          case tool::xjson::scanner::T_COLOR:
+          case '{': 
+          case '[': s.push_back(tok); continue; // relaxing json rules
+          case ',': 
+          case ';': continue;
+          default: throw parse_error(s);
+        } 
+      }
+      return m;
+    }
+
+  value parse_number(scanner& s)
+  {
+    wchars t = s.get_value();
+    int i;
+    double d;
+    if( stoi(t.start,i) ) return value(i);
+    if( stof(t.start,d) ) return value(d);
+    return value();
+  }
+  value parse_currency(scanner& s)
+  {
+    wchars t = s.get_value();
+    int dp = t.index_of('$');
+    if( dp < 0 ) return value();
+    int64 dollars = to_int64( wchars( t.start, dp ) );
+    t.prune(dp + 1);
+    if(t.length > 4) t.length = 4; 
+    int cents = to_uint( wchars(t));
+    switch( t.length )
+    {
+      case 1: cents *= 1000; break;
+      case 2: cents *= 100;  break;
+      case 3: cents *= 10;   break;
+      case 4: //cents *= 10;
+      break;
+    }
+    return value::make_currency( dollars * 10000 + cents );
+  }
+
+  value parse_date(scanner& s)
+  {
+    wchars t = s.get_value();
+    uint dt;
+    date_time d = date_time::parse_iso( t, dt );
+    return value::make_date( d.time(), dt );
+    //return value();
+  }
+
+  value parse_name(scanner& s)
+  {
+    wchars t = s.get_value();
+    if( t == WCHARS("true") )
+      return value(true);
+    else if( t == WCHARS("false") )
+      return value(false);
+    else if( t == WCHARS("null") )
+      return value::null();
+    else if( t == WCHARS("undefined") )
+      return value();
+    return value( ustring(t), 0xFFFF );
+  }
+
+  value parse_color(scanner& s)
+  {
+    wchars text = s.get_value();
+    if(text.length == 0) 
+      return value();
+    uint R = 0, G = 0, B = 0, T = 0; 
+    switch( text.length )
+    {
+      case 3: swscanf( text.start ,L"%1x%1x%1x",&R,&G,&B); R <<= 4; G <<= 4; B <<= 4; break;
+      case 4: swscanf( text.start ,L"%1x%1x%1x%1x",&R,&G,&B,&T); R <<= 4; G <<= 4; B <<= 4; T <<= 4; break;
+      case 6: swscanf( text.start ,L"%2x%2x%2x",&R,&G,&B); break;
+      case 8: swscanf( text.start ,L"%2x%2x%2x%2x",&R,&G,&B,&T); break;
+      default: return value();
+    }
+    return value( int( (T << 24) | (B << 16) | (G << 8) | R ), value::clr);
+  }
+
+  value parse_value(scanner& s, scanner::token_t tok)
+  {
+    switch(tok)
+    {
+      case '{': return parse_map(s);
+      case '[': return parse_array(s);
+      case scanner::T_NUMBER:
+        return parse_number(s);
+      case scanner::T_CURRENCY:
+        return parse_currency(s);
+      case scanner::T_DATETIME:
+        return parse_date(s);
+      case scanner::T_COLOR:
+        return parse_color(s);
+      case scanner::T_NAME:
+        return parse_name(s);
+      case scanner::T_STRING:
+        {
+          wchars t = s.get_value();
+          return value( ustring(t) );
+        }
+      //case '[': return parse_map(s);
+      default: throw parse_error(s);
+    } 
+    return value();
+  }
+
+  value parse(wchars& text, bool open_model)
+  {
+    scanner s(text);
+    scanner::token_t tok; 
+    try 
+    {
+      if(open_model)
+        return parse_map(s);
+      else 
+      {
+        tok = s.get_token();
+        return parse_value(s, tok);
+      }
+    }
+    catch( parse_error& e )
+    {
+      text = e.parsed;
+      return value();
+    }
+    return value();
+  }
+
+// JSON emitter
+
+  void emit_nl(mem_stream_o<wchar>& out, int tabs)
+  {
+    out.put(WCHARS("\r\n"));
+    while(tabs--)
+      out.put('\t');
+  }
+  void emit_string_literal(const ustring& us, mem_stream_o<wchar>& out)
+  {
+    out.put('"');
+
+    const wchar* p = us;
+    const wchar* end = p + us.length();
+    for(;p < end; ++p)
+    {
+      switch(*p)
+      {
+        case '"':  out.put('\\'); break;
+        case '\\': out.put('\\'); break;
+        case '\b': out.put(WCHARS("\\b")); continue;
+        case '\f': out.put(WCHARS("\\f")); continue;
+        case '\n': out.put(WCHARS("\\n")); continue;
+        case '\r': out.put(WCHARS("\\r")); continue;
+        case '\t': out.put(WCHARS("\\t")); continue;
+        default:
+          if( *p < ' ')
+          {
+            out.put(WCHARS("\\u")); //case \u four-hex-digits
+            out.put(ustring::format(L"%.4x",*p));
+            continue;
+          }
+          break;
+      }
+      out.put(*p);
+    }
+    out.put('"');
+  }
+
+  bool is_nmtoken(const ustring& us)
+  {
+    const wchar* p = us;
+    const wchar* end = p + us.length();
+    if(isdigit(*p) || *p == '-')
+      return false;
+    for(;p < end; ++p)
+    {
+      if( iswalpha(*p) ) 
+        continue;
+      if( *p == '_' || *p == '-' )
+        continue;
+      return false;
+    }
+    return true;
+  }
+
+  void emit_currency(const value& v, mem_stream_o<wchar>& out)
+  {
+    int64 li = v.get_int64();
+    int64 dollars = li / 10000;
+    uint cents = uint64(li) % 10000;
+    
+    i64tow sd(dollars);
+    out.put(sd,sd.length());
+    out.put('$');
+    if( cents == 0 )
+      return;
+
+    itow sc(cents,10,4);
+    wchars scs(sc,sc.length());
+    while(scs.last() == '0')
+      scs.prune(0,1);
+    out.put(scs);
+  }
+
+  void emit_value(const value& v, mem_stream_o<wchar>& out, int& tabs);
+
+
+  void emit_map(const value& v, mem_stream_o<wchar>& out, int& tabs)
+  {
+    ++tabs;
+    map_value* mv = v.get_map();
+    for(int n = 0; n < mv->params.size(); ++n)
+    {
+        if(n) out.put(',');
+        emit_nl(out,tabs); 
+        emit_value(mv->params.key(n),out,tabs);
+        out.put(WCHARS("\t:"));
+        emit_value(mv->params.value(n),out,tabs);
+    }
+    --tabs;
+  }
+  void emit_array(const value& v, mem_stream_o<wchar>& out, int& tabs)
+  {
+    ++tabs;
+    array_value* av = v.get_array();
+    for(int n = 0; n < av->elements.size(); ++n)
+    {
+        if(n) out.put(WCHARS(", "));
+        emit_value(av->elements[n],out,tabs);
+    }
+    --tabs;
+  }
+  void emit_value(const value& v, mem_stream_o<wchar>& out, int& tabs)
+  {
+    switch( v.type() )
+    {
+      case value::t_undefined: out.put(WCHARS("undefined")); break;
+      case value::t_null:
+      case value::t_bool:
+      case value::t_int: 
+      case value::t_double: 
+      case value::t_length:
+        out.put(v.to_string()); 
+        break;
+      case value::t_currency:
+        emit_currency(v,out); 
+        break;
+      case value::t_date:
+        out.put(WCHARS("0d"));
+        out.put(v.to_string()); 
+        break;
+      case value::t_string:
+        {
+          ustring us = v.get(L"");
+          if( v.units() == 0xFFFF && is_nmtoken(us) )
+            out.put(us);
+          else
+            emit_string_literal(us,out);
+        } break;
+      case value::t_map:
+        {
+          out.put('{');
+          emit_map(v,out,tabs);
+          out.put('}');
+        } break;
+      case value::t_array:
+        {
+          out.put('[');
+          emit_array(v,out,tabs);
+          out.put(']');
+        } break;
+  
+    }
+  }
+
+  void emit(const value& v, array<wchar>& out_buf, bool open_model)
+  {
+    mem_stream_o<wchar> out(out_buf);
+    int tabs = 0;
+    if( (v.type() == value::t_map) && open_model)    
+      emit_map(v,out, tabs);
+    else
+      emit_value(v, out, tabs);
+  }
+
+
+#ifdef _DEBUG  
+  struct unit_test
+  {
+    unit_test()
+    {
+      {
+        value vcur = value::make_currency( 12340100L );
+        array<wchar> out;
+        emit(vcur,out, false);
+        assert( out() == WCHARS("1234$01"));
+        value vcur1 = parse(out(), false);
+        assert( vcur == vcur1);
+      }
+      {
+        value arr = value::make_array(3);
+        arr[0] = value::make_currency( 12340100L );
+        arr[1] = value(L"Hello world!");
+        arr[2] = value("hi");
+        array<wchar> out;
+        emit(arr,out, false);
+        value arr1 = parse(out(), false);
+        assert( arr == arr1);
+      }
+      {
+        value map = value::make_map();
+        map[value("first")] = value::make_currency( 12340100L );
+        map[value("second")] = value(L"Hello world!");
+        map[value("third")] = value("hi");
+        map[value("fourth")] = value(true);
+        array<wchar> out;
+        emit(map,out, false);
+        value map1 = parse(out(), false);
+        assert( map == map1);
+        out.push(0);
+        //::MessageBoxW(NULL,buf.head(),L"value emit",MB_OK);
+      }
+    }
+  } the_test;
+
+#endif
+
 
   } // namespace json
 

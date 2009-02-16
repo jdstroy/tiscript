@@ -581,10 +581,14 @@ template <typename element>
 inline void
   array<element>::push ( const element* elems, int count )
   {
-    for ( int i = 0;
+    int psz = size();
+    size( size() + count );
+    element* pdst = head() + psz;
+    copy(pdst,elems,count);
+    /*for ( int i = 0;
               i < count;
               i++ )
-      push ( elems [ i ] );
+      push ( elems [ i ] );*/
   }
 
 

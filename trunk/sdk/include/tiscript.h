@@ -2,210 +2,226 @@
 #define __tis_h__
 
 #include "tiscript-types.h"
-#include "assert.h"
 
+#ifdef __GNUC__
+#define TISAPI
+#define EXTAPI
+#else
 #define TISAPI __cdecl
+#define EXTAPI __stdcall
+#endif
 
-namespace tiscript 
+struct tiscript_VM; // TIScript virtual machine
+
+// tiscript_value
+typedef uint64 tiscript_value;
+
+// pinned tiscript_value, val here will survive GC.
+struct tiscript_pvalue
 {
-  struct VM; // TIScript virtual machine
+   tiscript_value val;
+   tiscript_VM*   vm;
+   void          *d1,*d2;
+};
 
-  // value 
-  typedef uint64 value;
+struct tiscript_stream;
+typedef bool TISAPI  tiscript_stream_input(tiscript_stream* tag, int* pv);
+typedef bool TISAPI  tiscript_stream_output(tiscript_stream* tag, int v);
+typedef const wchar* TISAPI tiscript_stream_name(tiscript_stream* tag);
+typedef void TISAPI  tiscript_stream_close(tiscript_stream* tag);
 
-  // pinned value, val here will survive GC.
-  struct pvalue
+struct tiscript_stream_vtbl // stream instance
+{
+  tiscript_stream_input*    input;
+  tiscript_stream_output*   output;
+  tiscript_stream_name*     get_name;
+  tiscript_stream_close*    close;
+};
+
+struct tiscript_stream
+{
+  tiscript_stream_vtbl* _vtbl;
+};
+
+// native method implementation
+typedef tiscript_value TISAPI tiscript_method(tiscript_VM *c);
+
+// [] accessors implementation
+typedef tiscript_value TISAPI tiscript_get_item(tiscript_VM *c,tiscript_value obj,tiscript_value key);
+typedef void  TISAPI tiscript_set_item(tiscript_VM *c,tiscript_value obj,tiscript_value key, tiscript_value tiscript_value);
+
+// getter/setter implementation
+typedef tiscript_value TISAPI tiscript_get_prop(tiscript_VM *c,tiscript_value obj);
+typedef void  TISAPI tiscript_set_prop(tiscript_VM *c,tiscript_value obj,tiscript_value tiscript_value);
+
+// iterator function used in for(var el in collection)
+typedef tiscript_value TISAPI tiscript_iterator(tiscript_VM *c,tiscript_value* index, tiscript_value obj);
+
+// callbacks for enums below
+typedef bool  TISAPI tiscript_object_enum(tiscript_VM *c,tiscript_value key, tiscript_value tiscript_value, void* tag); // true - continue enumeartion
+
+// destructor of native objects
+typedef void  TISAPI tiscript_finalizer(tiscript_VM *c,tiscript_value obj);
+
+struct tiscript_method_def
+{
+  void*             dispatch; // a.k.a. VTBL
+  const char*       name;
+  tiscript_method*  handler;
+  void*             tag;
+};
+
+struct tiscript_prop_def
+{
+  void*                dispatch; // a.k.a. VTBL
+  const char*          name;
+  tiscript_get_prop*   getter;
+  tiscript_set_prop*   setter;
+  void*                tag;
+};
+
+#define TISCRIPT_CONST_INT    0
+#define TISCRIPT_CONST_FLOAT  1
+#define TISCRIPT_CONST_STRING 2
+
+struct tiscript_const_def
+{
+  const char *name;
+  union _val
   {
-     value    val;
-     VM*      pvm;
-     void     *d1,*d2;
-  };
-
-  struct stream_t;
-  typedef bool TISAPI stream_input_t(stream_t* tag, int* pv);
-  typedef bool TISAPI stream_output_t(stream_t* tag, int v);
-  typedef const wchar* TISAPI stream_name_t(stream_t* tag);
-  typedef bool TISAPI stream_close_t(stream_t* tag);
-
-  struct stream_vtbl_t // stream instance
-  {
-    stream_input_t*    input;
-    stream_output_t*   output;
-    stream_name_t*     get_name;
-    stream_close_t*    close;
-  };
-
-  struct stream_t
-  {
-    stream_vtbl_t* _vtbl;
-  };
-  
-
-  // native method  
-  typedef value TISAPI method_t(VM *c);
-
-  // [] accessors 
-  typedef value TISAPI get_item_t(VM *c,value obj,value key);
-  typedef void  TISAPI set_item_t(VM *c,value obj,value key, value value);
-
-  // getter/setter
-  typedef value TISAPI prop_get_t(VM *c,value obj);
-  typedef void  TISAPI prop_set_t(VM *c,value obj,value value);
-
-  // callbacks for enums below
-  typedef bool  TISAPI object_enum_t(VM *c,value key, value value, void* tag); // true - continue enumeartion
-  
-  // destructor of native objects
-  typedef void  TISAPI finalizer_t(VM *c,value obj);
-
-  struct method_def
-  {
-    void*         dispatch; // a.k.a. VTBL
-    const char*   name;
-    method_t*     handler;
-    void*         tag;
-    method_def():dispatch(0), name(0), handler(0), tag(0) {}
-    method_def(const char *n, method_t h):dispatch(0), name(n), handler(h), tag(0) {}
-  };
-
-  #define DEFINE_METHOD(name,func) tiscript::method_def(name,func)
-
-  struct prop_def
-  {
-    void*         dispatch; // a.k.a. VTBL
-    const char*   name;
-    prop_get_t*   getter;
-    prop_set_t*   setter;
-    void*         tag;
-    prop_def():dispatch(0), name(0), getter(0), setter(0), tag(0) {}
-    prop_def(const char *n, prop_get_t gh, prop_set_t sh):dispatch(0), name(n), getter(gh), setter(sh), tag(0) {}
-  };
-
-  #define DEFINE_PROPERTY(name,getter,setter) tiscript::prop_def(name,getter,setter)
-
-  struct const_def
-  {
-    const char *name;
-    value       val;
-    const_def():name(0) {}
-    const_def(const char *n, value v): name(n), val( v ) {} 
-  };
-
-  #define DEFINE_CONST(name,v) tiscript::const_def(name,v)
-
-  struct class_def
-  {
-     const char*   name;      // having this name
-     method_def*   methods;   // with these methods
-     prop_def*     props;     // with these properties
-     const_def*    consts;    // with these constants (if any)
-     get_item_t*   get_item;  // var v = obj[idx]
-     set_item_t*   set_item;  // obj[idx] = v
-     finalizer_t*  finalizer; // destructor of native objects
-  };
-
-  struct native_interface
-  {
-    // create new VM [and make it current for the thread].
-    VM*   (TISAPI *create_vm)(uint features = 0xffffffff, uint heap_size = 1*1024*1024, uint stack_size = 64*1024);
-    // destroy VM
-    void  (TISAPI *destroy_vm)(VM* pvm);
-    // set stdin, stdout and stderr for this VM
-    void  (TISAPI *set_std_streams)(VM* pvm, stream_t* input, stream_t* output, stream_t* error);
-    // get VM attached to the current thread
-    VM*   (TISAPI *get_current_vm)();
-    // get global namespace (Object)
-    value (TISAPI *get_global_ns)(VM*);
-    // get current namespace (Object)
-    value (TISAPI *get_current_ns)(VM*);
-
-    bool (TISAPI *is_int)(value v);
-    bool (TISAPI *is_float)(value v);
-    bool (TISAPI *is_symbol)(value v);
-    bool (TISAPI *is_string)(value v);
-    bool (TISAPI *is_array)(value v);
-    bool (TISAPI *is_object)(value v);
-    bool (TISAPI *is_native_object)(value v);
-    bool (TISAPI *is_function)(value v);
-    bool (TISAPI *is_native_function)(value v);
-    bool (TISAPI *is_instance_of)(value v, value cls);
-    bool (TISAPI *is_undefined)(value v);
-    bool (TISAPI *is_nothing)(value v);
-    bool (TISAPI *is_null)(value v);
-    bool (TISAPI *is_true)(value v);
-    bool (TISAPI *is_false)(value v);
-    bool (TISAPI *is_class)(VM*,value v);
-    bool (TISAPI *is_error)(value v);
-
-    bool (TISAPI *get_int_value)(value v, int* pi);
-    bool (TISAPI *get_float_value)(value v, double* pd);
-    bool (TISAPI *get_bool_value)(value v, bool* pb);
-    bool (TISAPI *get_symbol_value)(value v, const char** p_utf8_data);
-    bool (TISAPI *get_string_value)(value v, const wchar** pdata, uint* plength);
-    
-    value (TISAPI *undefined_value)();
-    value (TISAPI *null_value)();
-    value (TISAPI *bool_value)(bool v);
-    value (TISAPI *int_value)(int v);
-    value (TISAPI *float_value)(double v);
-    value (TISAPI *string_value)(VM*, const wchar* text, uint text_length);
-    value (TISAPI *symbol_value)(const char* zstr);
-        
-    value (TISAPI *to_string)(VM*,value v);
-    
-    // define native class
-    value (TISAPI *define_class)
-        (
-            VM* pvm,                    // in this VM
-            class_def*    cls,          // 
-            value         zns = 0       // in this namespace object (or 0 if global)
-        );
+    int          i;
+    double       f;
+    const wchar* str;
+  } val;
+  unsigned type;
+};
 
 
-     // object
-     value    (TISAPI *create_object)(VM*, value of_class); // of_class == 0 - "Object"
-     bool     (TISAPI *set_prop)(VM*,value obj, value key, value value);
-     value    (TISAPI *get_prop)(VM*,value obj, value key);
-     bool     (TISAPI *for_each_prop)(VM*, value obj, object_enum_t* cb, void* tag);
-     void*    (TISAPI *get_instance_data)(value obj);
-     void     (TISAPI *set_instance_data)(value obj, void* data);
+struct tiscript_class_def
+{
+   const char*   name;      // having this name
+   tiscript_method_def*   methods;   // with these methods
+   tiscript_prop_def*     props;     // with these properties
+   tiscript_const_def*    consts;    // with these constants (if any)
+   tiscript_get_item*     get_item;  // var v = obj[idx]
+   tiscript_set_item*     set_item;  // obj[idx] = v
+   tiscript_finalizer*    finalizer; // destructor of native objects
+   tiscript_iterator*     iterator;  // for(var el in collecton) handler
+};
 
-     // array
-     value    (TISAPI *create_array)(VM*, uint of_size);
-     bool     (TISAPI *set_elem)(VM*, value obj, uint idx, value value);
-     value    (TISAPI *get_elem)(VM*, value obj, uint idx);
-     value    (TISAPI *set_array_size)(VM*, value obj, uint of_size);
-     uint     (TISAPI *get_array_size)(VM*, value obj);
+struct tiscript_native_interface
+{
+  // create new tiscript_VM [and make it current for the thread].
+  tiscript_VM*   (TISAPI *create_vm)(unsigned features /*= 0xffffffff*/, unsigned heap_size /*= 1*1024*1024*/, unsigned stack_size /*= 64*1024*/);
+  // destroy tiscript_VM
+  void  (TISAPI *destroy_vm)(tiscript_VM* pvm);
+  // invoke GC
+  void  (TISAPI *invoke_gc)(tiscript_VM* pvm);
+  // set stdin, stdout and stderr for this tiscript_VM
+  void  (TISAPI *set_std_streams)(tiscript_VM* pvm, tiscript_stream* input, tiscript_stream* output, tiscript_stream* error);
+  // get tiscript_VM attached to the current thread
+  tiscript_VM*   (TISAPI *get_current_vm)();
+  // get global namespace (Object)
+  tiscript_value (TISAPI *get_global_ns)(tiscript_VM*);
+  // get current namespace (Object)
+  tiscript_value (TISAPI *get_current_ns)(tiscript_VM*);
 
-     // eval
-     bool     (TISAPI *eval)(VM*, value ns, stream_t* input, bool template_mode, value* pretval);
-     bool     (TISAPI *eval_string)(VM*, value ns, const wchar* script, uint script_length, value* pretval);
-     // call function (method)
-     bool     (TISAPI *call)(VM*, value obj, value function, const value* argv, uint argn, value* pretval);
+  bool (TISAPI *is_int)(tiscript_value v);
+  bool (TISAPI *is_float)(tiscript_value v);
+  bool (TISAPI *is_symbol)(tiscript_value v);
+  bool (TISAPI *is_string)(tiscript_value v);
+  bool (TISAPI *is_array)(tiscript_value v);
+  bool (TISAPI *is_object)(tiscript_value v);
+  bool (TISAPI *is_native_object)(tiscript_value v);
+  bool (TISAPI *is_function)(tiscript_value v);
+  bool (TISAPI *is_native_function)(tiscript_value v);
+  bool (TISAPI *is_instance_of)(tiscript_value v, tiscript_value cls);
+  bool (TISAPI *is_undefined)(tiscript_value v);
+  bool (TISAPI *is_nothing)(tiscript_value v);
+  bool (TISAPI *is_null)(tiscript_value v);
+  bool (TISAPI *is_true)(tiscript_value v);
+  bool (TISAPI *is_false)(tiscript_value v);
+  bool (TISAPI *is_class)(tiscript_VM*,tiscript_value v);
+  bool (TISAPI *is_error)(tiscript_value v);
+  bool (TISAPI *is_bytes)(tiscript_value v);
 
-     // compiled bytecodes
-     bool     (TISAPI *compile)( VM* pvm, stream_t* input, stream_t* output_bytecodes, bool template_mode );
-     bool     (TISAPI *loadbc)( VM* pvm, stream_t* input_bytecodes );
+  bool (TISAPI *get_int_value)(tiscript_value v, int* pi);
+  bool (TISAPI *get_float_value)(tiscript_value v, double* pd);
+  bool (TISAPI *get_bool_value)(tiscript_value v, bool* pb);
+  bool (TISAPI *get_symbol_value)(tiscript_value v, const char** psz);
+  bool (TISAPI *get_string_value)(tiscript_value v, const wchar** pdata, unsigned* plength);
+  bool (TISAPI *get_bytes)(tiscript_value v, const unsigned char** pb, unsigned* pblen); 
 
+  tiscript_value (TISAPI *nothing_value)(); // special value that designates "does not exist" result.
+  tiscript_value (TISAPI *undefined_value)();
+  tiscript_value (TISAPI *null_value)();
+  tiscript_value (TISAPI *bool_value)(bool v);
+  tiscript_value (TISAPI *int_value)(int v);
+  tiscript_value (TISAPI *float_value)(double v);
+  tiscript_value (TISAPI *string_value)(tiscript_VM*, const wchar* text, unsigned text_length);
+  tiscript_value (TISAPI *symbol_value)(const char* zstr);
+  tiscript_value (TISAPI *bytes_value)(tiscript_VM*, const byte* data, uint data_length);
 
-     // throw error
-     void     (TISAPI *throw_error)( VM*, const wchar* error);
+  tiscript_value (TISAPI *to_string)(tiscript_VM*,tiscript_value v);
 
-     // arguments access
-     uint     (TISAPI *get_arg_count)( VM* pvm );
-     value    (TISAPI *get_arg_n)( VM* pvm, uint n );
+  // define native class
+  tiscript_value (TISAPI *define_class)
+      (
+          tiscript_VM*          vm,           // in this tiscript_VM
+          tiscript_class_def*   cls,          //
+          tiscript_value                 zns           // in this namespace object (or 0 if global)
+      );
 
-     // path here is global "path" of the object, something like
-     // "one"
-     // "one.two", etc.
-     bool     (TISAPI *get_value_by_path)(VM* pvm, value* v, const char* path); 
+   // object
+   tiscript_value    (TISAPI *create_object)(tiscript_VM*, tiscript_value of_class); // of_class == 0 - "Object"
+   bool     (TISAPI *set_prop)(tiscript_VM*,tiscript_value obj, tiscript_value key, tiscript_value tiscript_value);
+   tiscript_value    (TISAPI *get_prop)(tiscript_VM*,tiscript_value obj, tiscript_value key);
+   bool     (TISAPI *for_each_prop)(tiscript_VM*, tiscript_value obj, tiscript_object_enum* cb, void* tag);
+   void*    (TISAPI *get_instance_data)(tiscript_value obj);
+   void     (TISAPI *set_instance_data)(tiscript_value obj, void* data);
 
-     // pins
-     void     (TISAPI *pin)(VM*, pvalue* pp);
-     void     (TISAPI *unpin)(pvalue* pp);
-  };
-}
+   // array
+   tiscript_value    (TISAPI *create_array)(tiscript_VM*, unsigned of_size);
+   bool     (TISAPI *set_elem)(tiscript_VM*, tiscript_value obj, unsigned idx, tiscript_value tiscript_value);
+   tiscript_value    (TISAPI *get_elem)(tiscript_VM*, tiscript_value obj, unsigned idx);
+   tiscript_value    (TISAPI *set_array_size)(tiscript_VM*, tiscript_value obj, unsigned of_size);
+   unsigned (TISAPI *get_array_size)(tiscript_VM*, tiscript_value obj);
 
-extern tiscript::native_interface* __stdcall TIScriptAPI();
+   // eval
+   bool     (TISAPI *eval)(tiscript_VM*, tiscript_value ns, tiscript_stream* input, bool template_mode, tiscript_value* pretval);
+   bool     (TISAPI *eval_string)(tiscript_VM*, tiscript_value ns, const wchar* script, unsigned script_length, tiscript_value* pretval);
+   // call function (method)
+   bool     (TISAPI *call)(tiscript_VM*, tiscript_value obj, tiscript_value function, const tiscript_value* argv, unsigned argn, tiscript_value* pretval);
+
+   // compiled bytecodes
+   bool     (TISAPI *compile)( tiscript_VM* pvm, tiscript_stream* input, tiscript_stream* output_bytecodes, bool template_mode );
+   bool     (TISAPI *loadbc)( tiscript_VM* pvm, tiscript_stream* input_bytecodes );
+
+   // throw error
+   void     (TISAPI *throw_error)( tiscript_VM*, const wchar* error);
+
+   // arguments access
+   unsigned (TISAPI *get_arg_count)( tiscript_VM* pvm );
+   tiscript_value    (TISAPI *get_arg_n)( tiscript_VM* pvm, unsigned n );
+
+   // path here is global "path" of the object, something like
+   // "one"
+   // "one.two", etc.
+   bool     (TISAPI *get_value_by_path)(tiscript_VM* pvm, tiscript_value* v, const char* path);
+
+   // pins
+   void     (TISAPI *pin)(tiscript_VM*, tiscript_pvalue* pp);
+   void     (TISAPI *unpin)(tiscript_pvalue* pp);
+};
+
+#ifdef TISCRIPT_EXT_MODULE
+  extern tiscript_native_interface* TIScriptAPI;
+#else
+  extern tiscript_native_interface* EXTAPI TIScriptAPI();
+#endif
+
+// signature of TIScriptLibraryInit function - entry point of TIScript Extnension Library
+typedef void EXTAPI  TIScriptLibraryInitFunc(tiscript_VM* vm, tiscript_native_interface* piface );
+
 
 #endif

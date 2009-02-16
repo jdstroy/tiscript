@@ -28,6 +28,10 @@ inline void SetCObjectNext(value o, value v)
 static value CObjectNewInstance(VM *c,value proto);
 static value CPtrObjectNewInstance(VM *c,value proto);
 static long CObjectSize(value obj);
+static value CsCObjectGetItem(VM *c,value obj,value tag);
+static void CsCObjectSetItem(VM *c,value obj,value tag,value val);
+
+
 
 /* CObject pdispatch */
 dispatch CsCObjectDispatch = {
@@ -41,9 +45,9 @@ dispatch CsCObjectDispatch = {
     CsDefaultCopy,
     CsCObjectScan,
     CsDefaultHash,
-    CsDefaultGetItem,
-    CsDefaultSetItem,
-    0,
+    CsCObjectGetItem,
+    CsCObjectSetItem,
+    CsObjectNextElement,
     CsAddCObjectConstant
 };
 
@@ -54,27 +58,63 @@ bool CsCObjectP(value val)
     return d->size == CObjectSize;
 }
 
+value CsCObjectGetItem(VM *c,value obj,value tag)
+{
+    value p;
+#ifdef _DEBUG
+    dispatch *d = CsGetDispatch(obj);
+#endif
+    /* look for a local property */
+    if ((p = CsFindProperty(c,obj,tag,0,0)) != 0) 
+    {
+        //*pValue = CsPropertyValue(p);
+        return CsPropertyValue(p);
+    }
+    return VM::undefinedValue;
+}
+
+void CsCObjectSetItem(VM *c,value obj,value tag,value val)
+{
+  int_t hashValue = 0,i;
+  value p;
+  if( CsSymbolP(tag) && tag == c->prototypeSym )
+  {
+    CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
+  }
+  else if (!(p = CsFindProperty(c,obj,tag,&hashValue,&i)))
+    CsAddProperty(c,obj,tag,val,hashValue,i);
+  else
+  {
+    CsSetPropertyValue(p,val);
+  }
+}
+
 /* CsGetCObjectProperty - CObject get property handler */
-bool CsGetCObjectProperty(VM *c,value obj,value tag,value *pValue)
+bool CsGetCObjectProperty(VM *c,value& obj,value tag,value *pValue)
 {
     //return CsGetObjectProperty(c,obj,tag, pValue);
+    value self = obj;
     value p;
-
     dispatch *d = CsGetDispatch(obj);
-
+    if( CsSymbolP(tag) && tag == c->prototypeSym )
+    {
+      *pValue = d->obj;
+      return true;
+    }
+   
     /* look for a local property */
     if ((p = CsFindProperty(c,obj,tag,0,0)) != 0) 
     {
         //*pValue = CsPropertyValue(p);
         value propValue = CsPropertyValue(p);
-		    if (CsVPMethodP(propValue)) 
+        if (CsVPMethodP(propValue)) 
         {
-			    vp_method *method = ptr<vp_method>(propValue);
+          vp_method *method = ptr<vp_method>(propValue);
           if (method->get(c,obj,*pValue)) 
             return true;
-			    else
-				    CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
-		    }
+          else
+            CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
+        }
         else if(CsPropertyMethodP(propValue)) 
           *pValue = CsSendMessage(c,obj,propValue,1, c->nothingValue);
         else
@@ -86,31 +126,32 @@ bool CsGetCObjectProperty(VM *c,value obj,value tag,value *pValue)
     /* look for a class property */
     else {
         dispatch *d;
-
         /* look for a method in the CObject proto chain */
         for (d = CsQuickGetDispatch(obj); d != 0; d = d->proto) {
             if ((p = CsFindProperty(c,d->obj,tag,0,0)) != 0) 
             {
-		          value propValue = CsPropertyValue(p);
-		          if (CsVPMethodP(propValue)) 
+              obj = d->obj;
+              value propValue = CsPropertyValue(p);
+              if (CsVPMethodP(propValue)) 
               {
-			          vp_method *method = ptr<vp_method>(propValue);
-                if (method->get(c,obj,*pValue)) 
+                vp_method *method = ptr<vp_method>(propValue);
+                if (method->get(c,self,*pValue)) 
                   return true;
-			          else
-				          CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
-		          }
+                else
+                  CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
+              }
               else if(CsPropertyMethodP(propValue)) 
-                *pValue = CsSendMessage(c,obj,propValue,1, c->nothingValue);
+                *pValue = CsSendMessage(c,self,propValue,1, c->nothingValue);
               else 
-			          *pValue = propValue;
+                *pValue = propValue;
+              
               return true;
             }
         }
-	  }
-
+    }
     /* not found */
     return false;
+
 
 }
 
@@ -145,14 +186,14 @@ bool CsSetCObjectProperty(VM *c,value obj,value tag,value val)
 
         value propValue = CsPropertyValue(p);
 
-		    if (CsVPMethodP(propValue)) 
+        if (CsVPMethodP(propValue)) 
         {
-			    vp_method *method = ptr<vp_method>(propValue);
+          vp_method *method = ptr<vp_method>(propValue);
           if (method->set(c,obj,val))
             return true;
-			    else
-				    CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
-		    }
+          else
+            CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
+        }
         else if(CsPropertyMethodP(propValue))
           CsSendMessage(c,obj,propValue,1, val );
         else
@@ -166,18 +207,18 @@ bool CsSetCObjectProperty(VM *c,value obj,value tag,value val)
 
         /* look for a method in the CObject proto chain */
         for (d = CsQuickGetDispatch(obj); d != 0; d = d->proto) {
-	        if ((p = CsFindProperty(c,d->obj,tag,0,0)) != 0) 
+          if ((p = CsFindProperty(c,d->obj,tag,0,0)) != 0) 
           {
-		        value propValue = CsPropertyValue(p);
+            value propValue = CsPropertyValue(p);
 
-		        if (CsVPMethodP(propValue)) 
+            if (CsVPMethodP(propValue)) 
             {
-			        vp_method *method = ptr<vp_method>(propValue);
+              vp_method *method = ptr<vp_method>(propValue);
               if (method->set(c,obj,val))
                 return true;
-			        else
-				        CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
-		        }
+              else
+                CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
+            }
             else if(CsPropertyMethodP(propValue)) 
             {
               CsSendMessage(c,obj,propValue,1, val);
@@ -188,7 +229,7 @@ bool CsSetCObjectProperty(VM *c,value obj,value tag,value val)
             //  CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
             //else 
             //{
-			      //  CsAddProperty(c,obj,tag,val,hashValue,i);
+            //  CsAddProperty(c,obj,tag,val,hashValue,i);
             //  return true;
             //}
           }
@@ -209,7 +250,7 @@ static value CObjectNewInstance(VM *c,value proto)
     return CsMakeCObject(c,d);
 }
 
-value CsCObjectGetItem(VM *c,value obj,value tag)
+/*value CsCObjectGetItem(VM *c,value obj,value tag)
 {
    //value val;
    //if(!GetObjectProperty(c,obj,tag,&val))
@@ -231,6 +272,7 @@ void     CsCObjectSetItem(VM *c,value obj,value tag,value value)
 
   //SetObjectProperty(c,obj,tag,value);
 }
+*/
 
 
 
@@ -349,10 +391,10 @@ void CsDestroyUnreachableCObjects(VM *c)
             dispatch *d = CsQuickGetDispatch(obj);
             if (d->destroy) 
             {
-				        void *value = CsCObjectValue(obj);
+                void *value = CsCObjectValue(obj);
                 if (value)
-					        (*d->destroy)(c,obj);
-			      }
+                  (*d->destroy)(c,obj);
+            }
         }
         obj = CObjectNext(obj);
     }
@@ -367,12 +409,12 @@ void CsDestroyAllCObjects(VM *c)
         if (!CsBrokenHeartP(obj)) {
             dispatch *d = CsQuickGetDispatch(obj);
             if (d->destroy) {
-				        void *value = CsCObjectValue(obj);
+                void *value = CsCObjectValue(obj);
                 if (value) {
-					          (*d->destroy)(c,obj);
+                    (*d->destroy)(c,obj);
                     CsSetCObjectValue(obj,NULL);
                 }
-			}
+      }
         }
         obj = CObjectNext(obj);
     }
@@ -441,26 +483,27 @@ value CsMakeVPMethod(VM *c,char *name,vp_get_t getHandler,vp_set_t setHandler)
 
 
 /* CsGetVirtualProperty - get a property value that might be virtual */
-bool CsGetVirtualProperty(VM *c,value obj,value proto,value tag,value *pValue)
+bool CsGetVirtualProperty(VM *c,value& obj,value proto,value tag,value *pValue)
 {
-	  value p;
+    value self = obj; obj = proto;
+    value p;
     if ((p = CsFindProperty(c,proto,tag,0,0)) != 0) {
-		  value propValue = CsPropertyValue(p);
-		  if (CsVPMethodP(propValue)) 
+      value propValue = CsPropertyValue(p);
+      if (CsVPMethodP(propValue)) 
       {
-			  vp_method *method = ptr<vp_method>(propValue);
+        vp_method *method = ptr<vp_method>(propValue);
         
-        if (method->get(c,obj,*pValue)) 
+        if (method->get(c,self,*pValue)) 
           return true;
-			  else
-				  CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
-		  }
+        else
+          CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
+      }
       else if(CsPropertyMethodP(propValue)) 
-        *pValue = CsSendMessage(c,obj,propValue,0);
+        *pValue = CsSendMessage(c,self,propValue,1, VM::nothingValue);
       else 
-			  *pValue = propValue;
+        *pValue = propValue;
       return true;
-	  }
+    }
     return false;
 }
 
@@ -468,27 +511,27 @@ bool CsGetVirtualProperty(VM *c,value obj,value proto,value tag,value *pValue)
 bool CsSetVirtualProperty(VM *c,value obj,value proto,value tag,value val)
 {
   int_t hashValue,i;
-	value p;
-	if ((p = CsFindProperty(c,proto,tag,&hashValue,&i)) != 0) {
+  value p;
+  if ((p = CsFindProperty(c,proto,tag,&hashValue,&i)) != 0) {
 
-		value propValue = CsPropertyValue(p);
-		if (CsVPMethodP(propValue)) 
+    value propValue = CsPropertyValue(p);
+    if (CsVPMethodP(propValue)) 
     {
-			vp_method *method = ptr<vp_method>(propValue);
+      vp_method *method = ptr<vp_method>(propValue);
       if (method->set(c,obj,val)) 
         return true;
-			else
-				CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
-		}
+      else
+        CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
+    }
     else if(CsPropertyMethodP(propValue)) 
     {
       CsSendMessage(c,obj,propValue,1, val );
       return true;
     }
     //if(CsPropertyIsConst(p))
-		//  CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
+    //  CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
 
-	}
+  }
   return false;
 }
 

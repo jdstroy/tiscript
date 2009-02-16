@@ -149,7 +149,8 @@ static bool ReadMethod(CsScope *scope,value *pMethod,stream *s)
     if ( s->get() != CsFaslTagCode
     || !ReadCodeValue(scope,&code,s))
         return false;
-    *pMethod = CsMakeMethod(c,code,c->undefinedValue,scope->globals);
+#pragma TODO("restore method properly (namespace!)")
+    *pMethod = CsMakeMethod(c,code,c->undefinedValue,scope->globals, c->undefinedValue);
     return true;
 }
 

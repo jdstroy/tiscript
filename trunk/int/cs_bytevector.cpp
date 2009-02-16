@@ -18,6 +18,8 @@ value CsMakeFilledByteVector(VM *c, byte fill, int_t size);
 static value CSF_ctor(VM *c);
 static value CSF_toInteger(VM *c);
 static value CSF_toString(VM *c);
+static value CSF_save(VM *c);
+static value CSF_load(VM *c);
 /* virtual property methods */
 static value CSF_length(VM *c,value obj);
 static value CSF_get_type(VM *c,value obj);
@@ -29,7 +31,9 @@ C_METHOD_ENTRY( "this",      CSF_ctor            ),
 C_METHOD_ENTRY( "toLocaleString",   CSF_std_toLocaleString  ),
 C_METHOD_ENTRY( "toString",         CSF_toString  ),
 C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
-C_METHOD_ENTRY(	0,                  0                   )
+C_METHOD_ENTRY( "save",             CSF_save      ),
+C_METHOD_ENTRY( "load",             CSF_load      ),
+C_METHOD_ENTRY( 0,                  0                   )
 };
 
 
@@ -37,7 +41,7 @@ C_METHOD_ENTRY(	0,                  0                   )
 static vp_method properties[] = {
 VP_METHOD_ENTRY( "length",    CSF_length, 0         ),
 VP_METHOD_ENTRY( "type",      CSF_get_type, CSF_set_type       ),
-VP_METHOD_ENTRY( 0,          0,					0					)
+VP_METHOD_ENTRY( 0,          0,         0         )
 };
 
 
@@ -80,12 +84,74 @@ static value CSF_toString(VM *c)
       tool::bytes(CsByteVectorAddress(obj),CsByteVectorSize(obj)),
       b64);
     value s = CsMakeFilledString(c, ' ', b64.size());
-    wchar *pd = CsStringAddress(s);
-    const char *ps = b64.head();
-    const char *pse = ps + b64.size();
-    while( ps < pse ) *pd++ = *ps++;
-    return s;
+    if( s && CsStringP(s) )
+    {
+      wchar *pd = CsStringAddress(s);
+      const char *ps = b64.head();
+      const char *pse = ps + b64.size();
+      while( ps < pse ) *pd++ = *ps++;
+      return s;
+    }
+    return VM::nullValue;
 }
+
+/* CSF_save - saves bytes to file */
+
+static value CSF_save(VM *c)
+{
+    if((c->features & FEATURE_FILE_IO) == 0)
+    {
+       CsThrowKnownError(c,CsErrNotAllowed, "FILE IO");
+       return VM::falseValue;
+    }
+    tool::wchars filename;
+    value obj;
+    CsParseArguments(c,"V=*S#",&obj,&CsByteVectorDispatch, &filename.start, &filename.length);
+    tool::bytes data(CsByteVectorAddress(obj),CsByteVectorSize(obj));
+    if(filename.length == 0) 
+      return VM::falseValue;
+    if( filename.like(L"file://*") )
+      filename.prune( 7 );
+
+    FILE* f = fopen(tool::string(filename),"w+b");
+    if(!f)
+      return VM::falseValue;
+    size_t r = fwrite(data.start,1, data.length, f);
+    fclose(f);
+    return r == data.length? VM::trueValue : VM::falseValue;
+}
+
+/* CSF_load - loads bytes from file */
+
+static value CSF_load(VM *c)
+{
+    if((c->features & FEATURE_FILE_IO) == 0)
+    {
+       CsThrowKnownError(c,CsErrNotAllowed, "FILE IO");
+       return VM::falseValue;
+    }
+    tool::wchars filename;
+    CsParseArguments(c,"**S#",&filename.start, &filename.length);
+    if(filename.length == 0) 
+      return VM::nullValue;
+    if( filename.like(L"file://*") )
+      filename.prune( 7 );
+
+    tool::mm_file mf;
+    mf.open( tool::string(filename));
+    if( !mf.data() )
+      CsThrowKnownError(c,CsErrFileNotFound,filename.start);
+    
+    value obj = CsMakeFilledByteVector(c,0,mf.size());
+    if( CsByteVectorP(obj) )
+    {
+      byte* dst = CsByteVectorAddress(obj);
+      memcpy(dst,mf.data(),mf.size());
+      return obj;
+    }
+    return VM::nullValue;
+}
+
 
 
 /* CSF_size - built-in property 'length' */
@@ -107,7 +173,7 @@ static void  CSF_set_type(VM *c,value obj,value typ)
 
 
 /* ByteVector handlers */
-static bool  GetByteVectorProperty(VM *c,value obj,value tag,value *pValue);
+static bool  GetByteVectorProperty(VM *c,value& obj,value tag,value *pValue);
 static bool  SetByteVectorProperty(VM *c,value obj,value tag,value value);
 static value ByteVectorNewInstance(VM *c,value proto);
 static bool  ByteVectorPrint(VM *c,value val,stream *s, bool toLocale);
@@ -161,7 +227,7 @@ static void  CsByteVectorSetItem(VM *c,value obj,value tag,value value)
 
 
 /* GetByteVectorProperty - ByteVector get property handler */
-static bool GetByteVectorProperty(VM *c,value obj,value tag,value *pValue)
+static bool GetByteVectorProperty(VM *c,value& obj,value tag,value *pValue)
 {
     return CsGetVirtualProperty(c,obj,c->byteVectorObject,tag,pValue);
 }
@@ -191,7 +257,7 @@ static bool ByteVectorPrint(VM *c,value val, stream *s, bool toLocale)
     return s->put('#');
     */
 #pragma TODO("Print base64 vector!")
-    return s->put_str("ByteVector");
+    return s->put_str("Bytes");
 }
 
 /* ByteVectorSize - ByteVector size handler */

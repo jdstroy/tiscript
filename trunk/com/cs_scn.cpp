@@ -43,6 +43,9 @@ static struct { char *kt_keyword; int kt_token; } ktab[] = {
 { "include",    T_INCLUDE       }, 
 { "like",       T_LIKE          },
 { "yield",      T_YIELD         },
+{ "class",      T_CLASS         },
+{ "namespace",  T_NAMESPACE     },
+
 { "debug",      T_DEBUG         },
 { NULL,         0               }};
 
@@ -87,7 +90,7 @@ static char *t_names[] = {
 "^=",
 "<<=",
 ">>=",
-"define",
+"type",
 "super",
 "new",
 "..",
@@ -103,12 +106,21 @@ static char *t_names[] = {
 "!==",
 "property",
 "const",
-"type",
 "get",
 "set",
 "include",
 "like",
 "yield",
+"<<<",
+">>>",
+"<<<=",
+">>>=",
+"~/",
+"~%",
+"/~",
+"%~",
+"class",
+"namespace",
 "debug",
 };
 
@@ -139,7 +151,7 @@ void CsInitScanner(CsCompiler *c,stream *s)
     c->line.push(0);
     c->linePtr = c->line.head();
     c->lineNumberChangedP = false;
-    c->lineNumber = 0;
+    c->lineNumber = 1;
 
     /* no lookahead yet */
     c->savedToken = T_NOTOKEN;
@@ -813,6 +825,15 @@ void CsParseError(CsCompiler *c,char *msg)
 
     CsThrowKnownError(c->ic,CsErrSyntaxError,msg,c->line.head(),buf.head());
     //c->linePtr
+}
+
+void CsParseWarning(CsCompiler *c,char *msg)
+{
+    c->ic->standardError->printf(L"%s(%d) : warning :%S\n",
+        c->input->stream_name(),
+        c->lineNumber,
+        msg
+    );
 }
 
 }

@@ -24,8 +24,8 @@ void CsEnterVariable(CsScope *scope,char *name,value value)
 /* CsEnterFunction - add a built-in function to the symbol table */
 void CsEnterFunction(CsScope *scope,c_method *function)
 {
-	VM *c = scope->c;
-	CsCPush(c,CsInternCString(c,function->name));
+  VM *c = scope->c;
+  CsCPush(c,CsInternCString(c,function->name));
     CsSetGlobalValue(scope,CsTop(c),ptr_value(function));
     CsDrop(c,1);
 }
@@ -43,16 +43,20 @@ value CsEnterObject(CsScope *scope,char *name,value proto,c_method *methods, vp_
     VM *c = scope->c;
 
     /* make the obj and set the symbol value */
-    if (name) {
-		  CsCheck(c,2);
-		  CsPush(c,CsMakeObject(c,proto));
-		  CsPush(c,CsInternCString(c,name));
-		  CsSetGlobalValue(scope,CsTop(c),c->sp[1]);
-		  CsDrop(c,1);
-	  }
-	  else
-		  CsCPush(c,CsMakeObject(c,proto));
-
+    /*if (name) 
+    {
+      CsCheck(c,2);
+      CsPush(c,CsMakeObject(c,proto));
+      CsPush(c,CsInternCString(c,name));
+      CsSetGlobalValue(scope,CsTop(c),c->sp[1]);
+      CsDrop(c,1);
+    }
+    else
+      CsCPush(c,CsMakeObject(c,proto));
+      */
+    value nameSymbol = CsInternCString(c,name);
+    CsPush(c,CsNewClassInstance(c,VM::undefinedValue,nameSymbol));
+    CsSetGlobalValue(scope,nameSymbol,CsTop(c));
     /* enter the methods */
     if (methods)
         CsEnterMethods(c,CsTop(c),methods);
@@ -76,10 +80,10 @@ dispatch *CsEnterCObjectType(CsScope *scope,dispatch *proto,char *typeName,c_met
     if (!(d = CsMakeCObjectType(c,proto,typeName,methods,properties,constants, size)))
         return NULL;
 
-	/* add the type symbol */
-	CsCPush(c,CsInternCString(c,typeName));
+  /* add the type symbol */
+  CsCPush(c,CsInternCString(c,typeName));
     CsSetGlobalValue(scope,CsTop(c),d->obj);
-	CsDrop(c,1);
+  CsDrop(c,1);
 
     /* return the new obj type */
     return d;
@@ -95,10 +99,10 @@ dispatch *CsEnterCPtrObjectType(CsScope *scope,dispatch *proto,char *typeName,c_
     if (!(d = CsMakeCPtrObjectType(c,proto,typeName,methods,properties,constants)))
         return NULL;
 
-	/* add the type symbol */
-	CsCPush(c,CsInternCString(c,typeName));
+  /* add the type symbol */
+  CsCPush(c,CsInternCString(c,typeName));
     CsSetGlobalValue(scope,CsTop(c),d->obj);
-	CsDrop(c,1);
+  CsDrop(c,1);
 
     /* return the new obj type */
     return d;
@@ -107,15 +111,15 @@ dispatch *CsEnterCPtrObjectType(CsScope *scope,dispatch *proto,char *typeName,c_
 /* CsEnterMethods - add built-in methods to an obj */
 void CsEnterMethods(VM *c,value obj,c_method *methods)
 {
-	CsCheck(c,2);
-	CsPush(c,obj);
+  CsCheck(c,2);
+  CsPush(c,obj);
     for (; methods->name != 0; ++methods) {
     methods->pdispatch = &CsCMethodDispatch;
-		CsPush(c,CsInternCString(c,methods->name));
-		CsSetProperty(c,c->sp[1],CsTop(c),ptr_value(methods));
-		CsDrop(c,1);
-	}
-	CsDrop(c,1);
+    CsPush(c,CsInternCString(c,methods->name));
+    CsSetProperty(c,c->sp[1],CsTop(c),ptr_value(methods));
+    CsDrop(c,1);
+  }
+  CsDrop(c,1);
 }
 
 /* CsEnterMethod - add a built-in method to an obj */
@@ -132,15 +136,15 @@ void CsEnterMethod(VM *c,value obj,c_method *method)
 /* CsEnterVPMethods - add built-in virtual property methods to an obj */
 void CsEnterVPMethods(VM *c,value obj,vp_method *methods)
 {
-	CsCheck(c,2);
-	CsPush(c,obj);
+  CsCheck(c,2);
+  CsPush(c,obj);
     for (; methods->name != 0; ++methods) {
     methods->pdispatch = &CsVPMethodDispatch;
-		CsPush(c,CsInternCString(c,methods->name));
-		CsSetProperty(c,c->sp[1],CsTop(c), ptr_value(methods));
-		CsDrop(c,1);
-	}
-	CsDrop(c,1);
+    CsPush(c,CsInternCString(c,methods->name));
+    CsSetProperty(c,c->sp[1],CsTop(c), ptr_value(methods));
+    CsDrop(c,1);
+  }
+  CsDrop(c,1);
 }
 
 /* CsEnterVPMethod - add a built-in method to an obj */
@@ -159,7 +163,7 @@ void CsEnterProperty(VM *c,value obj,const char *selector,value value)
 {
     CsCheck(c,3);
     CsPush(c,obj);
-	  CsPush(c,value);
+    CsPush(c,value);
     CsPush(c,CsInternCString(c,selector));
     CsSetProperty(c,c->sp[2],CsTop(c),c->sp[1]);
     CsDrop(c,3);
@@ -167,14 +171,14 @@ void CsEnterProperty(VM *c,value obj,const char *selector,value value)
 
 void CsEnterConstants(VM *c, value obj, constant* constants)
 {
-	CsCheck(c,2);
-	CsPush(c,obj);
+  CsCheck(c,2);
+  CsPush(c,obj);
     for (; constants->name != 0; ++constants) {
-		//CsPush(c,CsInternCString(c,constants->name));
-		CsAddConstant(c,CsTop(c), CsInternCString(c,constants->name), constants->val);
-		//CsDrop(c,1);
-	}
-	CsDrop(c,1);
+    //CsPush(c,CsInternCString(c,constants->name));
+    CsAddConstant(c,CsTop(c), CsInternCString(c,constants->name), constants->val);
+    //CsDrop(c,1);
+  }
+  CsDrop(c,1);
 }
 
 

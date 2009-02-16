@@ -25,6 +25,7 @@ namespace tool
   bool   base64_decode ( chars data, stream_o<byte>& out );
   bool   base64_decode ( wchars data, stream_o<byte>& out );
   bool   base64_decode ( chars data, array<byte>& out );
+  bool   base64_decode ( wchars data, array<byte>& out );
 
   inline void base64_encode ( bytes data, array<char>& buf)
   {
@@ -40,6 +41,11 @@ namespace tool
   }
 
   inline bool base64_decode ( chars data, array<byte>& out )
+  {
+    mem_stream_o<byte> os(out);
+    return base64_decode(data,os);
+  }
+  inline bool base64_decode ( wchars data, array<byte>& out )
   {
     mem_stream_o<byte> os(out);
     return base64_decode(data,os);

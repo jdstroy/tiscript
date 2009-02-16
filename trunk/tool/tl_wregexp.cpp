@@ -2,8 +2,9 @@
 
 #include <wchar.h>
 #include <wctype.h>
+#include "ucdata/ucdata_lt.h"
 
-#define	MAGIC	0234
+#define MAGIC 0234
 
 inline void* re_malloc(size_t sz) {  return malloc(sz); }
 inline void re_cfree(void* p) { free(p); }
@@ -13,12 +14,12 @@ typedef unsigned short UCHAR_TYPE;
 
 /* NOTE: this structure is completely opaque. */
 struct tag_regexp_w {
-  int   regnsubexp;			    /* Internal use only. */
-	wchar regstart;			/* Internal use only. */
-	wchar reganch;			/* Internal use only. */
-	wchar *regmust;			/* Internal use only. */
-	int   regmlen;			      /* Internal use only. */
-	wchar program[1];		/* Unwarranted chumminess with compiler. */
+  int   regnsubexp;         /* Internal use only. */
+  wchar regstart;     /* Internal use only. */
+  wchar reganch;      /* Internal use only. */
+  wchar *regmust;     /* Internal use only. */
+  int   regmlen;            /* Internal use only. */
+  wchar program[1];   /* Unwarranted chumminess with compiler. */
 };
 
 void re_report(const char* error) {}
@@ -38,19 +39,19 @@ int iswblank(wint_t wc)
 #define cstrncpy wcsncpy
 #define cstrncmp wcsncmp
 #define cstrspn wcsspn
-#define cisalnum iswalnum
-#define cisalpha iswalpha
+#define cisalnum            ucisalnum
+#define cisalpha            ucisalpha
 #define cisblank iswblank
-#define ciscntrl iswcntrl
-#define cisdigit iswdigit
-#define cisgraph iswgraph
-#define cislower iswlower
-#define cisprint iswprint
-#define cispunct iswpunct
-#define cisspace iswspace
-#define cisupper iswupper
-#define cisxdigit iswxdigit
-#define ctolower towlower
+#define ciscntrl            uciscntrl  //iswcntrl
+#define cisdigit            ucisdigit  //iswdigit
+#define cisgraph            ucisgraph  //iswgraph
+#define cislower            ucislower  //iswlower
+#define cisprint            ucisprint  //iswprint
+#define cispunct            ucispunct  //iswpunct
+#define cisspace            ucisspace  //iswspace
+#define cisupper            ucisupper  //iswupper
+#define cisxdigit           ucisxdigit //iswxdigit
+#define ctolower            uctolower  //towlower
 
 #define REGEXP_MAXEXP 0x7fff   /* max number of subexpressions */
 
@@ -135,10 +136,10 @@ static const cclass_t class_table_f[] = {
  * compile to execute that permits the execute phase to run lots faster on
  * simple cases.  They are:
  *
- * regstart	char that must begin a match; '\0' if none obvious
- * reganch	is the match anchored (at beginning-of-line only)?
- * regmust	string (pointer into program) that match must include, or NULL
- * regmlen	length of regmust string
+ * regstart char that must begin a match; '\0' if none obvious
+ * reganch  is the match anchored (at beginning-of-line only)?
+ * regmust  string (pointer into program) that match must include, or NULL
+ * regmlen  length of regmust string
  *
  * Regstart and reganch permit very fast decisions on suitable starting points
  * for a match, cutting down the work a lot.  Regmust permits fast rejection
@@ -168,48 +169,48 @@ static const cclass_t class_table_f[] = {
 
 #define NSUBEXPS 10
 
-/* definition	number	opnd?	meaning */
-#define	END	0	/* no	End of program. */
-#define	BOL	1	/* no	Match beginning of line. */
-#define	EOL	2	/* no	Match end of line. */
-#define	ANY	3	/* no	Match any character. */
-#define	ANYOF	4	/* str	Match any of these. */
-#define	ANYBUT	5	/* str	Match any but one of these. */
-#define	BRANCH	6	/* node	Match this, or the next..\&. */
-#define	BACK	7	/* no	"next" ptr points backward. */
-#define	EXACTLY	8	/* str	Match this string. */
-#define	NOTHING	9	/* no	Match empty string. */
-#define	STAR	10	/* node	Match this 0 or more times. */
-#define	PLUS	11	/* node	Match this 1 or more times. */
+/* definition number  opnd? meaning */
+#define END 0 /* no End of program. */
+#define BOL 1 /* no Match beginning of line. */
+#define EOL 2 /* no Match end of line. */
+#define ANY 3 /* no Match any character. */
+#define ANYOF 4 /* str  Match any of these. */
+#define ANYBUT  5 /* str  Match any but one of these. */
+#define BRANCH  6 /* node Match this, or the next..\&. */
+#define BACK  7 /* no "next" ptr points backward. */
+#define EXACTLY 8 /* str  Match this string. */
+#define NOTHING 9 /* no Match empty string. */
+#define STAR  10  /* node Match this 0 or more times. */
+#define PLUS  11  /* node Match this 1 or more times. */
 #define CCLASS  12  /* chr  Match character class. */
 #define WORDA   13  /* no   Match beginning of word */
 #define WORDZ   14  /* no   Match end of word */
-#define	OPEN	20	/* lvl	Sub-RE starts here. */
+#define OPEN  20  /* lvl  Sub-RE starts here. */
                     /* the level follows the OPEN opcode. (NEW) */
-#define	CLOSE	30	/* lvl	Analogous to OPEN. */
+#define CLOSE 30  /* lvl  Analogous to OPEN. */
 
 /* character classes */
 
 /*
  * Opcode notes:
  *
- * BRANCH	The set of branches constituting a single choice are hooked
- *		together with their "next" pointers, since precedence prevents
- *		anything being concatenated to any individual branch.  The
- *		"next" pointer of the last BRANCH in a choice points to the
- *		thing following the whole choice.  This is also where the
- *		final "next" pointer of each individual branch points; each
- *		branch starts with the operand node of a BRANCH node.
+ * BRANCH The set of branches constituting a single choice are hooked
+ *    together with their "next" pointers, since precedence prevents
+ *    anything being concatenated to any individual branch.  The
+ *    "next" pointer of the last BRANCH in a choice points to the
+ *    thing following the whole choice.  This is also where the
+ *    final "next" pointer of each individual branch points; each
+ *    branch starts with the operand node of a BRANCH node.
  *
- * BACK		Normal "next" pointers all implicitly point forward; BACK
- *		exists to make loop structures possible.
+ * BACK   Normal "next" pointers all implicitly point forward; BACK
+ *    exists to make loop structures possible.
  *
- * STAR,PLUS	'?', and complex '*' and '+', are implemented as circular
- *		BRANCH structures using BACK.  Simple cases (one character
- *		per match) are implemented with STAR and PLUS for speed
- *		and to minimize recursive plunges.
+ * STAR,PLUS  '?', and complex '*' and '+', are implemented as circular
+ *    BRANCH structures using BACK.  Simple cases (one character
+ *    per match) are implemented with STAR and PLUS for speed
+ *    and to minimize recursive plunges.
  *
- * OPEN,CLOSE	...are numbered at compile time, but stored separately
+ * OPEN,CLOSE ...are numbered at compile time, but stored separately
  *              so we can get a more-or-less unlimited amount of
  *              subexpressions.
  */
@@ -224,9 +225,9 @@ static const cclass_t class_table_f[] = {
  * Using two bytes for the "next" pointer is vast overkill for most things,
  * but allows patterns to get big without disasters.
  */
-#define	OP(p)		(*(p))
-#define	NEXT(p)		(((*((p)+1)&0177)<<8) + (*((p)+2)&0377))
-#define	OPERAND(p)	((p) + 3)
+#define OP(p)   (*(p))
+#define NEXT(p)   (((*((p)+1)&0177)<<8) + (*((p)+2)&0377))
+#define OPERAND(p)  ((p) + 3)
 
 /*
  * See regmagic.h for one further detail of program structure.
@@ -236,30 +237,30 @@ static const cclass_t class_table_f[] = {
 /*
  * Utility definitions.
  */
-#define	FAIL(m, code)		{ re_report(m); return code; }
+#define FAIL(m, code)   { re_report(m); return code; }
 #define FAIL2(m, code)      { re_report(m); if(errp) *errp = code; return NULL; }
-#define	ISREPN(c)	((c) == LIT('*') || (c) == LIT('+') || (c) == LIT('?'))
-#define	META		LIT("^$.[()|?+*\\")
+#define ISREPN(c) ((c) == LIT('*') || (c) == LIT('+') || (c) == LIT('?'))
+#define META    LIT("^$.[()|?+*\\")
 
 /*
  * Flags to be passed up and down.
  */
-#define	HASWIDTH	01	/* Known never to match null string. */
-#define	SIMPLE		02	/* Simple enough to be STAR/PLUS operand. */
-#define	SPSTART		04	/* Starts with * or +. */
-#define	WORST		0	/* Worst case. */
+#define HASWIDTH  01  /* Known never to match null string. */
+#define SIMPLE    02  /* Simple enough to be STAR/PLUS operand. */
+#define SPSTART   04  /* Starts with * or +. */
+#define WORST   0 /* Worst case. */
 
 /*
  * Work-variable struct for regcomp().
  */
 struct comp {
-	wchar *regparse;		/* Input-scan pointer. */
-	int regnpar;		/* () count. */
-	wchar *regcode;		/* Code-emit pointer; &regdummy = don't. */
-	wchar regdummy[3];	/* NOTHING, 0 next ptr */
-	long regsize;		/* Code size. */
+  wchar *regparse;    /* Input-scan pointer. */
+  int regnpar;    /* () count. */
+  wchar *regcode;   /* Code-emit pointer; &regdummy = don't. */
+  wchar regdummy[3];  /* NOTHING, 0 next ptr */
+  long regsize;   /* Code size. */
 };
-#define	EMITTING(cp)	((cp)->regcode != (cp)->regdummy)
+#define EMITTING(cp)  ((cp)->regcode != (cp)->regdummy)
 
 /*
  * Forward declarations for regcomp()'s friends.
@@ -295,9 +296,9 @@ static void regoptail(struct comp *cp, wchar *p, wchar *val);
  */
 int re_comp_w(regexp_w** rpp, const wchar* exp)
 {
-	register wchar *scan;
-	int flags;
-	struct comp co;
+  register wchar *scan;
+  int flags;
+  struct comp co;
     int error = 0;
 
     if(!rpp)
@@ -320,7 +321,7 @@ int re_comp_w(regexp_w** rpp, const wchar* exp)
             return error;
 
         /* Small enough for pointer-storage convention? */
-        if (co.regsize >= 0x7fffL)	/* Probably could be 0xffffL. */
+        if (co.regsize >= 0x7fffL)  /* Probably could be 0xffffL. */
             FAIL("regexp too big", REGEXP_ESIZE);
 
         /* Allocate space. */
@@ -340,12 +341,12 @@ int re_comp_w(regexp_w** rpp, const wchar* exp)
         }
 
         /* Dig out information for optimizations. */
-        r->regstart = LIT('\0');		/* Worst-case defaults. */
+        r->regstart = LIT('\0');    /* Worst-case defaults. */
         r->reganch = 0;
         r->regmust = NULL;
         r->regmlen = 0;
-        scan = r->program+1;		/* First BRANCH. */
-        if (OP(regnext(scan)) == END) {	/* Only one top-level choice. */
+        scan = r->program+1;    /* First BRANCH. */
+        if (OP(regnext(scan)) == END) { /* Only one top-level choice. */
             scan = OPERAND(scan);
 
             /* Starting-point info. */
@@ -395,25 +396,25 @@ int re_comp_w(regexp_w** rpp, const wchar* exp)
 static wchar *
 reg(struct comp* cp, int paren, int* flagp, int* errp)
 {
-	register wchar *ret = 0;
-	register wchar *br = 0;
-	register wchar *ender = 0;
-	register int parno = 0;
-	int flags;
+  register wchar *ret = 0;
+  register wchar *br = 0;
+  register wchar *ender = 0;
+  register int parno = 0;
+  int flags;
 
-	*flagp = HASWIDTH;	/* Tentatively. */
+  *flagp = HASWIDTH;  /* Tentatively. */
 
-	if (paren) {
-		/* Make an OPEN node. */
-		if (cp->regnpar >= REGEXP_MAXEXP)
+  if (paren) {
+    /* Make an OPEN node. */
+    if (cp->regnpar >= REGEXP_MAXEXP)
         {
             re_report("Too many ()");
             *errp = REGEXP_EEND;
             return NULL;
         }
         
-		parno = cp->regnpar;
-		cp->regnpar++;
+    parno = cp->regnpar;
+    cp->regnpar++;
         if(parno > NSUBEXPS)
         {
             ret = regnode(cp, OPEN);
@@ -421,29 +422,29 @@ reg(struct comp* cp, int paren, int* flagp, int* errp)
         }
         else
             ret = regnode(cp, OPEN + parno);
-	}
+  }
 
-	/* Pick up the branches, linking them together. */
-	br = regbranch(cp, &flags, errp);
-	if (br == NULL)
-		return(NULL);
-	if (paren)
-		regtail(cp, ret, br);	/* OPEN -> first. */
-	else
-		ret = br;
-	*flagp &= ~(~flags&HASWIDTH);	/* Clear bit if bit 0. */
-	*flagp |= flags&SPSTART;
-	while (*cp->regparse == LIT('|')) {
-		cp->regparse++;
-		br = regbranch(cp, &flags, errp);
-		if (br == NULL)
-			return(NULL);
-		regtail(cp, ret, br);	/* BRANCH -> BRANCH. */
-		*flagp &= ~(~flags&HASWIDTH);
-		*flagp |= flags&SPSTART;
-	}
+  /* Pick up the branches, linking them together. */
+  br = regbranch(cp, &flags, errp);
+  if (br == NULL)
+    return(NULL);
+  if (paren)
+    regtail(cp, ret, br); /* OPEN -> first. */
+  else
+    ret = br;
+  *flagp &= ~(~flags&HASWIDTH); /* Clear bit if bit 0. */
+  *flagp |= flags&SPSTART;
+  while (*cp->regparse == LIT('|')) {
+    cp->regparse++;
+    br = regbranch(cp, &flags, errp);
+    if (br == NULL)
+      return(NULL);
+    regtail(cp, ret, br); /* BRANCH -> BRANCH. */
+    *flagp &= ~(~flags&HASWIDTH);
+    *flagp |= flags&SPSTART;
+  }
 
-	/* Make a closing node, and hook it on the end. */
+  /* Make a closing node, and hook it on the end. */
     if(paren)
     {
         if(parno > NSUBEXPS)
@@ -456,24 +457,24 @@ reg(struct comp* cp, int paren, int* flagp, int* errp)
     }
     else
         ender = regnode(cp, END);
-	regtail(cp, ret, ender);
+  regtail(cp, ret, ender);
 
-	/* Hook the tails of the branches to the closing node. */
-	for (br = ret; br != NULL; br = regnext(br))
-		regoptail(cp, br, ender);
+  /* Hook the tails of the branches to the closing node. */
+  for (br = ret; br != NULL; br = regnext(br))
+    regoptail(cp, br, ender);
 
-	/* Check for proper termination. */
-	if (paren && *cp->regparse++ != LIT(')')) {
-		FAIL2("unterminated ()", REGEXP_EPAREN);
-	} else if (!paren && *cp->regparse != LIT('\0')) {
-		if (*cp->regparse == LIT(')')) {
-			FAIL2("unmatched ()", REGEXP_EPAREN);
-		} else
-			FAIL2("internal error: junk on end", REGEXP_EEND);
-		/* NOTREACHED */
-	}
+  /* Check for proper termination. */
+  if (paren && *cp->regparse++ != LIT(')')) {
+    FAIL2("unterminated ()", REGEXP_EPAREN);
+  } else if (!paren && *cp->regparse != LIT('\0')) {
+    if (*cp->regparse == LIT(')')) {
+      FAIL2("unmatched ()", REGEXP_EPAREN);
+    } else
+      FAIL2("internal error: junk on end", REGEXP_EEND);
+    /* NOTREACHED */
+  }
 
-	return(ret);
+  return(ret);
 }
 
 /*
@@ -484,31 +485,31 @@ reg(struct comp* cp, int paren, int* flagp, int* errp)
 static wchar *
 regbranch(struct comp* cp, int* flagp, int* errp)
 {
-	register wchar *ret;
-	register wchar *chain;
-	register wchar *latest;
-	int flags;
-	register int c;
+  register wchar *ret;
+  register wchar *chain;
+  register wchar *latest;
+  int flags;
+  register int c;
 
-	*flagp = WORST;				/* Tentatively. */
+  *flagp = WORST;       /* Tentatively. */
 
-	ret = regnode(cp, BRANCH);
-	chain = NULL;
-	while ((c = *cp->regparse) != LIT('\0') && c != LIT('|') && c != LIT(')')) {
-		latest = regpiece(cp, &flags, errp);
-		if (latest == NULL)
-			return(NULL);
-		*flagp |= flags&HASWIDTH;
-		if (chain == NULL)		/* First piece. */
-			*flagp |= flags&SPSTART;
-		else
-			regtail(cp, chain, latest);
-		chain = latest;
-	}
-	if (chain == NULL)			/* Loop ran zero times. */
-		(void) regnode(cp, NOTHING);
+  ret = regnode(cp, BRANCH);
+  chain = NULL;
+  while ((c = *cp->regparse) != LIT('\0') && c != LIT('|') && c != LIT(')')) {
+    latest = regpiece(cp, &flags, errp);
+    if (latest == NULL)
+      return(NULL);
+    *flagp |= flags&HASWIDTH;
+    if (chain == NULL)    /* First piece. */
+      *flagp |= flags&SPSTART;
+    else
+      regtail(cp, chain, latest);
+    chain = latest;
+  }
+  if (chain == NULL)      /* Loop ran zero times. */
+    (void) regnode(cp, NOTHING);
 
-	return(ret);
+  return(ret);
 }
 
 /*
@@ -522,60 +523,60 @@ regbranch(struct comp* cp, int* flagp, int* errp)
  */
 static wchar *regpiece(struct comp* cp, int* flagp, int* errp)
 {
-	register wchar *ret;
-	register wchar op;
-	register wchar *next;
-	int flags;
+  register wchar *ret;
+  register wchar op;
+  register wchar *next;
+  int flags;
 
-	ret = regatom(cp, &flags, errp);
-	if (ret == NULL)
-		return(NULL);
+  ret = regatom(cp, &flags, errp);
+  if (ret == NULL)
+    return(NULL);
 
-	op = *cp->regparse;
-	if (!ISREPN(op)) {
-		*flagp = flags;
-		return(ret);
-	}
+  op = *cp->regparse;
+  if (!ISREPN(op)) {
+    *flagp = flags;
+    return(ret);
+  }
 
-	if (!(flags&HASWIDTH) && op != LIT('?'))
-		FAIL2("*+ operand could be empty", REGEXP_BADRPT);
-	switch (op) {
-	case LIT('*'):	*flagp = WORST|SPSTART;			break;
-	case LIT('+'):	*flagp = WORST|SPSTART|HASWIDTH;	break;
-	case LIT('?'):	*flagp = WORST;				break;
-	}
+  if (!(flags&HASWIDTH) && op != LIT('?'))
+    FAIL2("*+ operand could be empty", REGEXP_BADRPT);
+  switch (op) {
+  case LIT('*'):  *flagp = WORST|SPSTART;     break;
+  case LIT('+'):  *flagp = WORST|SPSTART|HASWIDTH;  break;
+  case LIT('?'):  *flagp = WORST;       break;
+  }
 
-	if (op == LIT('*') && (flags&SIMPLE))
-		reginsert(cp, STAR, ret);
-	else if (op == LIT('*')) {
-		/* Emit x* as (x&|), where & means "self". */
-		reginsert(cp, BRANCH, ret);		/* Either x */
-		regoptail(cp, ret, regnode(cp, BACK));	/* and loop */
-		regoptail(cp, ret, ret);		/* back */
-		regtail(cp, ret, regnode(cp, BRANCH));	/* or */
-		regtail(cp, ret, regnode(cp, NOTHING));	/* null. */
-	} else if (op == LIT('+') && (flags&SIMPLE))
-		reginsert(cp, PLUS, ret);
-	else if (op == LIT('+')) {
-		/* Emit x+ as x(&|), where & means "self". */
-		next = regnode(cp, BRANCH);		/* Either */
-		regtail(cp, ret, next);
-		regtail(cp, regnode(cp, BACK), ret);	/* loop back */
-		regtail(cp, next, regnode(cp, BRANCH));	/* or */
-		regtail(cp, ret, regnode(cp, NOTHING));	/* null. */
-	} else if (op == LIT('?')) {
-		/* Emit x? as (x|) */
-		reginsert(cp, BRANCH, ret);		/* Either x */
-		regtail(cp, ret, regnode(cp, BRANCH));	/* or */
-		next = regnode(cp, NOTHING);		/* null. */
-		regtail(cp, ret, next);
-		regoptail(cp, ret, next);
-	}
-	cp->regparse++;
-	if (ISREPN(*cp->regparse))
-		FAIL2("nested *?+", REGEXP_BADRPT);
+  if (op == LIT('*') && (flags&SIMPLE))
+    reginsert(cp, STAR, ret);
+  else if (op == LIT('*')) {
+    /* Emit x* as (x&|), where & means "self". */
+    reginsert(cp, BRANCH, ret);   /* Either x */
+    regoptail(cp, ret, regnode(cp, BACK));  /* and loop */
+    regoptail(cp, ret, ret);    /* back */
+    regtail(cp, ret, regnode(cp, BRANCH));  /* or */
+    regtail(cp, ret, regnode(cp, NOTHING)); /* null. */
+  } else if (op == LIT('+') && (flags&SIMPLE))
+    reginsert(cp, PLUS, ret);
+  else if (op == LIT('+')) {
+    /* Emit x+ as x(&|), where & means "self". */
+    next = regnode(cp, BRANCH);   /* Either */
+    regtail(cp, ret, next);
+    regtail(cp, regnode(cp, BACK), ret);  /* loop back */
+    regtail(cp, next, regnode(cp, BRANCH)); /* or */
+    regtail(cp, ret, regnode(cp, NOTHING)); /* null. */
+  } else if (op == LIT('?')) {
+    /* Emit x? as (x|) */
+    reginsert(cp, BRANCH, ret);   /* Either x */
+    regtail(cp, ret, regnode(cp, BRANCH));  /* or */
+    next = regnode(cp, NOTHING);    /* null. */
+    regtail(cp, ret, next);
+    regoptail(cp, ret, next);
+  }
+  cp->regparse++;
+  if (ISREPN(*cp->regparse))
+    FAIL2("nested *?+", REGEXP_BADRPT);
 
-	return(ret);
+  return(ret);
 }
 
 /*
@@ -588,77 +589,77 @@ static wchar *regpiece(struct comp* cp, int* flagp, int* errp)
  */
 static wchar *regatom(struct comp* cp, int* flagp, int* errp)
 {
-	register wchar *ret;
-	int flags;
+  register wchar *ret;
+  int flags;
 
-	*flagp = WORST;		/* Tentatively. */
+  *flagp = WORST;   /* Tentatively. */
 
-	switch (*cp->regparse++) {
-	case LIT('^'):
-		ret = regnode(cp, BOL);
-		break;
-	case LIT('$'):
-		ret = regnode(cp, EOL);
-		break;
-	case LIT('.'):
-		ret = regnode(cp, ANY);
-		*flagp |= HASWIDTH|SIMPLE;
-		break;
-	case LIT('['): {
-		register int range;
-		register int rangeend;
-		register int c;
+  switch (*cp->regparse++) {
+  case LIT('^'):
+    ret = regnode(cp, BOL);
+    break;
+  case LIT('$'):
+    ret = regnode(cp, EOL);
+    break;
+  case LIT('.'):
+    ret = regnode(cp, ANY);
+    *flagp |= HASWIDTH|SIMPLE;
+    break;
+  case LIT('['): {
+    register int range;
+    register int rangeend;
+    register int c;
 
-		if (*cp->regparse == LIT('^')) {	/* Complement of range. */
-			ret = regnode(cp, ANYBUT);
-			cp->regparse++;
-		} else
-			ret = regnode(cp, ANYOF);
-		if ((c = *cp->regparse) == LIT(']') || c == LIT('-')) {
-			regc(cp, c);
-			cp->regparse++;
-		}
-		while ((c = *cp->regparse++) != LIT('\0') && c != LIT(']')) {
-			if (c != LIT('-'))
-				regc(cp, c);
-			else if ((c = *cp->regparse) == LIT(']') || c == LIT('\0'))
-				regc(cp, LIT('-'));
-			else {
-				range = (UCHAR_TYPE)*(cp->regparse-2);
-				rangeend = (UCHAR_TYPE)c;
-				if (range > rangeend)
-					FAIL2("invalid [] range", REGEXP_ERANGE);
-				for (range++; range <= rangeend; range++)
-					regc(cp, range);
-				cp->regparse++;
-			}
-		}
-		regc(cp, LIT('\0'));
-		if (c != LIT(']'))
-			FAIL2("unmatched []", REGEXP_EBRACK);
-		*flagp |= HASWIDTH|SIMPLE;
-		break;
-		}
-	case LIT('('):
-		ret = reg(cp, 1, &flags, errp);
-		if (ret == NULL)
-			return(NULL);
-		*flagp |= flags&(HASWIDTH|SPSTART);
-		break;
-	case LIT('\0'):
-	case LIT('|'):
-	case LIT(')'):
-		/* supposed to be caught earlier */
-		FAIL2("internal error: \\0|) unexpected", REGEXP_EEND);
-		break;
-	case LIT('?'):
-	case LIT('+'):
-	case LIT('*'):
-		FAIL2("?+* follows nothing", REGEXP_BADRPT);
-		break;
-	case LIT('\\'):
-		if (*cp->regparse == LIT('\0'))
-			FAIL2("trailing \\", REGEXP_EESCAPE);
+    if (*cp->regparse == LIT('^')) {  /* Complement of range. */
+      ret = regnode(cp, ANYBUT);
+      cp->regparse++;
+    } else
+      ret = regnode(cp, ANYOF);
+    if ((c = *cp->regparse) == LIT(']') || c == LIT('-')) {
+      regc(cp, c);
+      cp->regparse++;
+    }
+    while ((c = *cp->regparse++) != LIT('\0') && c != LIT(']')) {
+      if (c != LIT('-'))
+        regc(cp, c);
+      else if ((c = *cp->regparse) == LIT(']') || c == LIT('\0'))
+        regc(cp, LIT('-'));
+      else {
+        range = (UCHAR_TYPE)*(cp->regparse-2);
+        rangeend = (UCHAR_TYPE)c;
+        if (range > rangeend)
+          FAIL2("invalid [] range", REGEXP_ERANGE);
+        for (range++; range <= rangeend; range++)
+          regc(cp, range);
+        cp->regparse++;
+      }
+    }
+    regc(cp, LIT('\0'));
+    if (c != LIT(']'))
+      FAIL2("unmatched []", REGEXP_EBRACK);
+    *flagp |= HASWIDTH|SIMPLE;
+    break;
+    }
+  case LIT('('):
+    ret = reg(cp, 1, &flags, errp);
+    if (ret == NULL)
+      return(NULL);
+    *flagp |= flags&(HASWIDTH|SPSTART);
+    break;
+  case LIT('\0'):
+  case LIT('|'):
+  case LIT(')'):
+    /* supposed to be caught earlier */
+    FAIL2("internal error: \\0|) unexpected", REGEXP_EEND);
+    break;
+  case LIT('?'):
+  case LIT('+'):
+  case LIT('*'):
+    FAIL2("?+* follows nothing", REGEXP_BADRPT);
+    break;
+  case LIT('\\'):
+    if (*cp->regparse == LIT('\0'))
+      FAIL2("trailing \\", REGEXP_EESCAPE);
         /* check for match in char class */
         {
             const wchar* c;
@@ -691,30 +692,30 @@ static wchar *regatom(struct comp* cp, int* flagp, int* errp)
             cp->regparse++;
             *flagp |= HASWIDTH|SIMPLE;
         }
-		break;
-	default: {
-		register size_t len;
-		register wchar ender;
+    break;
+  default: {
+    register size_t len;
+    register wchar ender;
 
-		cp->regparse--;
-		len = cstrcspn(cp->regparse, META);
-		if (len == 0)
-			FAIL2("internal error: strcspn 0", REGEXP_EEND);
-		ender = *(cp->regparse+len);
-		if (len > 1 && ISREPN(ender))
-			len--;		/* Back off clear of ?+* operand. */
-		*flagp |= HASWIDTH;
-		if (len == 1)
-			*flagp |= SIMPLE;
-		ret = regnode(cp, EXACTLY);
-		for (; len > 0; len--)
-			regc(cp, *cp->regparse++);
-		regc(cp, LIT('\0'));
-		break;
-		}
-	}
+    cp->regparse--;
+    len = cstrcspn(cp->regparse, META);
+    if (len == 0)
+      FAIL2("internal error: strcspn 0", REGEXP_EEND);
+    ender = *(cp->regparse+len);
+    if (len > 1 && ISREPN(ender))
+      len--;    /* Back off clear of ?+* operand. */
+    *flagp |= HASWIDTH;
+    if (len == 1)
+      *flagp |= SIMPLE;
+    ret = regnode(cp, EXACTLY);
+    for (; len > 0; len--)
+      regc(cp, *cp->regparse++);
+    regc(cp, LIT('\0'));
+    break;
+    }
+  }
 
-	return(ret);
+  return(ret);
 }
 
 /*
@@ -722,21 +723,21 @@ static wchar *regatom(struct comp* cp, int* flagp, int* errp)
  */
 static wchar *regnode(struct comp* cp, int op)
 {
-	register wchar *const ret = cp->regcode;
-	register wchar *ptr;
+  register wchar *const ret = cp->regcode;
+  register wchar *ptr;
 
-	if (!EMITTING(cp)) {
-		cp->regsize += 3;
-		return(ret);
-	}
+  if (!EMITTING(cp)) {
+    cp->regsize += 3;
+    return(ret);
+  }
 
-	ptr = ret;
-	*ptr++ = op;
-	*ptr++ = LIT('\0');		/* Null next pointer. */
-	*ptr++ = LIT('\0');
-	cp->regcode = ptr;
+  ptr = ret;
+  *ptr++ = op;
+  *ptr++ = LIT('\0');   /* Null next pointer. */
+  *ptr++ = LIT('\0');
+  cp->regcode = ptr;
 
-	return(ret);
+  return(ret);
 }
 
 /*
@@ -744,10 +745,10 @@ static wchar *regnode(struct comp* cp, int op)
  */
 static void regc(struct comp* cp, int b)
 {
-	if (EMITTING(cp))
-		*cp->regcode++ = b;
-	else
-		cp->regsize++;
+  if (EMITTING(cp))
+    *cp->regcode++ = b;
+  else
+    cp->regsize++;
 }
 
 /*
@@ -757,20 +758,20 @@ static void regc(struct comp* cp, int b)
  */
 static void reginsert(struct comp* cp, int op, wchar* opnd)
 {
-	register wchar *place;
+  register wchar *place;
 
-	if (!EMITTING(cp)) {
-		cp->regsize += 3;
-		return;
-	}
+  if (!EMITTING(cp)) {
+    cp->regsize += 3;
+    return;
+  }
 
-	(void) memmove(opnd+3, opnd, (size_t)(cp->regcode - opnd) * sizeof(wchar));
-	cp->regcode += 3;
+  (void) memmove(opnd+3, opnd, (size_t)(cp->regcode - opnd) * sizeof(wchar));
+  cp->regcode += 3;
 
-	place = opnd;		/* Op node, where operand used to be. */
-	*place++ = op;
-	*place++ = LIT('\0');
-	*place++ = LIT('\0');
+  place = opnd;   /* Op node, where operand used to be. */
+  *place++ = op;
+  *place++ = LIT('\0');
+  *place++ = LIT('\0');
 }
 
 /*
@@ -778,20 +779,20 @@ static void reginsert(struct comp* cp, int op, wchar* opnd)
  */
 static void regtail(struct comp* cp, wchar* p, wchar* val)
 {
-	register wchar *scan;
-	register wchar *temp;
-	register int offset;
+  register wchar *scan;
+  register wchar *temp;
+  register int offset;
 
-	if (!EMITTING(cp))
-		return;
+  if (!EMITTING(cp))
+    return;
 
-	/* Find last node. */
-	for (scan = p; (temp = regnext(scan)) != NULL; scan = temp)
-		continue;
+  /* Find last node. */
+  for (scan = p; (temp = regnext(scan)) != NULL; scan = temp)
+    continue;
 
-	offset = (OP(scan) == BACK) ? scan - val : val - scan;
-	*(scan+1) = (offset>>8)&0177;
-	*(scan+2) = offset&0377;
+  offset = (OP(scan) == BACK) ? scan - val : val - scan;
+  *(scan+1) = (offset>>8)&0177;
+  *(scan+2) = offset&0377;
 }
 
 /*
@@ -799,10 +800,10 @@ static void regtail(struct comp* cp, wchar* p, wchar* val)
  */
 static void regoptail(struct comp* cp, wchar* p, wchar* val)
 {
-	/* "Operandless" and "op != BRANCH" are synonymous in practice. */
-	if (!EMITTING(cp) || OP(p) != BRANCH)
-		return;
-	regtail(cp, OPERAND(p), val);
+  /* "Operandless" and "op != BRANCH" are synonymous in practice. */
+  if (!EMITTING(cp) || OP(p) != BRANCH)
+    return;
+  regtail(cp, OPERAND(p), val);
 }
 
 
@@ -814,8 +815,8 @@ static void regoptail(struct comp* cp, wchar* p, wchar* val)
  * Work-variable struct for regexec().
  */
 struct exec {
-	wchar *reginput;		/* String-input pointer. */
-	wchar *regbol;		/* Beginning of input, for ^ check. */
+  wchar *reginput;    /* String-input pointer. */
+  wchar *regbol;    /* Beginning of input, for ^ check. */
   regmatch_w* regmatchp;        /* match input/output array */
   int   regnsubexp;           /* number of elements in array */
 };
@@ -833,49 +834,49 @@ static size_t regrepeat(struct exec *ep, wchar *node);
 int
 re_exec_w(const regexp_w* rp, const wchar* str, size_t nmatch, regmatch_w pmatch[])
 {
-	register wchar *string = (wchar *)str;	/* avert const poisoning */
-	register wchar *s;
-	struct exec ex;
+  register wchar *string = (wchar *)str;  /* avert const poisoning */
+  register wchar *s;
+  struct exec ex;
 
-	/* Be paranoid. */
-	if (rp == NULL || string == NULL) {
-		FAIL("NULL argument to regexec", REGEXP_BADARG);
-	}
+  /* Be paranoid. */
+  if (rp == NULL || string == NULL) {
+    FAIL("NULL argument to regexec", REGEXP_BADARG);
+  }
 
-	/* Check validity of program. */
-	if ((UCHAR_TYPE)*rp->program != MAGIC) {
+  /* Check validity of program. */
+  if ((UCHAR_TYPE)*rp->program != MAGIC) {
         FAIL("corrupted regexp", REGEXP_BADARG);
-	}
+  }
 
-	/* If there is a "must appear" string, look for it. */
-	if (rp->regmust != NULL && cstrstr(string, rp->regmust) == NULL)
-		return(0);
+  /* If there is a "must appear" string, look for it. */
+  if (rp->regmust != NULL && cstrstr(string, rp->regmust) == NULL)
+    return(0);
 
-	/* Mark beginning of line for ^ . */
-	ex.regbol = string;
-	ex.regmatchp = pmatch;
+  /* Mark beginning of line for ^ . */
+  ex.regbol = string;
+  ex.regmatchp = pmatch;
     ex.regnsubexp = nmatch;
         
-	/* Simplest case:  anchored match need be tried only once. */
-	if (rp->reganch)
-		return(regtry(&ex, rp, string, 0));
+  /* Simplest case:  anchored match need be tried only once. */
+  if (rp->reganch)
+    return(regtry(&ex, rp, string, 0));
 
-	/* Messy cases:  unanchored match. */
-	if (rp->regstart != LIT('\0')) {
-		/* We know what char it must start with. */
-		for (s = string; s != NULL; s = cstrchr(s+1, rp->regstart))
-			if (regtry(&ex, rp, s, s - string) > 0)
-				return(1);
-		return(0);
-	} else {
+  /* Messy cases:  unanchored match. */
+  if (rp->regstart != LIT('\0')) {
+    /* We know what char it must start with. */
+    for (s = string; s != NULL; s = cstrchr(s+1, rp->regstart))
+      if (regtry(&ex, rp, s, s - string) > 0)
+        return(1);
+    return(0);
+  } else {
         int error = 1;
-		/* We don't -- general case. */
-		for (s = string; (error = regtry(&ex, rp, s, s - string)) == 0; s++)
-			if (*s == LIT('\0'))
-				return(0);        
-		return(error);
-	}
-	/* NOTREACHED */
+    /* We don't -- general case. */
+    for (s = string; (error = regtry(&ex, rp, s, s - string)) == 0; s++)
+      if (*s == LIT('\0'))
+        return(0);        
+    return(error);
+  }
+  /* NOTREACHED */
 }
 
 /*
@@ -883,10 +884,13 @@ re_exec_w(const regexp_w* rp, const wchar* str, size_t nmatch, regmatch_w pmatch
  */
 static int regtry(struct exec* ep, const regexp_w* prog, wchar* string, int offset)
 {
-	register regmatch_w *stp;
+  register regmatch_w *stp;
     int error;
 
-	ep->reginput = string;
+  if( *string == 0 )
+    return 0;
+
+  ep->reginput = string;
 
     /* Prefill match array */
     if(ep->regmatchp)
@@ -897,15 +901,15 @@ static int regtry(struct exec* ep, const regexp_w* prog, wchar* string, int offs
             stp->end = -1;
         }
     }
-	if ((error = regmatch_(ep, (wchar*)prog->program + 1)) > 0) {
+  if ((error = regmatch_(ep, (wchar*)prog->program + 1)) > 0) {
         if(ep->regmatchp && ep->regnsubexp >= 1)
         {
             ep->regmatchp[0].begin = offset;
             ep->regmatchp[0].end   = offset + ep->reginput - string;
         }
         return(1);
-	} else
-		return(error);
+  } else
+    return(error);
 }
 
 /*
@@ -920,21 +924,21 @@ static int regtry(struct exec* ep, const regexp_w* prog, wchar* string, int offs
  */
 static int regmatch_(struct exec* ep, wchar* prog)
 {
-	register wchar *scan;	/* Current node. */
-	wchar *next;		/* Next node. */
+  register wchar *scan; /* Current node. */
+  wchar *next;    /* Next node. */
 
-	for (scan = prog; scan != NULL; scan = next) {
-		next = regnext(scan);
+  for (scan = prog; scan != NULL; scan = next) {
+    next = regnext(scan);
 
-		switch (OP(scan)) {
-		case BOL:
-			if (ep->reginput != ep->regbol)
-				return(0);
-			break;
-		case EOL:
-			if (*ep->reginput != LIT('\0'))
-				return(0);
-			break;
+    switch (OP(scan)) {
+    case BOL:
+      if (ep->reginput != ep->regbol)
+        return(0);
+      break;
+    case EOL:
+      if (*ep->reginput != LIT('\0'))
+        return(0);
+      break;
         case WORDA:
             /* must be in the word char class */
             if (!isword_f(*ep->reginput))
@@ -954,24 +958,24 @@ static int regmatch_(struct exec* ep, wchar* prog)
             /* NOTE: no increment--first match is "pushed back"
              * (actually, never consumed) */
             break;
-		case ANY:
-			if (*ep->reginput == LIT('\0'))
-				return(0);
-			ep->reginput++;
-			break;
-		case EXACTLY: {
-			register size_t len;
-			register wchar *const opnd = OPERAND(scan);
+    case ANY:
+      if (*ep->reginput == LIT('\0'))
+        return(0);
+      ep->reginput++;
+      break;
+    case EXACTLY: {
+      register size_t len;
+      register wchar *const opnd = OPERAND(scan);
 
-			/* Inline the first character, for speed. */
-			if (*opnd != *ep->reginput)
-				return(0);
-			len = cstrlen(opnd);
-			if (len > 1 && cstrncmp(opnd, ep->reginput, len) != 0)
-				return(0);
-			ep->reginput += len;
-			break;
-			}
+      /* Inline the first character, for speed. */
+      if (*opnd != *ep->reginput)
+        return(0);
+      len = cstrlen(opnd);
+      if (len > 1 && cstrncmp(opnd, ep->reginput, len) != 0)
+        return(0);
+      ep->reginput += len;
+      break;
+      }
         case CCLASS: {
             int opnd = *OPERAND(scan);
             if( opnd >= 0)
@@ -989,59 +993,59 @@ static int regmatch_(struct exec* ep, wchar* prog)
             ep->reginput++;
             break;
             }
-		case ANYOF:
-			if (*ep->reginput == LIT('\0') ||
-					cstrchr(OPERAND(scan), *ep->reginput) == NULL)
-				return(0);
-			ep->reginput++;
-			break;
-		case ANYBUT:
-			if (*ep->reginput == LIT('\0') ||
-					cstrchr(OPERAND(scan), *ep->reginput) != NULL)
-				return(0);
-			ep->reginput++;
-			break;
-		case NOTHING:
-			break;
-		case BACK:
-			break;
-		case BRANCH: {
-			register wchar *const save = ep->reginput;
+    case ANYOF:
+      if (*ep->reginput == LIT('\0') ||
+          cstrchr(OPERAND(scan), *ep->reginput) == NULL)
+        return(0);
+      ep->reginput++;
+      break;
+    case ANYBUT:
+      if (*ep->reginput == LIT('\0') ||
+          cstrchr(OPERAND(scan), *ep->reginput) != NULL)
+        return(0);
+      ep->reginput++;
+      break;
+    case NOTHING:
+      break;
+    case BACK:
+      break;
+    case BRANCH: {
+      register wchar *const save = ep->reginput;
 
-			if (OP(next) != BRANCH)		/* No choice. */
-				next = OPERAND(scan);	/* Avoid recursion. */
-			else {
-				while (OP(scan) == BRANCH) {
-					if (regmatch_(ep, OPERAND(scan)) > 0)
-						return(1);
-					ep->reginput = save;
-					scan = regnext(scan);
-				}
-				return(0);
-				/* NOTREACHED */
-			}
-			break;
-			}
-		case STAR: case PLUS: {
-			register const wchar nextch =
-				(OP(next) == EXACTLY) ? *OPERAND(next) : LIT('\0');
-			register size_t no;
-			register wchar *const save = ep->reginput;
-			register const size_t min = (OP(scan) == STAR) ? 0 : 1;
+      if (OP(next) != BRANCH)   /* No choice. */
+        next = OPERAND(scan); /* Avoid recursion. */
+      else {
+        while (OP(scan) == BRANCH) {
+          if (regmatch_(ep, OPERAND(scan)) > 0)
+            return(1);
+          ep->reginput = save;
+          scan = regnext(scan);
+        }
+        return(0);
+        /* NOTREACHED */
+      }
+      break;
+      }
+    case STAR: case PLUS: {
+      register const wchar nextch =
+        (OP(next) == EXACTLY) ? *OPERAND(next) : LIT('\0');
+      register size_t no;
+      register wchar *const save = ep->reginput;
+      register const size_t min = (OP(scan) == STAR) ? 0 : 1;
 
-			for (no = regrepeat(ep, OPERAND(scan)) + 1; no > min; no--) {
-				ep->reginput = save + no - 1;
-				/* If it could work, try it. */
-				if (nextch == LIT('\0') || *ep->reginput == nextch)
-					if (regmatch_(ep, next) > 0)
-						return(1);
-			}
-			return(0);
-			break;
-			}
-		case END:
-			return(1);	/* Success! */
-			break;
+      for (no = regrepeat(ep, OPERAND(scan)) + 1; no > min; no--) {
+        ep->reginput = save + no - 1;
+        /* If it could work, try it. */
+        if (nextch == LIT('\0') || *ep->reginput == nextch)
+          if (regmatch_(ep, next) > 0)
+            return(1);
+      }
+      return(0);
+      break;
+      }
+    case END:
+      return(1);  /* Success! */
+      break;
 
         case OPEN+1: case OPEN+2: case OPEN+3:
         case OPEN+4: case OPEN+5: case OPEN+6:
@@ -1127,17 +1131,17 @@ static int regmatch_(struct exec* ep, wchar* prog)
             break;
             }
             
-		default:
-			FAIL("regexp corruption", REGEXP_EEND);
-			break;
-		}
-	}
+    default:
+      FAIL("regexp corruption", REGEXP_EEND);
+      break;
+    }
+  }
 
-	/*
-	 * We get here only if there's trouble -- normally "case END" is
-	 * the terminating point.
-	 */
-	FAIL("corrupted pointers", REGEXP_EEND);
+  /*
+   * We get here only if there's trouble -- normally "case END" is
+   * the terminating point.
+   */
+  FAIL("corrupted pointers", REGEXP_EEND);
 }
 
 /*
@@ -1145,21 +1149,21 @@ static int regmatch_(struct exec* ep, wchar* prog)
  */
 static size_t regrepeat(struct exec* ep, wchar* node)
 {
-	register size_t count;
-	register wchar *scan;
-	register wchar ch;
+  register size_t count;
+  register wchar *scan;
+  register wchar ch;
 
-	switch (OP(node)) {
-	case ANY:
-		return(cstrlen(ep->reginput));
-		break;
-	case EXACTLY:
-		ch = *OPERAND(node);
-		count = 0;
-		for (scan = ep->reginput; *scan == ch; scan++)
-			count++;
-		return(count);
-		break;
+  switch (OP(node)) {
+  case ANY:
+    return(cstrlen(ep->reginput));
+    break;
+  case EXACTLY:
+    ch = *OPERAND(node);
+    count = 0;
+    for (scan = ep->reginput; *scan == ch; scan++)
+      count++;
+    return(count);
+    break;
     case CCLASS:
         {
             int ich = (signed char)*OPERAND(node);
@@ -1171,25 +1175,25 @@ static size_t regrepeat(struct exec* ep, wchar* node)
         }
         else
         {
-                ich = -ich + 1;
+                ich = (-ich)-1;
                 for (scan = ep->reginput; !(*class_table_f[ich])(*scan); scan++)
                 count++;
         }
         }
         return(count);
         break;
-	case ANYOF:
-		return(cstrspn(ep->reginput, OPERAND(node)));
-		break;
-	case ANYBUT:
-		return(cstrcspn(ep->reginput, OPERAND(node)));
-		break;
-	default:		/* Oh dear.  Called inappropriately. */
-		re_report("internal error: bad call of regrepeat");
-		return(0);	/* Best compromise. */
-		break;
-	}
-	/* NOTREACHED */
+  case ANYOF:
+    return(cstrspn(ep->reginput, OPERAND(node)));
+    break;
+  case ANYBUT:
+    return(cstrcspn(ep->reginput, OPERAND(node)));
+    break;
+  default:    /* Oh dear.  Called inappropriately. */
+    re_report("internal error: bad call of regrepeat");
+    return(0);  /* Best compromise. */
+    break;
+  }
+  /* NOTREACHED */
 }
 
 /*
@@ -1197,12 +1201,12 @@ static size_t regrepeat(struct exec* ep, wchar* node)
  */
 static wchar *regnext(wchar* p)
 {
-	register const int offset = NEXT(p);
+  register const int offset = NEXT(p);
 
-	if (offset == 0)
-		return(NULL);
+  if (offset == 0)
+    return(NULL);
 
-	return((OP(p) == BACK) ? p-offset : p+offset);
+  return((OP(p) == BACK) ? p-offset : p+offset);
 }
 
 /*
@@ -1210,13 +1214,13 @@ static wchar *regnext(wchar* p)
  */
 int re_nsubexp(const regexp_w* rp)
 {
-	/* Be paranoid. */
-	if (rp == NULL)
-		FAIL("NULL argument to re_nsubexp", REGEXP_BADARG);
+  /* Be paranoid. */
+  if (rp == NULL)
+    FAIL("NULL argument to re_nsubexp", REGEXP_BADARG);
 
-	/* Check validity of program. */
-	if ((UCHAR_TYPE)*rp->program != MAGIC)
-		FAIL("corrupted regexp", REGEXP_BADARG);
+  /* Check validity of program. */
+  if ((UCHAR_TYPE)*rp->program != MAGIC)
+    FAIL("corrupted regexp", REGEXP_BADARG);
 
     return rp->regnsubexp;
 }
@@ -1244,23 +1248,23 @@ static int internal_sub(const wchar* s, const wchar* source, regmatch_w matches[
     register wchar* dst = dest;
     register wchar c;
     
-	while ((c = *src++) != LIT('\0')) {
-		if (c == LIT('&'))
-			no = 0;
-		else if (c == LIT('\\') && cisdigit(*src))
-			no = *src++ - LIT('0');
-		else
-			no = -1;
+  while ((c = *src++) != LIT('\0')) {
+    if (c == LIT('&'))
+      no = 0;
+    else if (c == LIT('\\') && cisdigit(*src))
+      no = *src++ - LIT('0');
+    else
+      no = -1;
 
-		if (no < 0) {	/* Ordinary character. */
-			if (c == LIT('\\') && (*src == LIT('\\') || *src == LIT('&')))
-				c = *src++;
+    if (no < 0) { /* Ordinary character. */
+      if (c == LIT('\\') && (*src == LIT('\\') || *src == LIT('&')))
+        c = *src++;
             ++length;
             if(dst)
                 *dst++ = c;
         } else if (matches[no].begin != -1 && matches[no].end != -1 &&
                    matches[no].end > matches[no].begin) {
-			len = matches[no].end - matches[no].begin;
+      len = matches[no].end - matches[no].begin;
             length += len;
             if(dst)
             {
@@ -1269,8 +1273,8 @@ static int internal_sub(const wchar* s, const wchar* source, regmatch_w matches[
                 if(*(dst - 1) == LIT('\0'))
                     return REGEXP_EEND;
             }
-		}
-	}
+    }
+  }
     if(dst)
     {
         *dst++ = LIT('\0');
@@ -1284,14 +1288,14 @@ int re_subcount_w(const regexp_w* rp, const wchar* s, const wchar* src, regmatch
 {
     register int error;
     
-	if (rp == NULL || src == NULL || s == NULL || matches == NULL) {
-		re_report("NULL parameter to regsub");
-		return REGEXP_BADARG;
-	}
-	if ((UCHAR_TYPE)*(rp->program) != MAGIC) {
-		re_report("damaged regexp");
-		return REGEXP_BADARG;
-	}
+  if (rp == NULL || src == NULL || s == NULL || matches == NULL) {
+    re_report("NULL parameter to regsub");
+    return REGEXP_BADARG;
+  }
+  if ((UCHAR_TYPE)*(rp->program) != MAGIC) {
+    re_report("damaged regexp");
+    return REGEXP_BADARG;
+  }
     
     if ((error = re_exec_w(rp, s, 10, matches)) < 1)
         return error;
@@ -1302,10 +1306,10 @@ int re_subcount_w(const regexp_w* rp, const wchar* s, const wchar* src, regmatch
 
 int re_dosub_w(const wchar* s, const wchar* src, regmatch_w matches[10], wchar* dest)
 {
-	if (src == NULL || s == NULL || matches == NULL || dest == NULL) {
-		re_report("NULL parameter to regsub");
-		return REGEXP_BADARG;
-	}
+  if (src == NULL || s == NULL || matches == NULL || dest == NULL) {
+    re_report("NULL parameter to regsub");
+    return REGEXP_BADARG;
+  }
 
     return internal_sub(s, src, matches, dest);
 }
@@ -1321,14 +1325,14 @@ int re_sub_w(const regexp_w* rp, const wchar* s, const wchar* source, wchar** de
 
     if(dest)
         *dest = NULL;
-	if (rp == NULL || source == NULL || s == NULL || dest == NULL) {
-		re_report("NULL parameter to regsub");
-		return REGEXP_BADARG;
-	}
-	if ((UCHAR_TYPE)*(rp->program) != MAGIC) {
-		re_report("damaged regexp");
-		return REGEXP_BADARG;
-	}
+  if (rp == NULL || source == NULL || s == NULL || dest == NULL) {
+    re_report("NULL parameter to regsub");
+    return REGEXP_BADARG;
+  }
+  if ((UCHAR_TYPE)*(rp->program) != MAGIC) {
+    re_report("damaged regexp");
+    return REGEXP_BADARG;
+  }
     /* figure out how much room is needed */
     if((error = re_subcount_w(rp, s, source, matches)) < 1)
         return error;
@@ -1451,8 +1455,13 @@ namespace tool
   {
       m_test = sMatch;
       tool::ustring tst = m_test;   
+      tool::ustring cvt;   
       if(m_ignorecase)
-        tst.to_lower();
+      {
+        cvt = m_test;
+        cvt.to_lower();
+        tst = cvt;
+      }
 
       m_result.size(0);
 
@@ -1521,20 +1530,15 @@ namespace tool
       return m_test.substr(rmMatch.begin, rmMatch.end - rmMatch.begin);
   }
 
-  tool::wchars wregexp::get_n_match(int matchNo) const
+  regmatch_w wregexp::get_n_match(int matchNo) const
   {
       if(matchNo >= m_result.size())
-          return tool::wchars();
-
-      regmatch_w rmMatch = m_result[matchNo];
-      
-      if(rmMatch.begin == -1 || rmMatch.end == -1)
-          return tool::wchars();
-
-      return tool::wchars( ((const wchar*)m_test) + rmMatch.begin, ((const wchar*)m_test) + rmMatch.end);
+      {
+          regmatch_w rm; rm.begin = rm.end = -1;
+          return rm;
+      }
+      return m_result[matchNo];
   }
-
-
 
   int wregexp::get_number_of_matches() const
   {

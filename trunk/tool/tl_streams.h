@@ -40,7 +40,7 @@ namespace tool
   {
     array<T>& at;
     mem_stream_o(array<T>& buf): at(buf) {}
-
+    using stream_o<T>::put;
     virtual bool put(const T* buf, uint buflen) { at.push(buf,buflen); return true; }
   };
 
@@ -50,6 +50,8 @@ namespace tool
     slice<T> it;
     uint     pos;
     mem_stream_i(slice<T> buf): it(buf) {}
+    
+    using stream_i<T>::get;
 
     virtual uint get(T* buf, uint buflen )
     {
@@ -81,6 +83,7 @@ namespace tool
     {
       close();
     }
+    using stream_o<T>::put;
     virtual bool put(const T* buf, uint buflen)
     {
       if(!fh) return false;
@@ -105,6 +108,7 @@ namespace tool
     bool is_open() { return fh != 0; }
     void close() { if(fh) fclose(fh); fh = 0; }
 
+    using stream_i<T>::get;
     virtual uint get(T* buf, uint buflen )
     {
       if( feof(fh) ) return 0;

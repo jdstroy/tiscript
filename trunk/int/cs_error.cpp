@@ -25,32 +25,32 @@ typedef struct {
 } ErrString;
 
 static ErrString errStrings[] = {
-{       CsErrExit,                 "Exit"									},
-{       CsErrInsufficientMemory,   "Insufficient memory"	},
-{       CsErrStackOverflow,        "Stack overflow"				},
-{       CsErrTooManyArguments,     "Too many arguments - %V"				},
-{       CsErrTooFewArguments,      "Too few arguments - %V"				},
-{       CsErrTypeError,            "Wrong type - (%V)"						},
-{       CsErrUnexpectedTypeError,  "Wrong type - (%V), expected %s"		},
-{       CsErrUnboundVariable,      "Variable not found - %V"				    },
-{       CsErrIndexOutOfBounds,     "Index out of bounds - %V"				},
+{       CsErrExit,                 "Exit"                 },
+{       CsErrInsufficientMemory,   "Insufficient memory"  },
+{       CsErrStackOverflow,        "Stack overflow"       },
+{       CsErrTooManyArguments,     "Too many arguments - %V"        },
+{       CsErrTooFewArguments,      "Too few arguments - %V"       },
+{       CsErrTypeError,            "Wrong type - (%V)"            },
+{       CsErrUnexpectedTypeError,  "Wrong type - (%V), expected %s"   },
+{       CsErrUnboundVariable,      "Variable not found - %V"            },
+{       CsErrIndexOutOfBounds,     "Index out of bounds - %V"       },
 {       CsErrNoMethod,             "%s (%V) has no method - %V"          },
-{       CsErrBadOpcode,            "Bad opcode - %b"						},
-{       CsErrRestart,              "Restart"								},
-{       CsErrWrite,                "Writing file"							},
-{       CsErrBadParseCode,         "Bad parse code"						},
-{       CsErrImpossible,           "Internal error"						},
-{       CsErrNoHashValue,          "Can't use as an index"					},
-{       CsErrTooManyLiterals,      "Too many literals"						},
-{       CsErrTooMuchCode,          "Too much code"							},
-{       CsErrStoreIntoConstant,    "Attempt to store into a constant"		},
-{       CsErrIsNotLValue,          "Expresion is not an l-value"		},
-//{       CsErrSyntaxError,          "%M(%L) : syntax error : %E"			},
-{       CsErrSyntaxError,          "%M(%L) : syntax error : %s\n\nline:%S\nhere:%s\n"	  },
+{       CsErrBadOpcode,            "Bad opcode - %b"            },
+{       CsErrRestart,              "Restart"                },
+{       CsErrWrite,                "Writing file"             },
+{       CsErrBadParseCode,         "Bad parse code"           },
+{       CsErrImpossible,           "Internal error"           },
+{       CsErrNoHashValue,          "Can't use as an index"          },
+{       CsErrTooManyLiterals,      "Too many literals"            },
+{       CsErrTooMuchCode,          "Too much code"              },
+{       CsErrStoreIntoConstant,    "Attempt to store into a constant"   },
+{       CsErrIsNotLValue,          "Expresion is not an l-value"    },
+//{       CsErrSyntaxError,          "%M(%L) : syntax error : %E"     },
+{       CsErrSyntaxError,          "%M(%L) : syntax error : %s\n\nline:%S\nhere:%s\n"   },
 //cs_scn.cpp(752) : error C2143: syntax error : missing ';' before '.'
-{		    CsErrReadOnlyProperty,		"Attempt to set a read-only property %V"	},
-{		    CsErrWriteOnlyProperty,	  "Attempt to get a write-only property %V"	},
-{		    CsErrFileNotFound,			  "File not found - %S"					},
+{       CsErrReadOnlyProperty,    "Attempt to set a read-only property %V"  },
+{       CsErrWriteOnlyProperty,   "Attempt to get a write-only property %V" },
+{       CsErrFileNotFound,        "File not found - %S"         },
 {       CsErrNewInstance,          "Can't create an instance"              },
 {       CsErrNoProperty,           "Object %V has no property - %V"        },
 {       CsErrStackEmpty,           "Stack empty - %V"                      },
@@ -60,12 +60,12 @@ static ErrString errStrings[] = {
 {       CsErrRegexpError,          "RegExp error - %s"                     },
 {       CsErrIOError,              "IO error - %s"                      },
 {       CsErrIOTimeout,            "IO timeout"                         },
-{       CsErrNoSuchFeature,        "%V does not support %s"				      },
+{       CsErrNoSuchFeature,        "%V does not support %s"             },
 {       CsErrNotAllowed,           "operation %s is not available"      },
 {       CsErrAlreadyDefined,       "const or method %s already defined" },
-{       CsErrGenericError,         "%s"				                          },
-{       CsErrGenericErrorW,        "%S"				                          },
-{       CsErrTooFewArguments,      "Wrong number of arguments - %V"			},
+{       CsErrGenericError,         "%s"                                 },
+{       CsErrGenericErrorW,        "%S"                                 },
+{       CsErrTooFewArguments,      "Wrong number of arguments - %V"     },
 {       0,                          0                                       }
 };
 
@@ -79,25 +79,31 @@ void CsThrowKnownError(VM *c,int code,...)
     if(code == CsErrUnexpectedTypeError)
       code = code;
 #endif
+    if(code != CsErrStackOverflow)
+    {
+      value message, err;
+    
+      va_list ap;
+      va_start(ap,code);
+      //(*c->errorHandler)(c,code,ap);
 
-    value message, err;
+      string_stream s(256);
     
-    va_list ap;
-    va_start(ap,code);
-    //(*c->errorHandler)(c,code,ap);
-
-    string_stream s(256);
+      CsStreamError(c,&s, code,ap);
+      va_end(ap);
     
-    CsStreamError(c,&s, code,ap);
-    va_end(ap);
+      message = s.string_o(c);
     
-    message = s.string_o(c);
+      s.close();
     
-    s.close();
-    
-    err = CsError(c, code, message);
-
-    c->val = err;
+      err = CsError(c, code, message);
+      c->val = err;
+    }
+    else
+    {
+      c->standardError->printf(L"Stack overflow!\n");
+      c->val = VM::nullValue;
+    }
     
     THROW_ERROR(code);
         
@@ -127,8 +133,8 @@ void CsThrowError(VM *c,const char* msg,...)
 {
     va_list ap;
     va_start(ap,msg);
-	CsThrowErrorV(c,msg,ap);
-	va_end(ap);
+  CsThrowErrorV(c,msg,ap);
+  va_end(ap);
 }
 
 
@@ -221,7 +227,7 @@ void CsStreamError(VM *c,stream *s, int code,va_list ap)
         dst = buf;
         cnt = 0;
     }
-	//CsStreamPutC('\n',s);
+  //CsStreamPutC('\n',s);
 }
 
 /* CsGetErrorText - get the text for an error code */
@@ -252,7 +258,7 @@ C_METHOD_ENTRY( "this",      CSF_ctor            ),
 C_METHOD_ENTRY( "toLocaleString",   CSF_std_toLocaleString  ),
 C_METHOD_ENTRY( "toString",         CSF_toString        ),
 
-C_METHOD_ENTRY( 0,					0					)
+C_METHOD_ENTRY( 0,          0         )
 };
 
 static value CSF_name(VM *c,value obj);
@@ -262,11 +268,11 @@ static value CSF_stackTrace(VM *c,value obj);
 /* Error properties */
 
 static vp_method properties[] = {
-VP_METHOD_ENTRY( "name",            CSF_name,					0					),
-VP_METHOD_ENTRY( "message",         CSF_message,				0					),
-VP_METHOD_ENTRY( "stackTrace",      CSF_stackTrace,		0					),
+VP_METHOD_ENTRY( "name",            CSF_name,         0         ),
+VP_METHOD_ENTRY( "message",         CSF_message,        0         ),
+VP_METHOD_ENTRY( "stackTrace",      CSF_stackTrace,   0         ),
 
-VP_METHOD_ENTRY( 0,                0,					0					)
+VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
 bool ErrorPrint(VM *c,value obj,stream *s, bool toLocale = false)
@@ -283,7 +289,7 @@ bool ErrorPrint(VM *c,value obj,stream *s, bool toLocale = false)
 }
 
 /* GetIntegerProperty - Integer get property handler */
-static bool GetErrorProperty(VM *c,value obj,value tag,value *pValue)
+static bool GetErrorProperty(VM *c,value& obj,value tag,value *pValue)
 {
     return CsGetVirtualProperty(c,obj,c->errorObject,tag,pValue);
 }

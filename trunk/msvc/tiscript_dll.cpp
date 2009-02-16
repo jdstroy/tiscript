@@ -12,9 +12,9 @@ BOOL APIENTRY DllMain( HANDLE hModule,
     return TRUE;
 }
 
-extern tiscript::native_interface _native_interface;
+extern tiscript_native_interface native_interface;
 
-tiscript::native_interface* WINAPI TIScriptAPI()
+tiscript_native_interface* WINAPI TIScriptAPI()
 {
-  return &_native_interface;
+  return &native_interface;
 }

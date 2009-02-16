@@ -23,14 +23,12 @@
 #include "tl_basic.h"
 #include "tl_array.h"
 #include "tl_slice.h"
+#include "ucdata/ucdata_lt.h"
 
-#if !defined(_WIN32)
-#define wcsicmp	wcscasecmp
-#endif
+namespace tool 
+{
 
-
-namespace tool {
-
+  /*
   inline bool wcseq(const wchar_t* s, const wchar_t* s1)
   {
     if( s && s1 )
@@ -44,6 +42,7 @@ namespace tool {
       return wcsicmp(s,s1) == 0;
     return false;
   }
+  */
 
 
 // this class uses reference counting and copy-on-write semantics to insure
@@ -77,9 +76,8 @@ class ustring {
         ustring(wchars s);
 
         ustring(const char *s, int count = 0);
+        ustring(const string& s);
         static ustring cvt(int codepage, const char *s, size_t slen);
-
-		ustring(const string &s);
 
         ustring(wchar c, int n = 1);
         ~ustring();
@@ -229,6 +227,7 @@ class ustring {
                 unsigned int ref_count;
                 int length;
                 wchar chars[1];
+                wchars get_chars() { return wchars(chars,length); }
         };
 
     protected:
@@ -289,8 +288,8 @@ inline void swap(ustring &s1, ustring &s2)
 
 inline bool ustring::equals(const wchar *s, bool nocase) const
 { 
-  if(nocase) return (wcsicmp(my_data->chars,s) == 0);
-  else return (wcscmp(my_data->chars,s) == 0);
+  if(nocase) return icmp(*this,chars_of(s));
+  else return *this == chars_of(s);
 }
 
 inline ustring::ustring(): my_data(&null_data)
@@ -436,9 +435,9 @@ inline unsigned int ustring::hash() const
   unsigned int h = 0, g;
   const wchar *pc = c_str();
   while(*pc) { 
-	  h = (h << 4) + *pc++;
-	  if ((g = h & 0xF0000000) != 0) h ^= g >> 24;
-	  h &= ~g;
+    h = (h << 4) + *pc++;
+    if ((g = h & 0xF0000000) != 0) h ^= g >> 24;
+    h &= ~g;
   }
   return h;
 }
@@ -456,19 +455,19 @@ inline void to_utf8(uint c, array<byte>& utf8out)
 #define APPEND(x) utf8out.push(byte(x))
 
   if (c < (1 << 7)) {
-	  APPEND (c);
+    APPEND (c);
   } else if (c < (1 << 11)) {
-	  APPEND ((c >> 6) | 0xC0);
-	  APPEND ((c & 0x3F) | 0x80);
+    APPEND ((c >> 6) | 0xC0);
+    APPEND ((c & 0x3F) | 0x80);
   } else if (c < (1 << 16)) {
-	  APPEND ((c >> 12) | 0xE0);
-	  APPEND (((c >> 6) & 0x3F) | 0x80);
-	  APPEND ((c & 0x3F) | 0x80);
+    APPEND ((c >> 12) | 0xE0);
+    APPEND (((c >> 6) & 0x3F) | 0x80);
+    APPEND ((c & 0x3F) | 0x80);
   } else if (c < (1 << 21)) {
-	  APPEND ((c >> 18) | 0xF0);
-	  APPEND (((c >> 12) & 0x3F) | 0x80);
-	  APPEND (((c >> 6) & 0x3F) | 0x80);
-	  APPEND ((c & 0x3F) | 0x80);
+    APPEND ((c >> 18) | 0xF0);
+    APPEND (((c >> 12) & 0x3F) | 0x80);
+    APPEND (((c >> 6) & 0x3F) | 0x80);
+    APPEND ((c & 0x3F) | 0x80);
   }
 #undef APPEND
 }
@@ -479,19 +478,19 @@ inline bool putc_utf8(uint c, FILE* utf8out)
 #define APPEND(x) if(EOF == putc((unsigned char)(x),utf8out)) return false;
 
   if (c < (1 << 7)) {
-	  APPEND (c);
+    APPEND (c);
   } else if (c < (1 << 11)) {
-	  APPEND ((c >> 6) | 0xC0);
-	  APPEND ((c & 0x3F) | 0x80);
+    APPEND ((c >> 6) | 0xC0);
+    APPEND ((c & 0x3F) | 0x80);
   } else if (c < (1 << 16)) {
-	  APPEND ((c >> 12) | 0xE0);
-	  APPEND (((c >> 6) & 0x3F) | 0x80);
-	  APPEND ((c & 0x3F) | 0x80);
+    APPEND ((c >> 12) | 0xE0);
+    APPEND (((c >> 6) & 0x3F) | 0x80);
+    APPEND ((c & 0x3F) | 0x80);
   } else if (c < (1 << 21)) {
-	  APPEND ((c >> 18) | 0xF0);
-	  APPEND (((c >> 12) & 0x3F) | 0x80);
-	  APPEND (((c >> 6) & 0x3F) | 0x80);
-	  APPEND ((c & 0x3F) | 0x80);
+    APPEND ((c >> 18) | 0xF0);
+    APPEND (((c >> 12) & 0x3F) | 0x80);
+    APPEND (((c >> 6) & 0x3F) | 0x80);
+    APPEND ((c & 0x3F) | 0x80);
   }
 #undef APPEND
   return true;
@@ -677,7 +676,7 @@ inline WCHAR_CLASS wchar_class(wchar c)
     if( !s || !s[0] )
       return false;
     wchar* end = 0;
-    int n = wcstol(s,&end,10);
+    int n = wcstol(s,&end,0);
     if( end && (*end == 0 || *end == '%'))
     {
       i = n;
@@ -685,6 +684,7 @@ inline WCHAR_CLASS wchar_class(wchar c)
     }
     return false;
   }
+
 
   inline bool stof(const wchar* s, double& d)
   {

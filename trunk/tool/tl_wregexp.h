@@ -37,7 +37,7 @@ typedef struct tag_regexp_w regexp_w;
 #define REGEXP_BADRPT  -7         /* *+? follows nothing */
 #define REGEXP_EESCAPE -8         /* trailing backslash */
 #define REGEXP_EEND   -99         /* unspecified internal error */
-  
+
 extern void re_error(int errcode, const regexp_w* re, char *buffer, size_t bufsize);
 extern int re_nsubexp(const regexp_w *rp);
 extern void re_free(void* object);
@@ -51,27 +51,18 @@ extern int re_dosub_w(const wchar* s, const wchar* src, regmatch_w matches[10], 
 
 namespace tool
 {
-   
+
   class wregexp
   {
+  protected:
+      void reset_matches();
+      bool is_error(int nErrorCode);
+
+      regexp_w*     m_preCompiled;
+      tool::array<regmatch_w> m_arMatches;
+      tool::array<regmatch_w> m_result;
+
   public:
-      wregexp():m_preCompiled(0),m_nError(0),m_ignorecase(false),m_global(false) {}
-      ~wregexp();
-
-      bool compile(const wchar* pattern, bool ignorecase, bool global);
-      bool exec(const wchar* text);
-      bool is_matched(int nSubExp = 0) const;
-      int  get_match_start(int nSubExp = 0) const;
-      int  get_match_end(int nSubExp = 0) const;
-      ustring get_match(int nSubExp = 0) const;
-      wchars  get_n_match(int n = 0) const;
-
-      wchars  text() { return tool::wchars(m_test,m_test.length()); }  
-
-      int  get_number_of_matches() const;
-
-      string get_error_string() const;
-
       ustring       m_pattern;
       ustring       m_test;
 
@@ -81,13 +72,24 @@ namespace tool
       bool          m_ignorecase;
       bool          m_global;
 
-  protected:
-      void reset_matches();
-      bool is_error(int nErrorCode);
-      
-      regexp_w*     m_preCompiled;
-      tool::array<regmatch_w> m_arMatches;
-      tool::array<regmatch_w> m_result;
+      wregexp():m_preCompiled(0),m_nError(0),m_ignorecase(false),m_global(false) {}
+      ~wregexp();
+      wregexp(const wchar* pattern, bool ignorecase = true, bool global = true) { compile(pattern,ignorecase,global); }
+
+      bool compile(const wchar* pattern, bool ignorecase, bool global);
+      bool exec(const wchar* text);
+      bool is_matched(int nSubExp = 0) const;
+      int  get_match_start(int nSubExp = 0) const;
+      int  get_match_end(int nSubExp = 0) const;
+      ustring get_match(int nSubExp = 0) const;
+      regmatch_w  get_n_match(int n = 0) const;
+
+      wchars  text() { return tool::wchars(m_test,m_test.length()); }
+
+      int  get_number_of_matches() const;
+
+      string get_error_string() const;
+
 
   private:
       // disable copying

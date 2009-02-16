@@ -81,7 +81,7 @@
 #define BC_GETRANGE   0x45    /* make a range */
 #define BC_F          0x46    /* load val with false */
 #define BC_SETPM      0x47    /* set method */
-#define BC_GSETC      0x48    /* set the value of a global constatn */
+#define BC_GSETC      0x48    /* set the value of a global constant */
 #define BC_PUSH_NS    0x49    /* push currentScope.globals on stack */
 #define BC_POP_NS     0x50    /* pops currentScope.globals from stack */
 #define BC_PROTO      0x51    /* c->val = CsObjectClass(c->val) */
@@ -91,7 +91,7 @@
 #define BC_DEBUG      0x55
 #define BC_S_CALL     0x56    /* push current PC of next instruction on top of the stack and jump to instruction given by arg.  */
 #define BC_S_RETURN   0x57    /* pop value of PC from top of the stack. */
-#define BC_YIELD      0x58    /* pop value of PC from top of the stack. */
+#define BC_YIELD      0x58    /* N/A. */
 #define BC_NEWCLASS   0x59    /* pop value of PC from top of the stack. */
 #define BC_USHL       0x5a    /* shift left top two stack entries, signed int */
 #define BC_USHR       0x5b    /* shift right top two stack entries, signed int */
@@ -101,5 +101,9 @@
 #define BC_CDR        0x5e    /* s ~% d */
 #define BC_RCAR       0x5f    /* s /~ d */
 #define BC_RCDR       0x60    /* s %~ d */
+
+#define BC_GSETNS     0x61    /* set the value of a variable in current namespace */
+#define BC_ROTATE     0x62    /* rotate N elements of the stack so s[n-1] = s[0], s[0] = s[1], ... */
+#define BC_INCLUDE_LIBRARY 0x63 /* load native libaray */
 
 #endif

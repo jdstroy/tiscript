@@ -69,7 +69,7 @@ OTDEF otab[] = {
 {       BC_DROP,      "DROP",         FMT_NONE        },
 {       BC_DUP,       "DUP",          FMT_NONE        },
 {       BC_OVER,      "OVER",         FMT_NONE        },
-{       BC_NEWOBJECT, "NEWOBJECT",    FMT_NONE        },
+{       BC_NEWOBJECT, "NEWOBJECT",    FMT_BYTE        },
 {       BC_NEWVECTOR, "NEWVECTOR",    FMT_NONE        },
 {       BC_AFRAME,    "AFRAME",       FMT_2BYTE       },
 {       BC_AFRAMER,   "AFRAMER",      FMT_2BYTE       },
@@ -114,6 +114,11 @@ OTDEF otab[] = {
 {       BC_CDR,       "CDR",          FMT_NONE        },
 {       BC_RCAR,      "RCAR",         FMT_NONE        },
 {       BC_RCDR,      "RCDR",         FMT_NONE        },
+{       BC_GSETNS,    "GSETNS",       FMT_LIT         },
+
+{       BC_ROTATE,    "ROTATE",       FMT_BYTE        },
+
+{       BC_INCLUDE_LIBRARY, "INCLUDE LIBRARY", FMT_NONE  }, 
 
 {0,0,0}
 };

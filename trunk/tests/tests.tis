@@ -63,7 +63,20 @@ function String_test()
   if("This is a STRING object".valueOf() != "This is a STRING object") throw "valueOf"; 
   
   if( ("Hello" + (1).toString()) != "Hello1") throw "join"; 
-   
+  
+  // string car/cdr operators:
+  r = "one,two,three" ~/ ",";   if( r != "one" ) throw "car";  
+  r = "one,two,three" ~% ",";   if( r != "two,three" ) throw "cdr";  
+  // reversed string car/cdr operators (search from tail):  
+  r = "one,two,three" /~ ",";   if( r != "one,two" ) throw "rcar";  
+  r = "one,two,three" %~ ",";   if( r != "three" ) throw "rcdr";  
+  
+  // delimeter string not found cases:
+  r = "one,two,three" ~/ "A";   if( r != "one,two,three" ) throw "car NF";  
+  r = "one,two,three" ~% "A";   if( r != "" ) throw "cdr NF";  
+  r = "one,two,three" /~ "A";   if( r != "one,two,three" ) throw "rcar NF";  
+  r = "one,two,three" %~ "A";   if( r != "" ) throw "rcdr NF";  
+  
 }
 
 function Array_test()
@@ -132,15 +145,15 @@ function Array_test()
   if( a5 != a6 ) throw "sort2";
 
 
-  a7.sort(:v1,v2:v1-v2);
+  a7.sort( :v1,v2: v1-v2 );
   if( a7 != a0 ) throw String.printf("sort3 with lambda, arrays are %v %v\n", a7, a0);
-    
-    
+
   if( a0.toLocaleString() != a0.toString() ) throw "toLocaleString | toString";
   
   var sum = 0;
   for( var el in [10,20,30] ) sum += el;
   if( sum != 60 ) throw "for(var in array)";
+
  
 }
 
@@ -183,74 +196,7 @@ function Float_test()
   if(Float.min(3.0,1.0,4.0,[5.0,6.0,7.0]) != 1.0 ) throw "Float.min sub array"; 
 }
 
-
-
-function Function_test()
-{
-  // arg with the default value test
-  function DefParams(test = 314)
-  {
-    return test;
-  }
-  if(DefParams() != 314) throw "Function, default parameters values"; 
-  
-  // varargs
-  function VarArgs(args..)
-  {
-    //stdout << "args are:" << args;
-    //stdout << " typeof args is:" << typeof args << "\n";
-    return args.length;
-  }
-  if(VarArgs(1,2,3) != 3) throw "Function, varargs!"; 
-
-  // varargs, rest
-  function VarArgs2(first, restOfArgs..)
-  {
-    return restOfArgs;
-  }
-  
-  if(VarArgs2(1,2,3) != [2,3]) throw "Function, varargs 2!"; 
-  
-  var obj = { one:1, two:2 };
-  
-  // apply test #1
-  function ExtFunc()
-  {
-    return this.one + this.two;
-  }
-  if( ExtFunc.apply(obj) != 3) throw "Function, apply (0) failed !"; 
-  if( ExtFunc.call(obj) != 3) throw "Function, call (0) failed !"; 
-
-  // apply test #2, additional parameters
-  function ExtFunc1(three,four)
-  {
-    return this.one + this.two + three + four;
-  }
-  if( ExtFunc1.apply(obj,[3,4]) != 10) throw "Function, apply (1) failed !"; 
-  if( ExtFunc1.call(obj,3,4) != 10) throw "Function, call (1) failed !"; 
-  
-  
-  // lambda tests
-  
-  // simplest form  
-  var lambda1 = :a,b: a+b;
-  
-  if( typeof lambda1 != #function) throw "Lambda 1.1 failed !"; 
-  if( lambda1(3,4) != 7) throw "Lambda 1.2 failed !"; 
-  
-  // second form of lambda declaration - block with parameters
-  var lambda2 = :a,b { return a+b; }
-  if( typeof lambda2 != #function) throw "Lambda 2.1 failed !"; 
-  if( lambda2(3,4) != 7) throw "Lambda 2.2 failed !"; 
-  
-  // third, classic lambda declaration
-  var lambda3 = function (a,b) { return a+b; }
-  if( typeof lambda3 != #function) throw "Lambda 3.1 failed !"; 
-  if( lambda3(3,4) != 7) throw "Lambda 3.2 failed !"; 
-  
-}
-
-type Foo: Object
+class Foo
 {
   function this(n = "o1")   { this.one = 1; this._name = n; }
   function foo()            { return "foo"; }
@@ -261,7 +207,7 @@ type Foo: Object
           }
 }
 
-type Bar: Foo // type 'Bar' is derived from 'Foo'
+class Bar: Foo // type 'Bar' is derived from 'Foo'
 {
   function this(n = "o2")   { super(n); this.two = 2; }
   function bar()            { return "bar"; }
@@ -280,12 +226,11 @@ function Object_test()
   if(foo.foo() != "foo" ) throw "class method 1";
   if(foo.prototype !== Foo) throw "prototype/get 1";
   if(foo.name != "foo:o1") throw "property/get 1";
-  
   foo.name = "O1";
   if(foo.name != "foo:O1") throw "property/set 1";
-  
-  
+
   var bar = new Bar(); // Bar is derived from Foo 
+  
   if(bar.one != 1 ) throw "class ctor 2.1";
   if(bar.two != 2 ) throw "class ctor 2.2";
   if(bar.bar() != "bar" ) throw "class method 2.1";
@@ -294,6 +239,8 @@ function Object_test()
   if(bar.name != "bar:o2") throw "property/get 2";
   
   bar.name = "O2";
+  
+  
   if(bar.name != "bar:O2") throw "property/set 2";
   
   if( typeof bar != #object ) throw "typeof";
@@ -329,9 +276,51 @@ function Object_test()
   // short form of the line above
   if( o3#one != 1 ) throw "attribute by symbol 2 ";
   if( o3#thirty-three != 33 ) throw "attribute by symbol 3 ";
-  
  
 }
+
+// test of Undefined Property Handler - a.k.a. Virtual Properties
+class TestUPH
+{
+  function this()
+  { 
+    this[#one] = 1; // I am using this[#one] notation to avoid call of property undefined() below.
+  }
+  
+  property undefined(name,val) // handler of undefined properties
+  {
+    get 
+    {
+      switch( name )
+      {  
+        case #one: return 11; // shall never be called because of code in ctor
+        case #two: return 22; 
+        case #three: return 33; 
+        default: 
+          break; // return precisely nothing - so the property will be handled as ususal
+      }
+    }
+    set
+    {
+      return true; //"dev>null":  simply suppress any set opperations on unknown properties.
+    }
+  }
+}
+
+function Class_test()
+{
+  var tst = new TestUPH();  
+  if(tst.one != 1 ) throw "class:: handler of undefined properties 1";
+
+  if(tst.two != 22 ) throw "class:: handler of undefined properties 2";
+  if(tst.three != 33 ) throw "class:: handler of undefined properties 3";
+  tst.three = 44; // should be just ingored beacuse of "dev>null"
+  if( tst.three != 33 ) throw "class:: handler of undefined properties 4";
+
+  tst.one = 111;  // this will change prop #one as it was declared for the instance in ctor
+  if(tst.one != 111 ) throw "class:: handler of undefined properties 1";  
+}
+
 
 const MY_CONST = 12;
 
@@ -383,6 +372,90 @@ function Date_test()
   
 }
 
+
+function Function_test()
+{
+  // var o = 1;
+  // arg with the default value test
+  
+  function DefParams(test = 314)
+  {
+    return test;
+  }
+ 
+  if(DefParams() != 314) throw "Function, default parameters values"; 
+  
+  // varargs
+  function VarArgs(args..)
+  {
+    //stdout << "args are:" << args;
+    //stdout << " typeof args is:" << typeof args << "\n";
+    return args.length;
+  }
+  if(VarArgs(1,2,3) != 3) throw "Function, varargs!"; 
+
+  // varargs, rest
+  function VarArgs2(first, restOfArgs..)
+  {
+    return restOfArgs;
+  }
+  
+  if(VarArgs2(1,2,3) != [2,3]) throw "Function, varargs 2!"; 
+
+  var obj = { one:1, two:2 };
+  
+  // apply test #1
+  function ExtFunc()
+  {
+    return this.one + this.two;
+  }
+  if( ExtFunc.apply(obj) != 3) throw "Function, apply (0) failed !"; 
+  if( ExtFunc.call(obj) != 3) throw "Function, call (0) failed !"; 
+
+  // apply test #2, additional parameters
+  function ExtFunc1(three,four)
+  {
+    return this.one + this.two + three + four;
+  }
+  if( ExtFunc1.apply(obj,[3,4]) != 10) throw "Function, apply (1) failed !"; 
+  if( ExtFunc1.call(obj,3,4) != 10) throw "Function, call (1) failed !"; 
+  
+  // arg count length
+  if( DefParams.length != 1 ) throw "Function, argc (1) failed!"; 
+  if( DefParams.optionals != 1 ) throw "Function, argc (2) failed !"; 
+  
+  if( VarArgs.length != 0 ) throw "Function, argc (3) failed !"; 
+  if( VarArgs.optionals != 0 ) throw "Function, argc (4) failed !"; 
+
+  if( ExtFunc.length != 0 ) throw "Function, argc (5) failed !"; 
+  if( ExtFunc.optionals != 0 ) throw "Function, argc (6) failed !"; 
+
+  if( ExtFunc1.length != 2 ) throw "Function, argc (7) failed !"; 
+  if( ExtFunc1.optionals != 0 ) throw "Function, argc (8) failed !"; 
+  
+  // lambda tests
+  
+  // simplest form 
+
+  var lambda1 = :a,b: a+b;
+  
+  if( typeof lambda1 != #function) throw "Lambda 1.1 failed !"; 
+  if( lambda1(3,4) != 7) throw "Lambda 1.2 failed !"; 
+  
+  // second form of lambda declaration - block with parameters
+  var lambda2 = :a,b { return a+b; }
+  if( typeof lambda2 != #function) throw "Lambda 2.1 failed !"; 
+  if( lambda2(3,4) != 7) throw "Lambda 2.2 failed !"; 
+  
+  // third, classic lambda declaration
+  var lambda3 = function (a,b) { return a+b; }
+  if( typeof lambda3 != #function) throw "Lambda 3.1 failed !"; 
+  if( lambda3(3,4) != 7) throw "Lambda 3.2 failed !"; 
+  
+}
+
+
+
 function Stream_test()
 {
   var ss = Stream.openString(); // in memory string stream, a.k.a. stram builder
@@ -432,16 +505,77 @@ function SocketStream_test()
   stdout.println(".");
 }
 
-type NS // namespace
+namespace NS // namespace
 {
   var pi = 314;
-  function foo() { return pi; }
+  function foo() { return NS.pi; }
+  namespace NSS // namespace
+  {
+    function foo()  { return super.foo() + 1; } // members of parent namespace are accessible by 'super' 
+    function bar1() { return NS.foo(); }        // or by fully qualified name. 
+    function bar2() { return foo(); }
+    function toz1() { return NS.NSS.bar1(); }   // either fully qualified name
+    function toz2() { return bar2(); }          // or local (for the namesppace) name.    
+  }
 }
 
 function Namespace_test()
 {
-  var t = NS.foo();  
-  if( t != 314 ) throw "namespace 1";
+  var t1 = NS.foo();  
+  if( t1 != 314 ) throw "namespace 1";
+  var t2 = NS.NSS.toz1();  
+  if( t2 != 314 ) throw "namespace 2";
+  var t3 = NS.NSS.toz2();  
+  if( t3 != 315 ) throw "namespace 3 ";
+  var t4 = NS.NSS.foo();  
+  if( t4 != 315 ) throw "namespace 4";
+}
+
+
+function ExtLoop_test()
+{
+  var c = 0;
+  while:No1 ( c++ < 100 )
+  {
+    for:No2 (var n = 0; n < 1; ++n) 
+    {
+      if( c >= 5 ) break No1;
+      continue No1;
+    }
+  }
+  if( c != 5 )  throw "named loop #" + c.toString();
+}
+
+
+class superA
+{
+  function this(p) { this.name = p + "a"; } 
+	function foo() { return "A";}
+	function bar() { return "a";}  
+  function baz() { return "1";}  
+}
+
+class superB : superA 
+{
+  function this(p) { super(p + "b"); } 
+  function foo() { return super.foo() + "B";}
+  function bar() { return super.bar() + "b";}  
+}
+
+class superC : superB 
+{
+  function this(p) { super(p + "c"); } 
+  function foo(){ return super.foo() + "C"; }
+  function baz() { return super.baz() + "3";}  
+}
+
+function Super_test()
+{
+  var sc = new superC("d");
+  if( sc.name != "dcba") throw "super.this " + sc.name;  
+  if( sc.foo() != "ABC" ) throw "super.foo";  
+  if( sc.bar() != "ab" ) throw "super.bar";  
+  if( sc.baz() != "13" ) throw "super.baz";    
 }
 
 function run(TestFunc)
@@ -459,16 +593,19 @@ function run(TestFunc)
 run( String_test );
 run( Array_test );
 run( Const_test );
-gc(); // test GC
 run( Object_test );
+run( Class_test );
 run( Date_test );
 run( Stream_test );
 //This is too noisy, so I've commented it out for a while.
 //run( SocketStream_test );
-run( Function_test );
 run( Integer_test );
 run( Float_test );
+run( Function_test );
 run( Namespace_test );
+run( ExtLoop_test );
+run( Super_test );
+
 
 
 

@@ -30,7 +30,7 @@ class mm_file
     HANDLE hfile;
     HANDLE hmap;
 #else
-#pragma TODO("")   
+    int    hfile;
 #endif
 
   protected:
@@ -38,11 +38,12 @@ class mm_file
     size_t length;
     bool read_only;
   public:
+    mm_file(): hfile(0),ptr(0),length(0),read_only(true)
+    {
 #ifdef WINDOWS
-    mm_file(): hfile(0),hmap(0),ptr(0),length(0),read_only(true) {}
-#else
-    mm_file(): ptr(0),length(0),read_only(true) {}
+      hmap = 0;
 #endif
+    }
     virtual ~mm_file() { close(); }
 
     void *open(const char *path, bool to_write = false);
