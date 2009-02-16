@@ -35,7 +35,7 @@ namespace tool
 
     const T*      end() const { return start + length; }
 
-	template<class Y>
+  template<class Y>
       bool operator == ( const slice<Y>& r ) const
     {
       if( length != r.length )
@@ -46,17 +46,17 @@ namespace tool
         while( p1 > start )
       {
           if( *--p1 != *--p2 )
-			      return false;
+            return false;
         }
         return true;
-	  }
+    }
 
   /*
   classic Duff's device implementation of the above:
 
-	template<class Y>
+  template<class Y>
     bool operator == ( const slice<Y>& r ) const
-	  {
+    {
       if( length != r.length )
         return false;
 
@@ -65,7 +65,7 @@ namespace tool
 
       int n = (int(length) + 7) / 8;
       switch (length % 8)
-	  {
+    {
         case 0: do { if(*ours++ != *theirs++) return false;
         case 7:      if(*ours++ != *theirs++) return false;
         case 6:      if(*ours++ != *theirs++) return false;
@@ -320,15 +320,24 @@ typedef slice<byte>  bytes;
 #define CHARS(CS) tool::slice<char>(CS,chars_in(CS))
 #define WCHARS(CS) tool::slice<wchar>(WTEXT(CS),chars_in(WTEXT(CS)))
 
+template <typename T>
+  inline slice<T> trim(slice<T> str)
+{
+  for( unsigned i = 0; i < str.length; ++i )
+    if( isspace(str[0]) ) { ++str.start; --str.length; }
+    else break;
+  for( unsigned j = str.length - 1; j >= 0; --j )
+    if( isspace(str[j]) ) --str.length;
+    else break;
+  return str;
+}
 
 typedef tokens<char> atokens;
 typedef tokens<wchar> wtokens;
 
-inline chars chars_of(const char* str)
-{
-   if( str ) return chars( str, (uint_ptr)strlen(str) );
-   return chars();
-}
+inline wchars  chars_of( const wchar_t *t ) {  return t? wchars(t,(unsigned int)wcslen(t)):wchars(); }
+inline chars   chars_of( const char *t ) {  return t? chars(t,(unsigned int)strlen(t)):chars(); }
+
 
 inline bool icmp(const wchars& s1, const wchars& s2)
 {
@@ -373,18 +382,22 @@ inline bool icmp(const chars& s1, const char* s2)
 template <typename CT, CT sep = '-', CT end = ']' >
   struct charset
   {
-    #define SET_SIZE (1 << (sizeof(CT) * 8))
+
+    //enum { SET_SIZE = (1 << (min(sizeof(CT),2) * 8)) };
+    enum { SET_SIZE = (1 << (sizeof(CT) * 8)) };
 
     unsigned char codes[ SET_SIZE >> 3 ];
 
-    void set ( unsigned from, unsigned to, bool v )
+    void set ( int from, int to, bool v )
     {
-       for ( unsigned i = from; i <= to; ++i )
+       from = min(from,SET_SIZE-1);
+       to = min(to,SET_SIZE-1);
+       for ( int i = from; i <= to; ++i )
        {
          unsigned int bit = i & 7;
          unsigned int octet = i >> 3;
          if( v ) codes[octet] |= 1 << bit; else codes[octet] &= ~(1 << bit);
-    }
+      }
     }
     void init ( unsigned char v )  { memset(codes,v,(SET_SIZE >> 3)); }
 
@@ -395,7 +408,7 @@ template <typename CT, CT sep = '-', CT end = ']' >
       unsigned char inv = *p == '^'? 0xff:0;
       if ( inv ) { ++p; }
       init ( inv );
-      if ( *p == sep ) set(unsigned(sep),unsigned(sep),inv == 0);
+      if ( *p == sep ) set( sep, sep,inv == 0);
       while ( *p )
       {
         if ( p[0] == end ) { p++; break; }
@@ -429,7 +442,7 @@ template <typename CT >
     const CT    *wildcard = 0;
     const CT    *strpos = 0;
     const CT    *matchpos = 0;
-    charset<CT> cset;
+    charset<CT>  cset;
 
     while ( true )
     {
@@ -476,7 +489,6 @@ template <typename CT >
     }
     return -1;
   }
-
 
 inline bool is_like ( chars cr, const char *pattern )
 {
@@ -532,6 +544,42 @@ template <typename T>
 }
 
 template <typename T>
+    inline uint64 to_uint64(slice<T>& span, unsigned int base = 10)
+{
+   uint64 result = 0,value;
+   const T *cp = span.start;
+   const T *pend = span.end();
+
+   while ( cp < pend && isspace(*cp) ) ++cp;
+
+   if (!base)
+   {
+       base = 10;
+       if (*cp == '0') {
+           base = 8;
+           cp++;
+           if ((toupper(*cp) == 'X') && isxdigit(cp[1])) {
+                   cp++;
+                   base = 16;
+           }
+       }
+   }
+   else if (base == 16)
+   {
+       if (cp[0] == '0' && toupper(cp[1]) == 'X')
+           cp += 2;
+   }
+   while ( cp < pend && isxdigit(*cp) &&
+          (value = isdigit(*cp) ? *cp-'0' : toupper(*cp)-'A'+10) < base) {
+           result = result*base + value;
+           cp++;
+   }
+   span.length = cp - span.start;
+   return result;
+}
+
+
+template <typename T>
     int to_int(slice<T>& span, unsigned int base = 10)
 {
 
@@ -541,7 +589,30 @@ template <typename T>
       ++span.start; --span.length;
       return - int(to_uint(span,base));
    }
+   if(span[0] == '+')
+   {
+      ++span.start; --span.length;
+      return int(to_uint(span,base));
+   }
    return to_uint(span,base);
+}
+
+template <typename T>
+    int64 to_int64(slice<T>& span, unsigned int base = 10)
+{
+
+   while (span.length > 0 && isspace(span[0]) ) { ++span.start; --span.length; }
+   if(span[0] == '-')
+   {
+      ++span.start; --span.length;
+      return - int64(to_uint(span,base));
+   }
+   if(span[0] == '+')
+   {
+      ++span.start; --span.length;
+      return int64(to_uint(span,base));
+   }
+   return to_uint64(span,base);
 }
 
 

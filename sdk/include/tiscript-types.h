@@ -43,15 +43,15 @@
 #endif
 
 
-namespace aux 
+namespace cvt
 {
   // helper convertor objects wchar_t to ACP and vice versa
-  class w2a 
+  class w2a
   {
     char* buffer;
   public:
     explicit w2a(const wchar_t* wstr):buffer(0)
-    { 
+    {
       if(wstr)
       {
         size_t nu = wcslen(wstr);
@@ -65,12 +65,12 @@ namespace aux
     operator const char*() { return buffer; }
   };
 
-  class a2w 
+  class a2w
   {
     wchar_t* buffer;
   public:
     explicit a2w(const char* str):buffer(0)
-    { 
+    {
       if(str)
       {
         size_t n = strlen(str);
@@ -87,30 +87,38 @@ namespace aux
 
 
   /** Integer to string converter.
-      Use it as ostream << itoa(234) 
+      Use it as ostream << itoa(234)
   **/
-  class itoa 
+  class itoa
   {
     char buffer[38];
   public:
     itoa(int n, int radix = 10)
-    { 
-      _itoa(n,buffer,radix);
+    {
+#if defined(WIN32) || defined(WINCE)
+      _itoa( n, buffer, radix );
+#else 
+      sprintf(buffer, "%d",n);
+#endif
     }
     operator const char*() { return buffer; }
   };
 
   /** Integer to wstring converter.
-      Use it as wostream << itow(234) 
+      Use it as wostream << itow(234)
   **/
 
-  class itow 
+  class itow
   {
     wchar_t buffer[38];
   public:
     itow(int n, int radix = 10)
-    { 
-      _itow(n,buffer,radix);
+    {
+#if defined(WIN32) || defined(UNDER_CE)
+      _itow( n, buffer, radix );
+#else 
+      swprintf(buffer, 38, L"%d",n);
+#endif
     }
     operator const wchar_t*() { return buffer; }
   };
@@ -119,12 +127,12 @@ namespace aux
       Use it as ostream << ftoa(234.1); or
       Use it as ostream << ftoa(234.1,"pt"); or
   **/
-  class ftoa 
+  class ftoa
   {
     char buffer[64];
   public:
     ftoa(double d, const char* units = "", int fractional_digits = 1)
-    { 
+    {
       sprintf(buffer, "%.*f%s", fractional_digits, d, units );
       buffer[63] = 0;
     }
@@ -140,8 +148,12 @@ namespace aux
     wchar_t buffer[64];
   public:
     ftow(double d, const wchar_t* units = L"", int fractional_digits = 1)
-    { 
+    {
+#if defined(WIN32) || defined(UNDER_CE)
       _snwprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+#else
+      swprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+#endif
       buffer[63] = 0;
     }
     operator const wchar_t*() { return buffer; }
@@ -149,8 +161,8 @@ namespace aux
 
  /** wstring to integer parser.
   **/
-  inline int wtoi(const wchar_t *s, int default_value = 0) 
-  { 
+  inline int wtoi(const wchar_t *s, int default_value = 0)
+  {
     if( !s ) return default_value;
     wchar_t *lastptr;
     long i = wcstol( s, &lastptr, 10 );
@@ -159,8 +171,8 @@ namespace aux
 
 /** string to integer parser.
   **/
-   inline int atoi(const char *s, int default_value = 0) 
-  { 
+   inline int atoi(const char *s, int default_value = 0)
+  {
     if( !s ) return default_value;
     char *lastptr;
     long i = strtol( s, &lastptr, 10 );

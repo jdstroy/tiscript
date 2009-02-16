@@ -79,18 +79,17 @@ namespace tis
 #define T_INCLUDE       313
 #define T_LIKE          314
 #define T_YIELD         315
-
 #define T_USHL          316     /* '<<<' */
 #define T_USHR          317     /* '>>>' */
 #define T_USHLEQ        318     /* '<<<=' */
 #define T_USHREQ        319     /* '>>>=' */
-
 #define T_CAR           320     /* '~/' */
 #define T_CDR           321     /* '~%' */
 #define T_RCAR          322     /* '/~' */
 #define T_RCDR          323     /* '%~' */
-
-#define T_DEBUG         324
+#define T_CLASS         324     /* class */
+#define T_NAMESPACE     325     /* namespace */
+#define T_DEBUG         326
 #define _TMAX           T_DEBUG
 
 /* argument structure */
@@ -221,6 +220,7 @@ int CsToken(CsCompiler *c);
 void CsSaveToken(CsCompiler *c,int tkn);
 char *CsTokenName(int tkn);
 void CsParseError(CsCompiler *c,char *msg);
+void CsParseWarning(CsCompiler *c,char *msg);
 
 }
 

@@ -35,6 +35,9 @@
 #include <stdlib.h>
 #include <stdio.h> 
 
+#define HAVE_LONG_LONG
+#define NEED_LONG_LONG
+
 size_t do_vsnprintf(char *str, size_t count, const char *fmt, va_list args);
 size_t do_snprintf(char *str,size_t count,const char *fmt,...);
 size_t do_vasprintf(char **ptr, const char *format, va_list ap);

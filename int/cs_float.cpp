@@ -17,7 +17,7 @@
 #define finite _finite
 #endif
 
-namespace tis
+namespace tis 
 {
 
 /* method handlers */
@@ -38,15 +38,15 @@ C_METHOD_ENTRY( "isFinite",         CSF_isFinite        ),
 C_METHOD_ENTRY( "isNaN",            CSF_isNaN           ),
 C_METHOD_ENTRY( "min",              CSF_min             ),
 C_METHOD_ENTRY( "max",              CSF_max             ),
-C_METHOD_ENTRY(	0,                  0                   )
+C_METHOD_ENTRY( 0,                  0                   )
 };
 
 /* Float properties */
 static vp_method properties[] = {
-VP_METHOD_ENTRY( 0,                0,					0					)
+VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
-static constant constants[] =
+static constant constants[] = 
 {
   CONSTANT_ENTRY("MAX"    , float_value(HUGE_VAL   )),
   CONSTANT_ENTRY("MIN"    , float_value(-HUGE_VAL  )),
@@ -126,10 +126,10 @@ static value minimum( VM *c, value *argv, int argc )
       else if (!CsFloatP(arg))
         CsUnexpectedTypeError(c,arg,"float");
       gotone = true;
-      float_t t = CsFloatValue(arg);
+      float_t t = CsFloatValue(arg);       
       if( t < r ) r = t;
     }
-    return gotone? CsMakeFloat(c,r): c->undefinedValue;
+    return gotone? CsMakeFloat(c,r): c->undefinedValue; 
 }
 
 static value maximum( VM *c, value *argv, int argc )
@@ -149,22 +149,22 @@ static value maximum( VM *c, value *argv, int argc )
       else if (!CsFloatP(arg))
         CsUnexpectedTypeError(c,arg,"float");
       gotone = true;
-      float_t t = CsFloatValue(arg);
+      float_t t = CsFloatValue(arg);       
       if( t > r ) r = t;
     }
-    return gotone? CsMakeFloat(c,r): c->undefinedValue;
+    return gotone? CsMakeFloat(c,r): c->undefinedValue; 
 }
 
 static value CSF_min(VM *c)
 {
-    value *argv = c->argv - 2;
+    value *argv = c->argv - 2; 
     int argc = c->argc - 2;
 
     return minimum(c,argv - argc, argc);
 }
 static value CSF_max(VM *c)
 {
-   value *argv = c->argv - 2;
+   value *argv = c->argv - 2; 
    int argc = c->argc - 2;
 
    return maximum(c,argv - argc, argc);
@@ -172,7 +172,7 @@ static value CSF_max(VM *c)
 
 
 
-static bool GetFloatProperty(VM *c,value obj,value tag,value *pValue);
+static bool GetFloatProperty(VM *c,value& obj,value tag,value *pValue);
 static bool SetFloatProperty(VM *c,value obj,value tag,value value);
 static bool FloatPrint(VM *c,value obj,stream *s, bool toLocale = false);
 static long FloatSize(value obj);
@@ -205,7 +205,7 @@ dispatch CsFloatDispatch = {
 };
 
 /* GetFloatProperty - Float get property handler */
-static bool GetFloatProperty(VM *c,value obj,value tag,value *pValue)
+static bool GetFloatProperty(VM *c,value& obj,value tag,value *pValue)
 {
     return CsGetVirtualProperty(c,obj,c->floatObject,tag,pValue);
 }

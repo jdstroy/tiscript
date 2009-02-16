@@ -17,7 +17,7 @@ static char THIS_FILE[] = __FILE__;
 
 #ifdef WINDOWS
 #include <shlobj.h>
-#endif 
+#endif
 
 namespace tool {
 
@@ -88,12 +88,12 @@ const value value::undefined;
 tstring get_home_dir(void* hinst)
 {
 #ifdef WIN32
-  TCHAR buffer[2048]; buffer[0] = 0;  
+  TCHAR buffer[2048]; buffer[0] = 0;
   GetModuleFileName(HINSTANCE(hinst),buffer, sizeof(buffer));
 
   tstring drive, dir, name, ext;
   split_path(buffer, drive, dir, name, ext);
-  
+
   return drive + dir;
 #else
 #pragma TODO("Not supported yet!")
@@ -105,14 +105,14 @@ tstring get_home_dir(void* hinst)
 tstring get_home_dir(const tchar* relpath, void* hinst)
 {
 #ifdef WIN32
-  TCHAR buffer[2048]; buffer[0] = 0;  
+  TCHAR buffer[2048]; buffer[0] = 0;
   GetModuleFileName(HINSTANCE(hinst),buffer, sizeof(buffer));
 
   tstring drive, dir, name, ext;
   split_path(buffer, drive, dir, name, ext);
-  
+
   if( relpath )
-    return tstring::format(TEXT("%s%s%s"), drive, dir, relpath);
+    return tstring::format(TEXT("%s%s%s"), drive.c_str(), dir.c_str(), relpath);
   return drive + dir;
 #else
 #pragma TODO("Not supported yet!")
@@ -123,7 +123,7 @@ tstring get_home_dir(const tchar* relpath, void* hinst)
 tstring get_app_pathname(void* hinst)
 {
 #ifdef WIN32
-  TCHAR buffer[2048]; buffer[0] = 0;  
+  TCHAR buffer[2048]; buffer[0] = 0;
   GetModuleFileName(HINSTANCE(hinst),buffer, sizeof(buffer));
   return buffer;
 #else
@@ -147,37 +147,38 @@ bool get_lang_country(string& lang,string& country, bool for_user)
 #ifdef WINDOWS
    long langId = for_user? GetUserDefaultLCID() : GetSystemDefaultLCID();
    TCHAR buf[256]; buf[0] = 0;
-	 GetLocaleInfo(MAKELCID(langId, SORT_DEFAULT), LOCALE_SISO639LANGNAME, buf, sizeof(buf));
-	 lang = buf;
-	 GetLocaleInfo(MAKELCID(langId, SORT_DEFAULT), LOCALE_SISO3166CTRYNAME, buf, sizeof(buf));
-   country = buf; 
+   GetLocaleInfo(MAKELCID(langId, SORT_DEFAULT), LOCALE_SISO639LANGNAME, buf, sizeof(buf));
+   lang = buf;
+   GetLocaleInfo(MAKELCID(langId, SORT_DEFAULT), LOCALE_SISO3166CTRYNAME, buf, sizeof(buf));
+   country = buf;
    return true;
 #else
    #pragma TODO("get lang id on this OS!")
+   return false;
 #endif
 }
 
 tstring  get_standard_dir(STANDARD_DIR sd)
 {
 #ifdef WINDOWS
-  static int sysids[] = 
+  static int sysids[] =
   {
 #if defined(UNDER_CE)
     CSIDL_WINDOWS,
     CSIDL_WINDOWS,
     CSIDL_PROGRAM_FILES,
-    CSIDL_APPDATA, 
+    CSIDL_APPDATA,
     CSIDL_APPDATA,
     CSIDL_PERSONAL,
-    CSIDL_PERSONAL, 
+    CSIDL_PERSONAL,
 #else
     CSIDL_WINDOWS,
     CSIDL_SYSTEM,
     CSIDL_PROGRAM_FILES,
-    CSIDL_APPDATA, 
+    CSIDL_APPDATA,
     CSIDL_COMMON_APPDATA,
     CSIDL_PERSONAL,
-    CSIDL_COMMON_DOCUMENTS, 
+    CSIDL_COMMON_DOCUMENTS,
 #endif
   };
 

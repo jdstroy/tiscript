@@ -13,6 +13,12 @@
 #include "tl_ustring.h"
 #include "tl_mm_file.h"
 
+#ifdef LINUX
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/uio.h>
+#endif
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
@@ -20,8 +26,10 @@ static char THIS_FILE[] = __FILE__;
 #endif
 
 
-namespace tool 
+namespace tool
 {
+
+#if defined(WINDOWS)
 
 void *mm_file::open(const char *path, bool to_write)
 {
@@ -30,18 +38,18 @@ void *mm_file::open(const char *path, bool to_write)
     hfile = INVALID_HANDLE_VALUE;
     hmap = INVALID_HANDLE_VALUE;
     ptr = 0;
-   
-#if defined(PLATFORM_WINCE)    
+
+#if defined(PLATFORM_WINCE)
     hfile = CreateFileForMapping(ustring(path), GENERIC_READ | (read_only? 0: GENERIC_WRITE), FILE_SHARE_READ | (read_only? 0: FILE_SHARE_WRITE), NULL,
-      read_only?OPEN_EXISTING:CREATE_ALWAYS, 
+      read_only?OPEN_EXISTING:CREATE_ALWAYS,
       FILE_ATTRIBUTE_NORMAL, NULL);
 #else
     hfile = CreateFile(path, GENERIC_READ | (read_only? 0: GENERIC_WRITE), FILE_SHARE_READ | (read_only? 0: FILE_SHARE_WRITE), NULL,
-      read_only?OPEN_EXISTING:CREATE_ALWAYS, 
+      read_only?OPEN_EXISTING:CREATE_ALWAYS,
       FILE_ATTRIBUTE_NORMAL, NULL);
 #endif
 
-    if (hfile != INVALID_HANDLE_VALUE) 
+    if (hfile != INVALID_HANDLE_VALUE)
     {
         length = GetFileSize(hfile, 0);
         hmap = CreateFileMapping(hfile, NULL, read_only? PAGE_READONLY : PAGE_READWRITE, 0, read_only?0:0x10000000, NULL);
@@ -54,7 +62,7 @@ void *mm_file::open(const char *path, bool to_write)
 #endif
       return 0;
     }
-        
+
     if (hfile != INVALID_HANDLE_VALUE && hmap == NULL)
     {
         close();
@@ -81,10 +89,10 @@ void mm_file::close()
   if (hfile && hmap && ptr) {
 
       if(!read_only && length)
-        if (!FlushViewOfFile(ptr, length)) 
-        { 
-            printf("Could not flush memory to disk.\n"); 
-        } 
+        if (!FlushViewOfFile(ptr, length))
+        {
+            printf("Could not flush memory to disk.\n");
+        }
 
       UnmapViewOfFile(ptr);
       ptr = 0;
@@ -104,6 +112,60 @@ void mm_file::close()
       hfile = 0;
   }
 }
+
+#elif defined(LINUX)
+
+void *mm_file::open(const char *path, bool to_write)
+{
+    /*int unix_open_flags[] =
+    {
+        0, O_TRUNC, O_CREAT, O_CREAT|O_TRUNC,
+        O_DSYNC, O_DSYNC|O_TRUNC, O_DSYNC|O_CREAT, O_DSYNC|O_CREAT|O_TRUNC,
+    };
+    int unix_access_mode[] = { O_RDONLY, O_WRONLY, O_RDWR }; */
+
+    read_only = !to_write;
+
+    hfile = ::open(path, to_write? O_RDWR: O_RDONLY, 0666);
+    ptr = 0;
+
+    if (!hfile)
+      return 0;
+
+    length = lseek(hfile, 0, SEEK_END);
+    lseek(hfile, 0, SEEK_SET);
+
+    ptr = mmap(NULL, length,
+       PROT_READ | (to_write?PROT_WRITE:0),
+       MAP_FILE|MAP_SHARED,
+       hfile, 0);
+    if (ptr != MAP_FAILED)
+        return ptr;
+
+    length = 0;
+    ptr = 0;
+    close();
+    return 0;
+}
+
+void mm_file::close()
+{
+  if ( ptr )
+    munmap(ptr, length);
+  ptr = 0;
+  length = 0;
+  if (hfile)
+  {
+    ::close(hfile);
+    hfile = 0;
+  }
+}
+
+
+
+#endif
+
+
 
   const char* match ( const char *str , const char *pattern )
   {

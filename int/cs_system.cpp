@@ -6,6 +6,7 @@
 
 #include "cs.h"
 
+
 namespace tis 
 {
 
@@ -37,16 +38,16 @@ static value CSF_userCountry(VM *c,value obj)
 /* file methods */
 static c_method methods[] = {
 C_METHOD_ENTRY( "scanFiles",        CSF_scanFiles      ),
-C_METHOD_ENTRY( "home",             CSF_home      ),
+C_METHOD_ENTRY( "home",             CSF_home           ),
 C_METHOD_ENTRY( "path",             CSF_path           ),
-C_METHOD_ENTRY(	0,                  0                  )
+C_METHOD_ENTRY( 0,                  0                  )
 };
 
 /* file properties */
 static vp_method properties[] = {
   VP_METHOD_ENTRY( "language",     CSF_userLang,         0 ),
   VP_METHOD_ENTRY( "country",      CSF_userCountry,      0 ),
-VP_METHOD_ENTRY( 0,                0,					0					)
+  VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
 static constant constants[] = 
@@ -225,6 +226,8 @@ static value CSF_scanFiles(VM *c)
 
     return CsMakeCString(c,p);
   }
+
+
 
 
 }

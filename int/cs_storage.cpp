@@ -39,26 +39,26 @@ static value CSF_get_autocommit(VM *c, value obj);
 
 /* Storage methods */
 static c_method methods[] = {
-//	C_METHOD_ENTRY( "this",      CSF_ctor            ),
-C_METHOD_ENTRY( "open",		          CSF_open			      ),
+//  C_METHOD_ENTRY( "this",      CSF_ctor            ),
+C_METHOD_ENTRY( "open",             CSF_open            ),
 C_METHOD_ENTRY( "close",            CSF_close           ),
-C_METHOD_ENTRY( "commit",			      CSF_commit			    ),
-C_METHOD_ENTRY( "rollback",			    CSF_rollback		    ),
+C_METHOD_ENTRY( "commit",           CSF_commit          ),
+C_METHOD_ENTRY( "rollback",         CSF_rollback        ),
 
 C_METHOD_ENTRY( "deallocateObject", CSF_removeObject),
-C_METHOD_ENTRY( "createIndex",	    CSF_createIndex	    ),
+C_METHOD_ENTRY( "createIndex",      CSF_createIndex     ),
 
 /* bonus features */
 //C_METHOD_ENTRY( "registerClass",    CSF_registerClass   ),
 
-C_METHOD_ENTRY(	0,                  0                   )
+C_METHOD_ENTRY( 0,                  0                   )
 };
 
 /* storage properties */
 static vp_method properties[] = {
-VP_METHOD_ENTRY( "root",		    CSF_get_root,		      CSF_set_root	      ),
+VP_METHOD_ENTRY( "root",        CSF_get_root,         CSF_set_root        ),
 VP_METHOD_ENTRY( "autocommit",  CSF_get_autocommit,   0                   ),
-VP_METHOD_ENTRY( 0,             0,					          0				            )
+VP_METHOD_ENTRY( 0,             0,                    0                   )
 };
 
 
@@ -105,18 +105,18 @@ value CsRestoreObj( VM *c, value obj )
 /* storage */
 storage::~storage()
 {
-	DetachAllObjs(0);
-	if( dbS )
-	{ dybase_close( dbS ); }
+  DetachAllObjs(0);
+  if( dbS )
+  { dybase_close( dbS ); }
 
   hashNameProto.clear();
 }
 
-	// remove obj from hash
+  // remove obj from hash
 void storage::DetachObj( dybase_oid_t oid )
 {
-	this->resetPersistHdr( this->hashS[oid] );
-	this->hashS.remove(oid);
+  this->resetPersistHdr( this->hashS[oid] );
+  this->hashS.remove(oid);
 }
 
 
@@ -125,14 +125,14 @@ void storage::CommitHash(VM* c)
   if(!this->hashS.size())
     return;
 
-  // make snapshot of the hash, this is needed 
-  // because this->hashS can be changed (indirectly) by CsStoreObjectData 
+  // make snapshot of the hash, this is needed
+  // because this->hashS can be changed (indirectly) by CsStoreObjectData
   // and CsStoreVectorData functions
 
-	tool::array<value> objs = this->hashS.elements();
+  tool::array<value> objs = this->hashS.elements();
   if(c)
-	  for( int_t n = objs.last_index(); n >= 0 ; --n)
-	  {
+    for( int_t n = objs.last_index(); n >= 0 ; --n)
+    {
       value obj = objs[n];
       if( CsObjectP(obj) )
         CsStoreObjectData(c,obj);
@@ -154,9 +154,9 @@ void storage::DetachAllObjs(VM* c)
 
   CommitHash(c);
 
-	tool::array<value>& objs = this->hashS.elements();
+  tool::array<value>& objs = this->hashS.elements();
 
-	for( int_t i = 0; i < objs.size(); i++)
+  for( int_t i = 0; i < objs.size(); i++)
     resetPersistHdr( objs[i] );
 
   hashS.clear();
@@ -165,9 +165,9 @@ void storage::DetachAllObjs(VM* c)
 // set persistent obj attributes to 0:0 (oid:storage)
 void storage::resetPersistHdr( value& obj )
 {
-	ptr<persistent_header>(obj)->oid = 0;
-	ptr<persistent_header>(obj)->vstorage = 0;
-	ptr<persistent_header>(obj)->status = 0;
+  ptr<persistent_header>(obj)->oid = 0;
+  ptr<persistent_header>(obj)->vstorage = 0;
+  ptr<persistent_header>(obj)->status = 0;
 }
 
 
@@ -180,12 +180,12 @@ value storage::GetFromHash( oid_t oid )
 /* insert 'obj' object into storage hash */
 void storage::InsertInHash( oid_t oid, value obj )
 {
-	//Why you need this?
+  //Why you need this?
   //       this->hashS.get_index ( oid, true );
   assert(!CsBrokenHeartP(obj));
   this->hashS[oid] = obj;
   //printf("st=%x value=%I64x oid=%x size=%d\n", this, obj, oid, this->hashS.size());
- 
+
 }
 
 tool::string storage::GetNameByProto(VM* c, value proto)
@@ -251,39 +251,39 @@ void StoragePostGC(VM* c, value vs)
 
   trace(L"Original Total number of objects in hash: %ld\n", s->hashS.size() );
 
-	//if( !s->hashS.size() )
-  //   return; 
+  //if( !s->hashS.size() )
+  //   return;
 
-  int i = 0; 
+  int i = 0;
 
   // maintenance of hashNameProto
-	for(i = s->hashNameProto.size() - 1; i >= 0 ; i--)
+  for(i = s->hashNameProto.size() - 1; i >= 0 ; i--)
     s->hashNameProto(i) = CsCopyValue(c, s->hashNameProto(i) );
 
   storageHash newHashT;
 
   oid_t oid = 0;
   int n_toremove = 0;
-	for(i = s->hashS.size() - 1; i >= 0 ; i--)
-	{
+  for(i = s->hashS.size() - 1; i >= 0 ; i--)
+  {
     value obj = s->hashS(i);
-		if( CsBrokenHeartP(obj) ) // if it copied into new half - so it is needed. 
-		{
+    if( CsBrokenHeartP(obj) ) // if it copied into new half - so it is needed.
+    {
       value nobj = CsBrokenHeartForwardingAddr(obj);
       assert(!CsBrokenHeartP(nobj));
 
       persistent_header* oph = ptr<persistent_header>( obj );
       persistent_header* nph = ptr<persistent_header>( nobj );
 
-			nph->oid = oph->oid;
+      nph->oid = oph->oid;
       nph->vstorage = vs;
 
       assert(oph->oid);
 
-			newHashT[oid] = nobj;
+      newHashT[oid] = nobj;
 //trace(L"Broken heart: oid 0x%x\n", oid);
-		}
-	}
+    }
+  }
 
   tool::swap(newHashT, s->hashS);
 
@@ -306,13 +306,13 @@ bool IsEmptyStorage(value vs)
 // external interface
 /*void detachObjFromStorage( value& obj )
 {
-	if( CsPersistentP(obj) && ptr<persistent_header>(obj)->vstorage )
-	{
-		assert( ptr<persistent_header>(obj)->oid );
-		storage* s = (storage*)CsCObjectValue(ptr<persistent_header>(obj)->vstorage);
-		assert( s );
-		s->DetachObj(ptr<persistent_header>(obj)->oid );
-	}
+  if( CsPersistentP(obj) && ptr<persistent_header>(obj)->vstorage )
+  {
+    assert( ptr<persistent_header>(obj)->oid );
+    storage* s = (storage*)CsCObjectValue(ptr<persistent_header>(obj)->vstorage);
+    assert( s );
+    s->DetachObj(ptr<persistent_header>(obj)->oid );
+  }
 }
 */
 
@@ -326,19 +326,19 @@ printf( "DyBase error: %d - '%s'\n", error_code, msg );
 
 value CsMakeStorage(VM* c, storage* s)
 {
-	return CsMakeCPtrObject(c, c->storageDispatch, s);
+  return CsMakeCPtrObject(c, c->storageDispatch, s);
 }
 
 
 /* CsInitStorage - initialize the 'persistent' obj */
 void CsInitStorage(VM *c)
 {
-	// create the 'Storage' type
-	if (!(c->storageDispatch = CsEnterCPtrObjectType(CsGlobalScope(c), NULL, "Storage", methods, properties)))
-	{ CsInsufficientMemory(c); }
+  // create the 'Storage' type
+  if (!(c->storageDispatch = CsEnterCPtrObjectType(CsGlobalScope(c), NULL, "Storage", methods, properties)))
+  { CsInsufficientMemory(c); }
 
-	// setup alternate handlers
-	c->storageDispatch->destroy = DestroyStorage;
+  // setup alternate handlers
+  c->storageDispatch->destroy = DestroyStorage;
         c->storageDispatch->baseType = &CsCObjectDispatch;
 }
 
@@ -350,28 +350,28 @@ static value CSF_open(VM *c)
 {
   tool::wchars wfname;
   bool autocommit = true;
-	CsParseArguments(c, "**S#|B", &wfname.start, &wfname.length, &autocommit);
+  CsParseArguments(c, "**S#|B", &wfname.start, &wfname.length, &autocommit);
 
-	storage* s = new storage();
-	assert(s);
+  storage* s = new storage();
+  assert(s);
   s->autocommit = autocommit;
 
-  if(tool::is_like(wfname,L"file://*")) 
+  if(tool::is_like(wfname,L"file://*"))
     wfname.prune(7);
 
-	if (!(s->dbS = dybase_open( wfname.start, 4*1024*1024, errHandler )))
-	{
-		delete s;
-		return c->nullValue;
-	}
+  if (!(s->dbS = dybase_open( wfname.start, 4*1024*1024, errHandler )))
+  {
+    delete s;
+    return c->nullValue;
+  }
 
   dybase_gc(s->dbS);
 
-	value vs = CsMakeCPtrObject(c, c->storageDispatch, s);
+  value vs = CsMakeCPtrObject(c, c->storageDispatch, s);
 
-	/* save new storage in VM::storages */
-	c->storages.push(vs);
-	return vs;
+  /* save new storage in VM::storages */
+  c->storages.push(vs);
+  return vs;
 }
 
 /* close storage
@@ -379,10 +379,10 @@ static value CSF_open(VM *c)
 */
 static value CSF_close(VM *c)
 {
-	value val;
-	CsParseArguments(c, "V=*", &val, c->storageDispatch);
-	storage* s = (storage*)CsCObjectValue(val);
-	if(!s || !s->dbS) { return c->falseValue; }
+  value val;
+  CsParseArguments(c, "V=*", &val, c->storageDispatch);
+  storage* s = (storage*)CsCObjectValue(val);
+  if(!s || !s->dbS) { return c->falseValue; }
 
   if(s->autocommit)
     s->CommitHash(c);
@@ -394,12 +394,12 @@ static value CSF_close(VM *c)
   { c->storages.remove(idx); }
 
   /* storage will be closed in destructor */
-	delete s;
-	s = NULL;
+  delete s;
+  s = NULL;
 trace( L"Storage closed\n" );
 
-	CsSetCObjectValue(val, 0);
-	return c->trueValue;
+  CsSetCObjectValue(val, 0);
+  return c->trueValue;
 }
 
 
@@ -407,7 +407,7 @@ trace( L"Storage closed\n" );
   NO storage hash commit */
 void DestroyStorage(VM *c, value obj)
 {
-	storage* s = (storage*)CsCObjectValue(obj);
+  storage* s = (storage*)CsCObjectValue(obj);
 
   if(s->autocommit)
     s->CommitHash(c);
@@ -418,8 +418,8 @@ void DestroyStorage(VM *c, value obj)
   if( idx >= 0 )
   { c->storages.remove(idx); }
 
-	delete s;
-	s = NULL;
+  delete s;
+  s = NULL;
 
   CsSetCObjectValue(obj, 0);
 trace( L" Storage destroyed\n" );
@@ -431,19 +431,19 @@ trace( L" Storage destroyed\n" );
 */
 static value CSF_commit(VM *c)
 {
-	value val;
-	storage* s;
-	CsParseArguments(c, "V=*", &val, c->storageDispatch);
-	s = (storage*)CsCObjectValue(val);
-	if(!s || !s->dbS) { return c->falseValue; }
+  value val;
+  storage* s;
+  CsParseArguments(c, "V=*", &val, c->storageDispatch);
+  s = (storage*)CsCObjectValue(val);
+  if(!s || !s->dbS) { return c->falseValue; }
 
-	s->CommitHash(c);
+  s->CommitHash(c);
 
-	dybase_commit( s->dbS );
+  dybase_commit( s->dbS );
 
 trace( L"Storage commit\n" );
 
-	return c->trueValue;
+  return c->trueValue;
 }
 
 // clear all objects from storage cache
@@ -451,28 +451,28 @@ trace( L"Storage commit\n" );
 // Note: loaded / saved objects will retain oids and ref to the parent storage.
 static value CSF_rollback(VM *c)
 {
-	value val;
-	storage* s;
-	CsParseArguments(c, "V=*", &val, c->storageDispatch);
-	s = (storage*)CsCObjectValue(val);
-	if(!s || !s->dbS) { return c->falseValue; }
+  value val;
+  storage* s;
+  CsParseArguments(c, "V=*", &val, c->storageDispatch);
+  s = (storage*)CsCObjectValue(val);
+  if(!s || !s->dbS) { return c->falseValue; }
 
   s->hashS.clear();
 
-//	dybase_rollback( s->dbS );
+//  dybase_rollback( s->dbS );
 trace( L"Storage rollback\n" );
-	return c->trueValue;
+  return c->trueValue;
 }
 
 /* return 'autocommit' property */
 static value CSF_get_autocommit(VM *c, value vs)
 {
-	storage* s = (storage*)CsCObjectValue(vs);
-	if(!s || !s->dbS)
-	{
-		CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
-		return c->falseValue;
-	}
+  storage* s = (storage*)CsCObjectValue(vs);
+  if(!s || !s->dbS)
+  {
+    CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
+    return c->falseValue;
+  }
 
   return CsMakeBoolean( c, s->autocommit);
 }
@@ -480,19 +480,19 @@ static value CSF_get_autocommit(VM *c, value vs)
 /* set 'autocommit' property */
 /*static void CSF_set_autocommit(VM *c, value vs, value val)
 {
-	storage* s = (storage*)CsCObjectValue(vs);
-	if(!s || !s->dbS)
-		CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
+  storage* s = (storage*)CsCObjectValue(vs);
+  if(!s || !s->dbS)
+    CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
 
   s->autocommit = (CsBooleanP(c, val) && CsTrueP(c, val));
 }*/
 
 static value CSF_removeObject(VM *c)
 {
-	value obj;
-	value val;
-	storage* s;
-	CsParseArguments(c, "V=*V", &obj, c->storageDispatch, &val);
+  value obj;
+  value val;
+  storage* s;
+  CsParseArguments(c, "V=*V", &obj, c->storageDispatch, &val);
   s = (storage*)CsCObjectValue(obj);
   if(!s || !s->dbS) { return c->falseValue; }
 
@@ -500,7 +500,7 @@ static value CSF_removeObject(VM *c)
   { return c->falseValue; }
 
   value vsVal = ptr<persistent_header>(val)->vstorage;
-	storage* sVal = (storage*)CsCObjectValue(vsVal);
+  storage* sVal = (storage*)CsCObjectValue(vsVal);
   oid_t oidVal = ptr<persistent_header>(val)->oid;
 
   if( sVal == s )
@@ -510,7 +510,7 @@ static value CSF_removeObject(VM *c)
     return c->trueValue;
   }
 
-	return c->falseValue;
+  return c->falseValue;
 }
 
 /*
@@ -586,15 +586,15 @@ static value CSF_createIndex(VM *c)
 
 static value CSF_get_root(VM* c, value vs)
 {
-	storage* s = (storage*)CsCObjectValue(vs);
-	if(!s || !s->dbS)
-	{
-		CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
-		return c->falseValue;
-	}
+  storage* s = (storage*)CsCObjectValue(vs);
+  if(!s || !s->dbS)
+  {
+    CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
+    return c->falseValue;
+  }
 
-	dybase_oid_t oid = dybase_get_root_object(s->dbS);
-	if( !oid )
+  dybase_oid_t oid = dybase_get_root_object(s->dbS);
+  if( !oid )
         return c->nullValue;
 
   return CsFetchObject(c,vs,oid);
@@ -610,8 +610,8 @@ tool::string FetchClassName(storage* s, oid_t oid)
 {
   assert(s && s->dbS);
 
-	dybase_handle_t h = dybase_begin_load_object(s->dbS, oid);
-	assert(h);
+  dybase_handle_t h = dybase_begin_load_object(s->dbS, oid);
+  assert(h);
 
   char* strClassName = dybase_get_class_name(h);
   tool::string className = strClassName;
@@ -626,22 +626,22 @@ value CsFetchObject( VM *c, value vs, oid_t oid )
     storage* s = (storage*)CsCObjectValue(vs);
     assert(s);
 
-	  if( s->IsExistsInHash(oid) )
-	  {
+    if( s->IsExistsInHash(oid) )
+    {
 //      trace( L"\nobj returned from storage hash, oid = 0x%x\n", oid );
       return s->GetFromHash(oid);
-	  }
+    }
 
     tool::string className = FetchClassName(s, oid);
-    value proto = 0; 
+    value proto = 0;
     if(className.length())
     {
       proto = s->GetProtoByName(c,className);
     }
     if(!proto) proto = c->objectObject;
-		value obj = CsMakeObject( c, proto );
+    value obj = CsMakeObject( c, proto );
 
-		// delayed obj loading
+    // delayed obj loading
     ptr<persistent_header>(obj)->oid = oid;
     ptr<persistent_header>(obj)->vstorage = vs;
     ptr<persistent_header>(obj)->loaded(false); // clear loaded flag
@@ -657,31 +657,31 @@ value CsFetchVector( VM *c, value vs, dybase_oid_t oid )
     storage* s = (storage*)CsCObjectValue(vs);
     assert(s);
 
-	  if( s->IsExistsInHash(oid) )
+    if( s->IsExistsInHash(oid) )
       return s->GetFromHash(oid);
 
     // load length for the vector
-	  dybase_handle_t h = dybase_begin_load_object(s->dbS, oid);
-	  assert(h);
+    dybase_handle_t h = dybase_begin_load_object(s->dbS, oid);
+    assert(h);
 
-	  char* className = dybase_get_class_name(h);
-	  if( !className )
-	  {
+    char* className = dybase_get_class_name(h);
+    if( !className )
+    {
       assert(false);
       return c->falseValue;
     }
 
     char* fieldName = dybase_next_field(h);
     if( !fieldName )
-	  {
+    {
       assert(false);
       return c->falseValue;
     }
 
     int_t type;
-	  void* value_ptr = NULL;
-	  int_t value_length = 0;
-	  dybase_get_value(h, &type, &value_ptr, &value_length);
+    void* value_ptr = NULL;
+    int_t value_length = 0;
+    dybase_get_value(h, &type, &value_ptr, &value_length);
     dybase_end_load_object(h);
 
     value vec = CsMakeVector(c, value_length);
@@ -709,54 +709,54 @@ value  CsFetchObjectData( VM *c, value obj )
   dybase_oid_t  oid = ptr<persistent_header>(obj)->oid;
   value         vs = ptr<persistent_header>(obj)->vstorage;
   storage*      s = (storage*)CsCObjectValue(vs);
-//	assert(s && s->dbS);
+//  assert(s && s->dbS);
 
   dybase_handle_t h = 0;
   try
   {
-	  h = dybase_begin_load_object(s->dbS, oid);
-	  assert(h);
+    h = dybase_begin_load_object(s->dbS, oid);
+    assert(h);
   }
   catch(...)
   {
     CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
   }
 
-	char* className = dybase_get_class_name(h);
-	if( !className )
-	{
+  char* className = dybase_get_class_name(h);
+  if( !className )
+  {
     assert(false);
     return obj;
   }
 
   char* fieldName = dybase_next_field(h);
   if( !fieldName )
-	{
+  {
     assert(false);
     return obj;
   }
 
   int_t type;
-	void* value_ptr = NULL;
-	int_t value_length = 0;
-	dybase_get_value(h, &type, &value_ptr, &value_length);
+  void* value_ptr = NULL;
+  int_t value_length = 0;
+  dybase_get_value(h, &type, &value_ptr, &value_length);
 
   assert( type == dybase_map_type );
 
   CsCheck(c,2);
   CsPush(c,obj); // FetchValue can allocate -> GC
 
-	for( int_t i = 0; i < value_length; i++ )
-	{
-		  dybase_next_element( h );
-		  value key = FetchValue( c, vs, h );
-		  dybase_next_element( h );
+  for( int_t i = 0; i < value_length; i++ )
+  {
+      dybase_next_element( h );
+      value key = FetchValue( c, vs, h );
+      dybase_next_element( h );
       CsPush(c,key);
         value val = FetchValue( c, vs, h );
       key = CsPop(c);
       obj = CsTop(c);
-		  CsSetObjectPersistentProperty( c, obj, key, val );
-	}
+      CsSetObjectPersistentProperty( c, obj, key, val );
+  }
   obj = CsPop(c);
 
   dybase_end_load_object(h);
@@ -779,27 +779,27 @@ value  CsFetchVectorData( VM *c, value obj )
 
   assert(oid);
 
-	dybase_handle_t h = dybase_begin_load_object(s->dbS, oid);
-	assert(h);
+  dybase_handle_t h = dybase_begin_load_object(s->dbS, oid);
+  assert(h);
 
-	char* className = dybase_get_class_name(h);
-	if( !className )
-	{
+  char* className = dybase_get_class_name(h);
+  if( !className )
+  {
     assert(false);
     return obj;
   }
 
   char* fieldName = dybase_next_field(h);
   if( !fieldName )
-	{
+  {
     assert(false);
     return obj;
   }
 
   int_t type;
-	void* value_ptr = NULL;
-	int_t value_length = 0;
-	dybase_get_value(h, &type, &value_ptr, &value_length);
+  void* value_ptr = NULL;
+  int_t value_length = 0;
+  dybase_get_value(h, &type, &value_ptr, &value_length);
 
   assert( type == dybase_array_type );
 
@@ -808,13 +808,13 @@ value  CsFetchVectorData( VM *c, value obj )
 
   obj = CsResizeVectorNoLoad(c,obj,value_length);
 
-	for( int_t i = 0; i < value_length; i++ )
-	{
-		dybase_next_element( h );
-		value val = FetchValue( c, vs, h );
+  for( int_t i = 0; i < value_length; i++ )
+  {
+    dybase_next_element( h );
+    value val = FetchValue( c, vs, h );
     obj = CsTop(c);
     CsSetVectorElementNoLoad(c, obj,i,val);
-	}
+  }
   obj = CsPop(c);
 
   dybase_end_load_object(h);
@@ -830,54 +830,54 @@ value FetchValue( VM *c, value vs, dybase_handle_t h )
 
   storage* s = (storage*)CsCObjectValue(vs);
 
-	int_t type;
-	void* value_ptr = NULL;
-	int_t value_length = 0;
-	dybase_get_value(h, &type, &value_ptr, &value_length);
+  int_t type;
+  void* value_ptr = NULL;
+  int_t value_length = 0;
+  dybase_get_value(h, &type, &value_ptr, &value_length);
 
-	switch(type)
-	{
-	case dybase_object_ref_type:
-		{
-		  dybase_oid_t oid = *((dybase_oid_t*)value_ptr);
+  switch(type)
+  {
+  case dybase_object_ref_type:
+    {
+      dybase_oid_t oid = *((dybase_oid_t*)value_ptr);
       return CsFetchObject(c, vs, oid);
-		}
-	case dybase_array_ref_type:
+    }
+  case dybase_array_ref_type:
     {
       dybase_oid_t oid = *((dybase_oid_t*)value_ptr);
       return CsFetchVector(c, vs, oid);
     }
-	case dybase_index_ref_type:
+  case dybase_index_ref_type:
     {
       dybase_oid_t oid = *((dybase_oid_t*)value_ptr);
 /* AM: it breaks reading of index from storage */
       if( !s->IsHashEmpty() && s->IsExistsInHash(oid) )
-	    {
+      {
         trace( L"\nDbIndex obj returned from storage hash, oid = 0x%x\n", oid );
         return s->GetFromHash(oid);
-	    }
+      }
       return CsMakeDbIndex(c, vs, oid);
     }
-	case dybase_bool_type:
+  case dybase_bool_type:
     return CsMakeBoolean(c, *((bool*)value_ptr) );
 
-	case dybase_int_type:
-		return CsMakeInteger(c,*((int_t*)value_ptr));
+  case dybase_int_type:
+    return CsMakeInteger(c,*((int_t*)value_ptr));
 
   // long here is a date
-	case dybase_date_type:
-		{
+  case dybase_date_type:
+    {
       datetime_t dt = *((datetime_t*)value_ptr);
       //FILETIME ft = ft64(i64);
       return CsMakeDate(c, dt);
 //trace( L"date 0x%lx %lx\n", ft.dwHighDateTime, ft.dwLowDateTime );
-		}
+    }
 
-	case dybase_real_type:
-		return CsMakeFloat(c,*(double*)value_ptr);
+  case dybase_real_type:
+    return CsMakeFloat(c,*(double*)value_ptr);
 //trace( L"long %d - ", *((long*)value_ptr) );
 
-	case dybase_string_type:
+  case dybase_string_type:
     {
       byte strType = *(byte*)value_ptr;
       switch(strType)
@@ -888,7 +888,7 @@ value FetchValue( VM *c, value vs, dybase_handle_t h )
           return CsMakeSymbol(c,str, str.length());
         }
       case db_wchar:
-  		  return CsMakeCharString( c, (wchar*)((byte*)value_ptr + 1), (value_length-1)/2 );
+        return CsMakeCharString( c, (wchar*)((byte*)value_ptr + 1), (value_length-1)/2 );
       case db_blob:
         //assert(false);
         return CsMakeByteVector( c, (byte*)value_ptr + 1, value_length - 1);
@@ -899,20 +899,20 @@ value FetchValue( VM *c, value vs, dybase_handle_t h )
       }
     }
 //trace( L"string %s - ", (wchar*)value_ptr );
-		break;
+    break;
 
-	case dybase_map_type:
+  case dybase_map_type:
     // element couldn't be a map
     // map =(by default) to object
-		assert(false);
-		break;
+    assert(false);
+    break;
 
-	default:
-		assert(false);
-		break;
-	}
+  default:
+    assert(false);
+    break;
+  }
 
-	return c->undefinedValue;
+  return c->undefinedValue;
 }
 
 
@@ -921,12 +921,12 @@ value FetchValue( VM *c, value vs, dybase_handle_t h )
 */
 static void CSF_set_root(VM *c, value vs, value val)
 {
-	storage* s = (storage*)CsCObjectValue(vs);
-	if(!s)
-	{
-		CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
-		return;
-	}
+  storage* s = (storage*)CsCObjectValue(vs);
+  if(!s)
+  {
+    CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
+    return;
+  }
 
   dybase_oid_t oid = 0;
 
@@ -938,19 +938,19 @@ static void CSF_set_root(VM *c, value vs, value val)
   else
     CsThrowKnownError(c, CsErrUnexpectedTypeError, "root can be either object or array");
 
-	if( oid )
-	{
+  if( oid )
+  {
     dybase_set_root_object(s->dbS, oid);
   }
-	else
-	{ CsThrowKnownError(c, CsErrPersistError, "Can not save root object"); }
+  else
+  { CsThrowKnownError(c, CsErrPersistError, "Can not save root object"); }
 
-	return;
+  return;
 }
 
 dybase_oid_t CsSetPersistent( VM *c, value vs, value obj )
 {
-	storage* s = (storage*)CsCObjectValue(vs);
+  storage* s = (storage*)CsCObjectValue(vs);
   assert( s && s->dbS );
 
   dybase_oid_t oid;
@@ -967,7 +967,7 @@ dybase_oid_t CsSetPersistent( VM *c, value vs, value obj )
   }
   else // it is detached or attached to another storage
 
-		oid = dybase_allocate_object( s->dbS );
+  oid = dybase_allocate_object( s->dbS );
 
   assert(oid);
 
@@ -1005,7 +1005,7 @@ void CsStoreObjectData( VM *c, value obj )
 
   value vs = ptr<persistent_header>(obj)->vstorage;
 
-	storage* s = (storage*)CsCObjectValue(vs);
+  storage* s = (storage*)CsCObjectValue(vs);
   assert( s && s->dbS );
 
   dybase_oid_t oid = ptr<persistent_header>(obj)->oid;
@@ -1022,9 +1022,18 @@ void CsStoreObjectData( VM *c, value obj )
   tool::string strClassName = s->GetNameByProto(c, proto);
 
   dybase_handle_t h = dybase_begin_store_object( s->dbS, oid, strClassName );
-	assert(h);
+  assert(h);
   if(!h) { CsThrowKnownError(c, CsErrPersistError, strErrCantSaveObj); }
 
+  int counter = 0;
+
+  
+  each_property gen(c, obj, false);
+  value key,val;
+  while(gen(key,val))
+     ++counter;
+  
+  /*
   struct oscanner_counter: object_scanner
   {
     int counter;
@@ -1032,7 +1041,7 @@ void CsStoreObjectData( VM *c, value obj )
     value vs;
     bool item( VM *c, value key, value val )
     {
-      //if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' ) 
+      //if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' )
       //  return true; // this is not persistable member.
       ++counter;
       return true; // continue scan
@@ -1043,21 +1052,25 @@ void CsStoreObjectData( VM *c, value obj )
   oscounter.h = h;
   oscounter.vs = vs;
   CsScanObjectNoLoad(c,obj,oscounter);
+  */
 
-		// -- store all properties --
-	//int countProperties = CsObjectPropertyCount(obj);
-	// saving pairs: tag + value
-	
-  dybase_store_object_field(h, ".", dybase_map_type, 0, oscounter.counter);
+
+
+  // -- store all properties --
+  //int countProperties = CsObjectPropertyCount(obj);
+  // saving pairs: tag + value
+
+  dybase_store_object_field(h, ".", dybase_map_type, 0, counter);
 
   // scan all obj properties and store every (key val) pair
+  /*
   struct oscanner: object_scanner
   {
     dybase_handle_t h;
     value vs;
     bool item( VM *c, value key, value val )
     {
-      //if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' ) 
+      //if( CsSymbolP(key) && CsSymbolName(key)[0] == '_' )
       //  return true; // this is not persistable member.
       StoreValue(c, vs, h,key);
       StoreValue(c, vs, h,val);
@@ -1069,9 +1082,17 @@ void CsStoreObjectData( VM *c, value obj )
   osc.vs = vs;
 
   CsScanObjectNoLoad(c,obj,osc);
+  */
 
-		// end store obj
-	dybase_end_store_object(h);
+  //if(0)
+  while(gen(key,val))
+  {
+    StoreValue(c, vs, h,key);
+    StoreValue(c, vs, h,val);
+  }
+  
+    // end store obj
+  dybase_end_store_object(h);
 
 }
 
@@ -1098,12 +1119,12 @@ void CsStoreVectorData( VM *c, value obj )
 #ifdef _DEBUG
   if(CsMovedVectorP(obj))
     type_name = type_name;
-#endif 
-  
+#endif
+
 
   value vs = ptr<persistent_header>(obj)->vstorage;
 
-	storage* s = (storage*)CsCObjectValue(vs);
+  storage* s = (storage*)CsCObjectValue(vs);
   assert( s && s->dbS );
 
   dybase_oid_t oid = ptr<persistent_header>(obj)->oid;
@@ -1114,21 +1135,21 @@ void CsStoreVectorData( VM *c, value obj )
   //CsVectorP(obj) || CsMovedVectorP(obj)
 
   dybase_handle_t h = dybase_begin_store_object( s->dbS, oid, type_name  );
-	assert(h);
+  assert(h);
   if(!h) { CsThrowKnownError(c, CsErrPersistError, strErrCantSaveObj); }
 
-	// -- store all elements --
- 	int_t v_length = CsVectorSize(c,obj);
+  // -- store all elements --
+  int_t v_length = CsVectorSize(c,obj);
 #ifdef _DEBUG
     if(v_length == 3)
       v_length = v_length;
 #endif
-	dybase_store_object_field(h, ".", dybase_array_type, 0, v_length);
-	for( int_t i = 0; i < v_length; i++ )
-	{
-		value vel = CsVectorElement(c, obj, i );
-		StoreValue( c, vs, h, vel );
-	}
+  dybase_store_object_field(h, ".", dybase_array_type, 0, v_length);
+  for( int_t i = 0; i < v_length; i++ )
+  {
+    value vel = CsVectorElement(c, obj, i );
+    StoreValue( c, vs, h, vel );
+  }
   dybase_end_store_object(h);
 
 }
@@ -1137,104 +1158,104 @@ void CsStoreVectorData( VM *c, value obj )
 void Transform(VM* c, value vs, value val, db_triplet& db_v)
 {
 //trace( L"Transform: \n" );
-	storage* s = (storage*)CsCObjectValue(vs);
+  //storage* s = (storage*)CsCObjectValue(vs);
 
-	db_v.len = 0;
-	db_v.data.i64 = 0;
+  db_v.len = 0;
+  db_v.data.i64 = 0;
 
   if( CsBooleanP(c, val) )
   {
     db_v.data.b = CsTrueP( c, val );
     db_v.type = dybase_bool_type;
   }
-	else if( CsIntegerP( val ) )
-	{
-		db_v.data.i = to_int( val );
-		db_v.type = dybase_int_type;
+  else if( CsIntegerP( val ) )
+  {
+    db_v.data.i = to_int( val );
+    db_v.type = dybase_int_type;
     //trace( L" int %d ", db_v.data.i );
-	}
-	else if( CsSymbolP( val ) )
-	{
+  }
+  else if( CsSymbolP( val ) )
+  {
     tool::string str = CsSymbolName(val);
-		db_v.len = 1 + str.length() * sizeof(char); // length in bytes + 1 byte for the type
+    db_v.len = 1 + str.length() * sizeof(char); // length in bytes + 1 byte for the type
     db_v.data.s = new byte[db_v.len];
     byte strType = db_char;
     ::memcpy( db_v.data.s, &strType, 1);
     ::memcpy( db_v.data.s + 1, (byte*)str.c_str(), db_v.len - 1);
-		db_v.type = dybase_string_type;
-	}
-	else if( CsFloatP( val ) )
-	{
-		db_v.data.d = to_float( val );
-		db_v.type = dybase_real_type;
+    db_v.type = dybase_string_type;
+  }
+  else if( CsFloatP( val ) )
+  {
+    db_v.data.d = to_float( val );
+    db_v.type = dybase_real_type;
 //trace( L" float %u ", db_v.data.d );
-	}
-	else if( CsStringP( val ) )
-	{
+  }
+  else if( CsStringP( val ) )
+  {
     //array<byte> utf8;
     //to_utf8(CsStringAddress(val), CsStringSize(val), array<byte>& utf8out)
 
-		db_v.len = 1 + CsStringSize(val) * sizeof(wchar); // length in bytes + 1 byte for the type
+    db_v.len = 1 + CsStringSize(val) * sizeof(wchar); // length in bytes + 1 byte for the type
     db_v.data.s = new byte[db_v.len];
     byte strType = db_wchar;
     ::memcpy( db_v.data.s, &strType, 1);
     ::memcpy( db_v.data.s + 1, (byte*)CsStringAddress(val), db_v.len - 1);
     db_v.type = dybase_string_type;
 //trace( L" string %s ", (wchar*)db_v.data.s );
-	}
+  }
   else if( CsDateP(c, val) )
-	{
-		datetime_t ft = CsDateValue(c,val);
-		db_v.data.i64 = ft;
-		db_v.type = dybase_date_type;
+  {
+    datetime_t ft = CsDateValue(c,val);
+    db_v.data.i64 = ft;
+    db_v.type = dybase_date_type;
 //trace( L" date 0x%lx %lx\n ", ft.dwHighDateTime, ft.dwLowDateTime );
 
-	}
-	else if( CsVectorP(val) || CsMovedVectorP(val) )
-	{
-		db_v.type = dybase_array_ref_type;
+  }
+  else if( CsVectorP(val) || CsMovedVectorP(val) )
+  {
+    db_v.type = dybase_array_ref_type;
     db_v.data.oid = CsStoreVector( c, vs, val );
-//		db_v.data.oid = StoreObj( c, vs, val );
+//    db_v.data.oid = StoreObj( c, vs, val );
 //trace( L" vector 0x%x ", db_v.data.oid );
-	}
+  }
   else if(CsDbIndexP(c, val))
   {
     db_v.type = dybase_index_ref_type;
     db_v.data.oid = ptr<persistent_header>(val)->oid;
   }
-	else if(CsObjectP(val))
-	{
+  else if(CsObjectP(val))
+  {
     db_v.type = dybase_object_ref_type;
-		db_v.data.oid = CsStoreObject( c, vs, val );
+    db_v.data.oid = CsStoreObject( c, vs, val );
 //trace( L" obj 0x%x ", db_v.data.oid );
-	}
+  }
   else if(CsByteVectorP(val))
   {
     byte* b   = CsByteVectorAddress(val);
     int   len = CsByteVectorSize(val);
     //tool::string str = CsSymbolName(val);
-		db_v.len = 1 + len; // length in bytes + 1 byte for the type
+    db_v.len = 1 + len; // length in bytes + 1 byte for the type
     db_v.data.s = new byte[db_v.len];
     byte strType = db_blob;
     ::memcpy( db_v.data.s, &strType, 1);
     ::memcpy( db_v.data.s + 1, b, len);
-		db_v.type = dybase_string_type;
+    db_v.type = dybase_string_type;
   }
-	else
-	{
-		// TODO: not supported?
+  else
+  {
+    // TODO: not supported?
 trace( L"unknown type in Transform()\n");
-		assert(false);
-	}
+    assert(false);
+  }
 //trace( L"End of Transform\n" );
-	return;
+  return;
 }
 
 void StoreValue( VM *c, value vs, dybase_handle_t h, value val)
 {
-	db_triplet db_val;
+  db_triplet db_val;
   Transform(c, vs, val, db_val);
-	dybase_store_array_element(h,
+  dybase_store_array_element(h,
           db_val.type,
          (db_val.type == dybase_string_type) ? (void*)db_val.data.s : &db_val.data,
           db_val.len);

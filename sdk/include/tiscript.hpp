@@ -1,446 +1,311 @@
-#ifndef __tiscript_hpp__
-#define __tiscript_hpp__
+#ifndef __tis_hpp__
+#define __tis_hpp__
 
+#include <assert.h>
 #include "tiscript.h"
-#include <stdlib.h>
-#include <string>
-#include <windows.h>
-
+#include "tiscript-streams.hpp"
 
 namespace tiscript
 {
-
-  class stream: public stream_t 
+  inline tiscript_native_interface* ni() 
   {
-    static bool TISAPI stream_input(stream_t* tag, int* pv) { return static_cast<stream*>(tag)->get(*pv); }
-    static bool TISAPI stream_output(stream_t* tag, int v)  { return static_cast<stream*>(tag)->put(v); }
-    static const wchar* TISAPI stream_name(stream_t* tag)   { return static_cast<stream*>(tag)->name(); } 
-    static bool TISAPI stream_close(stream_t* tag)          { return static_cast<stream*>(tag)->close(); } 
-    static stream_vtbl_t* get_vtbl()
-    {
-      static stream_vtbl_t vtbl = 
-      {
-          &stream_input,
-          &stream_output,
-          &stream_name,
-          &stream_close
-      };
-      return &vtbl;
-    }
-  public:
-    stream() { _vtbl = get_vtbl(); }
-    virtual bool get(int& val)  { return false; }
-    virtual bool put(int v)    { return false; }
-    virtual const wchar* name()   { return L""; }
-    virtual bool close()          { delete this; return true; }  
-  };
-
-// various stream implementations
-  class string_in_stream: public stream
-  {
-    const wchar* _str;  
-  public:
-    string_in_stream(const wchar* str): _str(str) {}
-    virtual bool get(int& v) 
-    { 
-      if(*_str) { v = *_str++; return true; } 
-      return false; 
-    }
-  };
-  class string_out_stream: public stream
-  {
-    wchar *_str, *_p, *_end;
-  public:
-    string_out_stream() { _p = _str = (wchar*)malloc( 128 * sizeof(wchar) ); _end = _str + 128; }
-    virtual bool put(int v) 
-    {
-      if( _p >= _end )
-      {
-        size_t sz = _end - _str; size_t nsz = (sz * 2) / 3;
-        wchar *nstr = (wchar*)realloc(_str, nsz * sizeof(wchar));
-        if(!nstr) return false;
-        _str = nstr; _p = _str + sz; _end = _str + nsz;
-      }
-      *_p++ = v;
-      return true; 
-    }
-  };
-
-  // simple file stream. 
-  class file_in_stream: public stream
-  {
-    FILE *        _file;  
-    std::wstring  _name;
-  public:
-    file_in_stream(const wchar_t* filename) {  _file = _wfopen(filename,L"rb"); _name = filename; }
-    ~file_in_stream() { if(_file) fclose(_file); }
-
-    virtual const wchar_t* name() { return _name.c_str(); }
-
-    virtual bool get(int& v) 
-    { 
-      if(!_file || feof(_file)) return false;
-      v = fgetc(_file);
-      return true;
-    }
-    bool is_valid() const { return _file != 0; }
-  };
-
-  inline wchar oem2wchar(char c)
-  {
-    wchar wc = '?';
-    MultiByteToWideChar(CP_OEMCP,0,&c,1,&wc,1);
-    return wc;
-  }
-  inline char wchar2oem(wchar wc)
-  {
-    char c = '?';
-    WideCharToMultiByte(CP_OEMCP,0,&wc,1,&c,1,0,0);
-    return c;
+    #ifdef TISCRIPT_EXT_MODULE    
+      return TIScriptAPI;
+    #else
+      static tiscript_native_interface* _ni = TIScriptAPI();
+      return _ni;
+    #endif
   }
 
-  class console: public stream 
-  {
-  public:
-    virtual bool get(int& v) { int c = getchar(); if(c == EOF) return false; v = oem2wchar(c); return true; } 
-    virtual bool put(int v) { return putchar( wchar2oem(v) ) != EOF; }
-  };
+  typedef std::wstring string; 
 
-  // scripting environment
-  class env
-  {
-    friend struct pinned;
-    VM*  pvm; // virtual machine 
-    bool owner; // true if it owns the VM
+  typedef tiscript_value  value;
+  typedef tiscript_VM     VM;
 
-    static native_interface *ni()  
-    {
-      static native_interface *pni = 0;
-      if(!pni)
-        pni = TIScriptAPI();
-      assert(pni);
-      return pni;
-    }
-  public:
-    // create new VM [and make it current for the thread].
-    env(uint features = 0xffffffff, uint heap_size = 1*1024*1024, uint stack_size = 64*1024) 
-    { 
-      owner = true;
-      pvm = ni()->create_vm(features, heap_size,stack_size); 
-    }
-    env(VM *vmref):owner(false)
-    { 
-      owner = false;
-      pvm = vmref;
-    }
-    ~env() 
-    {
-      if(owner) 
-        ni()->destroy_vm(pvm);
-    }
+  inline VM*  create_vm(unsigned features = 0xffffffff, unsigned heap_size = 1*1024*1024, unsigned stack_size = 64*1024 ) 
+  { 
+     return ni()->create_vm(features,heap_size, stack_size); 
+  }
+  inline void destroy_vm(VM* vm) { ni()->destroy_vm(vm); }
 
+  /* 
     // set stdin, stdout and stderr for this VM
-    void set_std_streams(stream_t* input, stream_t* output, stream_t* error) 
-    { 
-      assert(owner);
-      ni()->set_std_streams(pvm, input, output, error); 
-    }
-    // get global namespace (Object)
-    value get_global_ns() { return ni()->get_global_ns(pvm); }
-    // get current namespace (Object)
-    value get_current_ns() { return ni()->get_current_ns(pvm); }
+    void  (TISAPI *set_std_streams)(VM* pvm, stream_t* input, stream_t* output, stream_t* error);
+    // get VM attached to the current thread
+    */
 
-    static bool is_int(value v)                               { return ni()->is_int(v); }
-    static bool is_float(value v)                             { return ni()->is_float(v); }
-    static bool is_symbol(value v)                            { return ni()->is_symbol(v); }
-    static bool is_string(value v)                            { return ni()->is_string(v); }
-    static bool is_array(value v)                             { return ni()->is_array(v); }
-    static bool is_object(value v)                            { return ni()->is_object(v); }
-    static bool is_native_object(value v)                     { return ni()->is_native_object(v); }
-    static bool is_function(value v)                          { return ni()->is_function(v); }
-    static bool is_native_function(value v)                   { return ni()->is_native_function(v); }
-    static bool is_instance_of(value v, value cls)            { return ni()->is_instance_of(v,cls); }
-    static bool is_undefined(value v)                         { return ni()->is_undefined(v); }  
-    static bool is_nothing(value v)                           { return ni()->is_nothing(v); }  
-    static bool is_null(value v)                              { return ni()->is_null(v); }  
-    static bool is_true(value v)                              { return ni()->is_true(v); }  
-    static bool is_false(value v)                             { return ni()->is_false(v); }  
-           bool is_class(value v)                             { return ni()->is_class(pvm,v); }  
-    static bool is_error(value v)                             { return ni()->is_error(v); }  
+  inline void  set_std_streams(VM* vm, stream* input, stream* output, stream* error) {  ni()->set_std_streams(vm, input, output, error); }
 
-    static int          get_int(value v, int def = 0)         { ni()->get_int_value(v,&def); return def; }
-    static double       get_float(value v, double def = 0.0)  { ni()->get_float_value(v,&def); return def; }
-    static bool         get_bool(value v, bool def = false)   { ni()->get_bool_value(v,&def); return def; }
-    static std::string  get_symbol(value v)                   { const char* data=""; ni()->get_symbol_value(v,&data); return data; }
-    static std::wstring get_string(value v)                   { const wchar_t* data=L""; uint length=0; ni()->get_string_value(v,&data,&length); return std::wstring(data,length); }
-    static void         get_string(value v, const wchar_t* &data, uint& length) { ni()->get_string_value(v,&data,&length); }
+  inline VM*   get_current_vm()         { return ni()->get_current_vm(); }
+  inline value get_global_ns(VM* vm)    { return ni()->get_global_ns(vm); }
+  inline value get_current_ns(VM* vm)   { return ni()->get_current_ns(vm); }
+  inline void  invoke_gc(VM* vm)        { ni()->invoke_gc(vm); }
 
-    static value undefined_value()                            { return ni()->undefined_value(); }
-    static value null_value()                                 { return ni()->null_value(); }
-    static value bool_value(bool v)                           { return ni()->bool_value(v); }  
-    static value int_value(int v)                             { return ni()->int_value(v); }  
-    static value float_value(double v)                        { return ni()->float_value(v); }  
-           value string_value(const wchar* text = L"", uint text_length = 0 )
+  inline bool  is_int(value v)          { return ni()->is_int(v); }
+  inline bool  is_float(value v)        { return ni()->is_float(v); }
+  inline bool  is_symbol(value v)       { return ni()->is_symbol(v); } 
+  inline bool  is_string(value v)       { return ni()->is_string(v); }
+  inline bool  is_array(value v)        { return ni()->is_array(v); }
+  inline bool  is_object(value v)       { return ni()->is_object(v); }
+  inline bool  is_native_object(value v){ return ni()->is_native_object(v); }
+  inline bool  is_function(value v)     { return ni()->is_function(v); }
+  inline bool  is_native_function(value v)  { return ni()->is_native_function(v); }
+  inline bool  is_instance_of(value v, value cls) { return ni()->is_instance_of(v,cls); }
+  inline bool  is_undefined(value v)    { return ni()->is_undefined(v); }
+  inline bool  is_nothing(value v)      { return ni()->is_nothing(v); }
+  inline bool  is_null(value v)         { return ni()->is_null(v); }
+  inline bool  is_true(value v)         { return ni()->is_true(v); }
+  inline bool  is_false(value v)        { return ni()->is_false(v); }
+  inline bool  is_bool(value v)         { return is_true(v) || is_false(v); }
+  inline bool  is_class(VM* vm,value v) { return ni()->is_class(vm,v); }
+  inline bool  is_error(value v)        { return ni()->is_error(v); }
+  inline bool  is_bytes(value v)        { return ni()->is_bytes(v); }
+
+  // to C/C++ type from the value
+  inline int          c_int(value v)     { int dv = 0;         ni()->get_int_value(v,&dv); return dv; }
+  inline double       c_float(value v)   { double dv = 0;      ni()->get_float_value(v,&dv); return dv; }
+  inline bool         c_bool(value v)    { bool dv = false;    ni()->get_bool_value(v,&dv); return dv; }
+  inline std::string  c_symbol(value v)  { const char* dv = "";  ni()->get_symbol_value(v,&dv); return dv; }
+  inline std::wstring c_string(value v)  { const wchar_t* dv = L""; unsigned len = 0; ni()->get_string_value(v,&dv,&len); return std::wstring(dv,len); }
+  inline bool         c_bytes(value v, const unsigned char* &data, unsigned &datalen) { return ni()->get_bytes(v,&data,&datalen); }
+
+  // to script value from C/C++ type
+  inline value        v_nothing()             { static value _v = ni()->nothing_value(); return _v; }   // designates ultimate "does not exist" situation.
+  inline value        v_undefined()           { static value _v = ni()->undefined_value(); return _v; } // non-initialized or non-existent value
+  inline value        v_null()                { static value _v = ni()->null_value(); return _v; }      // explicit "no object" value
+  inline value        v_bool(bool v)          { return ni()->bool_value(v); }
+  inline value        v_int(int v)            { return ni()->int_value(v); }
+  inline value        v_float(double v)       { return ni()->float_value(v); }
+  inline value        v_symbol(const char* v) { return ni()->symbol_value(v); }   // symbol is an int - perfect hash value of the string
+                                                                                  // used as property/function names (keys) of objects
+                                                                                  // symbol !== string, but convertable to it.
+                                                                                  // symbol is not GCable, once created can be stored anywhere and
+                                                                                  // yet shared between different VMs.
+
+  inline value        v_string(VM* vm, const wchar* str, unsigned len = 0) { return ni()->string_value(vm,str,len); }
+                                                                                  // the string of course.  
+  inline value        v_bytes(VM* vm, const unsigned char* data, unsigned datalen) { return ni()->bytes_value(vm,data,datalen); }
+                                                                                  // make instance of Bytes object in script - 
+                                                                                  // sequence of bytes. 
+                                                                                  // Be notified: Bytes is a citizen of GCable heap. Use pinned thing to hold it
+
+  // convert value to string represenatation.
+  inline std::wstring to_string(VM* vm,value v) { return c_string(ni()->to_string(vm,v)); }
+
+  // path here is a global "path" of the object, something like: "one", "one.two", etc.
+  inline value        value_by_path(VM* vm, const char* path) { value r = v_undefined(); ni()->get_value_by_path(vm, &r, path); return r; }
+  
+//@region Object
+
+  // object creation, of_class == 0 - "Object"
+  inline value  create_object(VM* vm, value of_class = 0) { return ni()->create_object(vm, of_class); }
+  inline value  create_object(VM* vm, const char* class_path ) 
+  { 
+      value cls = value_by_path(vm, class_path); assert( is_class(vm,cls) );
+      return ni()->create_object(vm, cls); 
+  }
+
+  // object propery access.
+  inline bool  set_prop(VM* vm, value obj, value key, value value) { return ni()->set_prop(vm,obj,key,value); }
+  inline value get_prop(VM* vm, value obj, value key) { return ni()->get_prop(vm,obj,key); }
+  
+  inline bool  set_prop(VM* vm, value obj, const char* key, value value) { return set_prop(vm,obj,v_symbol(key),value); }
+  inline value get_prop(VM* vm, value obj, const char* key)              { return get_prop(vm,obj,v_symbol(key)); }
+
+  // enumeration of object properties
+  struct object_enum
+  {
+    VM *vm;
+    virtual bool operator()(value key, value val) = 0; // true - continue enumeartion
+    inline static bool TISAPI _enum(VM *vm, value key, value val, void* tag)
     {
-      if(!text_length) text_length = wcslen(text);
-      return ni()->string_value(pvm, text, text_length);
+      object_enum* oe = reinterpret_cast<object_enum*>(tag);
+      oe->vm = vm; return oe->operator()(key,val);
     }
-           value string_value(const std::wstring& str)        { return ni()->string_value(pvm, str.c_str(), str.length()); }
-    static value symbol_value(const char* zstr)               { return ni()->symbol_value(zstr); }
-    static value symbol_value(const std::string& str)         { return ni()->symbol_value(str.c_str()); }
-    // get string represenatation of any value
-    std::wstring to_string(value v)                           { return get_string(ni()->to_string(pvm,v)); }
+  };
+  inline bool for_each_prop(VM* vm, value obj, object_enum& cb) { return ni()->for_each_prop(vm, obj, object_enum::_enum, &cb); }
 
-    // define native class
-    value define_class( class_def& cd, value zns = 0 )        { return ni()->define_class(pvm,&cd,zns); }
+  // get/set users data associated with instance of native object
+  inline void* get_native_data( value obj ) { assert(is_native_object(obj)); return ni()->get_instance_data(obj); }
+  inline void  set_native_data( value obj, void* data ) { assert(is_native_object(obj)); ni()->set_instance_data(obj,data); }
 
-    // object
-    value create_object(value of_class = 0) { return ni()->create_object(pvm,of_class); }
-    bool  object_prop(value obj, value key, value val) { return ni()->set_prop(pvm,obj,key,val); }
-    value object_prop(value obj, value key) { return ni()->get_prop(pvm,obj,key); }
+//@region Array
 
-    struct object_enumerator
+  inline value     create_array(VM* vm, unsigned of_size) { return ni()->create_array(vm,of_size); }
+  inline bool      set_elem(VM* vm, value arr, unsigned idx, value val) { return ni()->set_elem(vm,arr,idx,val); }
+  inline value     get_elem(VM* vm, value arr, unsigned idx) { return ni()->get_elem(vm,arr,idx); }
+  inline unsigned  get_length(VM* vm, value arr) { return ni()->get_array_size(vm,arr); }
+  // reallocates the array and returns reallocated (if needed) array
+  inline value     set_length(VM* vm, value arr, unsigned of_size) { return ni()->set_array_size(vm,arr,of_size); }
+
+  // informs VM that native method got an error condition. Native method should return from the function after the call.
+  inline void      throw_error( VM* vm, const wchar* error_text) { ni()->throw_error( vm, error_text ); }
+
+  inline value     eval(VM* vm, value ns, stream* input, bool template_mode = false)
+  {
+    value rv = 0;
+    if(ni()->eval(vm, ns, input, template_mode, &rv))
+      return rv;
+    else
+      return v_undefined();
+  }
+  inline value     eval(VM* vm, stream& input, bool template_mode = false) { return eval( vm, get_current_ns(vm), &input, template_mode); }
+  inline value     eval(VM* vm, value ns, const wchar_t* text)
+  {
+    value rv = 0;
+    if(ni()->eval_string(vm, ns, text, wcslen(text), &rv))
+      return rv;
+    else
+      return v_undefined();
+  }
+  inline value     eval(VM* vm, const wchar_t* text) { return eval( vm, get_current_ns(vm), text); }
+
+  // call method
+  inline value     call(VM* vm, value This, value function, const value* argv = 0, unsigned argn = 0)
+  {
+    value rv = 0;
+    if( ni()->call(vm, This, function, argv, argn,&rv) )
+      return rv;
+    else
+      return v_undefined();
+  }
+  inline value     call(VM* vm, value obj, const char* funcname, const value* argv = 0, unsigned argn = 0)
+  {
+    value rv = 0;
+    value function = get_prop(vm, obj, funcname);
+    if( is_function(function))
+      return call(vm, obj, function, argv, argn);
+    else
+      return v_undefined();
+  }
+
+  // call global function
+
+  inline value     call(VM* vm, value function, const value* argv = 0, unsigned argn = 0) { return call(vm, get_current_ns(vm), function, argv, argn); }
+  inline value     call(VM* vm, const char* funcpath, const value* argv = 0, unsigned argn = 0) 
+  { 
+    value function  = value_by_path(vm,funcpath);
+    if(is_function(function))
+      return call(vm, get_current_ns(vm), function, argv, argn); 
+    else
+      return v_undefined();
+  }
+
+  // compile bytecodes
+  inline bool     compile( VM* vm, stream& input, stream& output_bytecodes, bool template_mode = false )
+    { return ni()->compile( vm, &input, &output_bytecodes, template_mode); }
+  // load bytecodes
+  inline bool     loadbc( VM* vm, stream* input_bytecodes )
+    { return ni()->loadbc(vm,input_bytecodes); }
+  
+  // pinned value, a.k.a. gc root variable.
+  class pinned: protected tiscript_pvalue
+  {
+    friend class args; 
+  private:
+    pinned(const pinned& p) {}  
+    pinned operator = (const pinned& p) {}  
+    void attach(VM* c){ detach(); ni()->pin(c,this); }
+    void detach()     { if(vm) ni()->unpin(this); }
+  public:
+    pinned()          { val = 0, vm = 0, d1 = d2 = 0; }
+    pinned(VM* c)     { val = 0, vm = 0, d1 = d2 = 0;  ni()->pin(c,this); }
+    virtual ~pinned() { detach(); }
+    operator value()  { return val; } 
+    pinned& operator = (value v) { val = v; assert(vm); return *this; } 
+  };
+
+  // arguments access inside native function imeplentations: 
+  class args 
+  {
+  public:
+    class error // argument fetching error
     {
-      static bool TISAPI callback(VM *pvm,value key, value val, void* tag)
-      {
-        object_enumerator* pe = (object_enumerator*)tag;
-        return pe->on_key_value(env(pvm), key,val);
-      }
-      // overridable:
-      virtual bool on_key_value(env& en, value key, value val) = 0; // return true; to continue enumeration
+      wchar buffer[512];
+    public:
+      error( int param_n, const wchar* expecting_type )
+        { swprintf(buffer, L"parameter %d, expecting %s", param_n-2, expecting_type); }
+      const wchar* msg() { return buffer; }
     };
 
-    bool         object_for_each_prop(value obj, object_enumerator& oe) { ni()->for_each_prop(pvm,obj,&object_enumerator::callback,&oe); }
-    static void* object_data(value obj) { return ni()->get_instance_data(obj); }
-    static void  object_data(value obj, void* data) { ni()->set_instance_data(obj,data); }
+    // Each function call has at least two parameters: 
+    //    arg[0] -> 'this' - object or namespace object for 'static' functions.
+    //    arg[1] -> 'super' - usually you will just args::skip it.
+    //    arg[2..argc] -> params defined in script
 
-    // array
-    value  create_array(uint of_size)                 { return ni()->create_array(pvm,of_size); }
-    bool   array_elem(value arr, uint idx, value val) { return ni()->set_elem(pvm,arr,idx,val); }
-    value  array_elem(value arr, uint idx)            { return ni()->get_elem(pvm,arr,idx); }
-    // resize the array, may return new instance of the array
-    value  array_size(value arr, uint of_size)        { return ni()->set_array_size(pvm,arr,of_size); }
-    // get current array size
-    uint   array_size(value arr)                      { return ni()->get_array_size(pvm,arr); }
+    args(VM* c):vm(c),n(0),opt(false) { argc = ni()->get_arg_count(vm); }
+    
+    int   length() const { return argc; }
+    value get(int pn) const { return ni()->get_arg_n(vm,pn); }
+    value operator[](int n) const { return get(n); }
+       
+    args& operator >> (bool& v)   { if( opt && (n >= argc) ) return *this;  if(!ni()->get_bool_value(get(n),&v)) throw error(n,L"boolean"); n++;  return *this; }
+    args& operator >> (int& v)    { if( opt && (n >= argc) ) return *this;  if(!ni()->get_int_value(get(n),&v)) throw error(n,L"integer"); n++; return *this; }
+    args& operator >> (double& v) { if( opt && (n >= argc) ) return *this;  if(!ni()->get_float_value(get(n),&v)) throw error(n,L"float"); n++; return *this; }
+    args& operator >> (string& v) { if( opt && (n >= argc) ) return *this;  
+                                    const wchar* p = 0; unsigned l = 0; 
+                                    if(!ni()->get_string_value(get(n),&p,&l)) throw error(n,L"string"); 
+                                    n++; v = string(p,l); return *this; }
+    // use pinned values for movable things: object, array, string, etc.
+    args& operator >> (pinned& v) { if( opt && (n >= argc) ) return *this;  
+                                    ni()->pin(vm,&v); v.val = get(n++); return *this; }
+    // use non-pinned values only as a storage for non-movable things: symbol, int, float.
+    args& operator >> (value& v)  { if( opt && (n >= argc) ) return *this;   v = get(n++); return *this; }
 
-     // eval
-    bool   eval(value ns, stream* input, bool template_mode, value& retval)
-    {
-      return ni()->eval(pvm, ns, input, template_mode, &retval);
-    }
-    bool   eval(value ns, const wchar* script, uint script_length, value& retval)
-    {
-      return ni()->eval_string(pvm, ns, script, script_length, &retval);
-    }
-    // call function (method)
-    bool   call(value obj, value function, const value* argv, uint argn, value& retval)
-    {
-      return ni()->call(pvm, obj, function, argv, argn, &retval);
-    }
-    // compiled bytecodes
-    bool   compile( stream* input, stream* output_bytecodes, bool template_mode ) 
-    { return ni()->compile(pvm, input, output_bytecodes, template_mode); }
-    bool   load( stream* input_bytecodes ) { return ni()->loadbc(pvm, input_bytecodes); }
-
-    // throw error
-    void   throw_error( const wchar* error_fmt, ... ) 
-    { 
-      wchar buf[512];
-      va_list ap;
-	    va_start(ap, error_fmt);
-      _vsnwprintf( buf, 511, error_fmt , ap );
-      va_end(ap);
-      ni()->throw_error(pvm, buf); 
-    }
-
-    // arguments access
-    uint   arg_count() { return ni()->get_arg_count(pvm); }
-    value  arg_n( uint n ) { return ni()->get_arg_n(pvm,n); }
-
-    bool   fetch_args( const char* argdef, ... );
-
-    // get global value by path:
-    //  "one", "one.two", etc.
-    value  value_at(const char* path) { value v; ni()->get_value_by_path(pvm, &v, path); return v; }
-
-  }; // env
-
-
-  struct pinned: pvalue
-  {
-    pinned(env& en, value v = 0)
-    { 
-      memset((pvalue*)this,0,sizeof(pvalue)); 
-      val = v;
-      env::ni()->pin(en.pvm,this);
-    }
-    ~pinned() { detach(); }
-    void detach() { env::ni()->unpin(this); }
-    operator value() { return val; } 
-    pinned& operator=(value v) { val = v; assert(d1); return *this; } 
+    enum optional_e { optional };
+    enum skip_e { skip };
+    
+    // arg "stream" modifier, rest parameters after it are optional
+    args& operator >> (optional_e m) { opt = true; return *this; }
+    // arg "stream" modifier, skip the parameter.
+    args& operator >> (skip_e m)     { ++n; return *this; }
+    
+  private:
+    VM*  vm; 
+    int  n;
+    int  argc;
+    bool opt;
   };
 
-  // crack arguments passed to the method
-  inline bool env::fetch_args( const char* argdef, ... )
+  // native class definition ctl
+  typedef tiscript_class_def  class_def;
+  // native method implementation
+  typedef tiscript_method     method_impl;
+  // [] accessors implementation
+  typedef tiscript_get_item   get_item_impl;
+  typedef tiscript_set_item   set_item_impl;
+  // getter/setter implementation
+  typedef tiscript_get_prop   getter_impl;
+  typedef tiscript_set_prop   setter_impl;
+  // native object finalizer
+  typedef tiscript_finalizer finalizer_impl;
+  typedef tiscript_iterator  iterator_impl;
+
+  struct method_def: public tiscript_method_def
   {
-      int   spec;
-      bool  optional = false; // no optional specifier seen yet 
-      int   argc = arg_count();
-      int   narg = 0;
-      value arg;
-    
-      va_list ap;
+    method_def() { dispatch = 0; name = 0; handler = 0; tag = 0; }
+    method_def(const char *n, method_impl* h) { dispatch = 0, name = n; handler = h; tag = 0; }
+  };
+  struct prop_def: public tiscript_prop_def
+  {
+    prop_def() { dispatch = 0; name = 0; getter = 0; setter = 0; tag = 0; }
+    prop_def(const char *n, getter_impl gh, setter_impl sh) { dispatch = 0; name = n; getter = gh; setter = sh; tag = 0; }
+  };
+  struct const_def: public tiscript_const_def
+  {
+    const_def() { name = 0; val.i = 0; }
+    const_def(const char *n, int v) { name = n; val.i = v; type = TISCRIPT_CONST_INT; }
+    const_def(const char *n, double v) { name = n; val.f = v; type = TISCRIPT_CONST_FLOAT; }
+    const_def(const char *n, const wchar_t* v) { name = n; val.str = v; type = TISCRIPT_CONST_STRING; }
+  };
 
-      // get the variable argument list
-      va_start(ap,argdef);
-
-      // handle each argument specifier
-      while (*argdef) 
-      {
-
-          // check for the optional specifier
-          if ((spec = *argdef++) == '|')
-              optional = true;
-
-          // handle argument specifiers
-          else {
-
-              // check for another argument 
-              if (narg >= argc)
-				          break;
-
-              // get the argument 
-              arg = arg_n(narg++);
-
-              switch (spec) 
-              {
-              case '*':   // skip
-                  break;
-              case 'c':   // char 
-                  {   
-                      char *p = va_arg(ap,char *);
-                      if (!is_int(arg))
-                      {
-                          throw_error(L"argument, integer required");
-                          return false;
-                      }
-                      *p = (char) get_int(arg);
-                  }
-                  break;
-              case 'i':   // int 
-                  {   
-                      int *p = va_arg(ap,int *);
-                      if (!is_int(arg))
-                      {
-                          throw_error(L"argument, integer required");
-                          return false;
-                      }
-                      *p = get_int(arg);
-                  }
-                  break;
-              case 'f':   /* float */
-                  {   
-                      double *p = va_arg(ap,double *);
-                      if (is_int(arg))
-                        *p = (double) get_int(arg);
-                      else if(is_float(arg))
-                        *p = get_float(arg);
-                      else
-                      {
-                        throw_error(L"argument, float required");
-                        return false;
-                      }
-                  }
-                  break;
-              case 's':   /* string */
-                  {   
-                      wchar **p = va_arg(ap,wchar **);
-                      bool null_allowed = false;
-                      if (*argdef == '?') {
-                          null_allowed = true;
-                          ++argdef;
-                      }
-                      uint count = 0;
-                      if (null_allowed && ( is_undefined(arg) || is_null(arg) ) )
-                          *p = 0;
-                      else if (is_string(arg))
-                          get_string(arg,*p,count);
-                      else
-                      {
-                        throw_error(L"argument, string required");
-                        return false;
-                      }
-                      if (*argdef == '#') 
-                      {
-                         int *p = va_arg(ap,int *);
-                         *p = count;
-                          ++argdef;
-                      }
-                  }
-                  break;
-              case 'v':   // value
-                  {   
-                      value *p = va_arg(ap,value *);
-                      bool null_allowed = false;
-                      if (*argdef == '?') {
-                          null_allowed = true;
-                          ++argdef;
-                      }
-                      if ( null_allowed && (is_undefined(arg) || is_null(arg)) )
-                          *p = 0;
-                      else 
-                      {
-                          if (*argdef == '=') 
-                          {
-                            const char* className = va_arg(ap,char*);
-                            value desiredClass = value_at(className);
-                            if( !is_instance_of(arg,desiredClass))
-                            {
-                              wchar buf[512];
-                              swprintf(buf,L"argument, object of (%S) required", className);
-                              throw_error(buf);
-                              return false;
-                            }
-                            ++argdef;
-                          }
-                          *p = arg;
-                      }
-                  }
-                  break;
-              case 'b':   // boolean
-                  {   
-                    bool *p = va_arg(ap,bool *);
-                    *p = get_bool(arg);
-                  }
-                  break;
-              case 'l':  /* symbol */
-                  {
-                      value *p = va_arg(ap,value *);
-                      if (!is_symbol(arg))
-                         throw_error(L"argument, symbol required");
-                      *p = arg;
-                  }
-                  break;
-              default:
-                  assert(false); // bad arg def code!
-                  break;
-              }
-          }
-      }
-
-      // finished with the variable arguments
-      va_end(ap);
-
-      // check for too many arguments 
-      if (narg < argc && !optional)
-      {
-        throw_error(L"too many arguments");
-        return false;
-      }
-      return true;
-    }
-
+  // define native class
+  inline value  define_class( VM* vm, class_def* cd, value zns = 0) // in this namespace object (or 0 if global)
+  {
+    return ni()->define_class(vm,cd,zns);
+  }
 
 }
+
 
 #endif

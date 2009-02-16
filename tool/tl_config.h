@@ -4,11 +4,11 @@
 #if defined(_WIN32_WCE) || defined(UNDER_CE)
   #define PLATFORM_WINCE
   #define WINDOWS
-#elif defined(_WIN64)
+#elif defined(WIN64) || defined(_WIN64)
   #define PLATFORM_DESKTOP
   #define WINDOWS
   #define X64BITS
-#elif defined(_WIN32)
+#elif defined(WIN32) || defined(_WIN32)
   #define PLATFORM_DESKTOP
   #define WINDOWS
   #if defined(__GNUC__)
@@ -41,54 +41,62 @@
 #endif
 
 
-#if defined(PLATFORM_DESKTOP) 
+#if defined(PLATFORM_DESKTOP)
 
-	#if !defined(__GNUC__) && _MSC_VER < 1400
+  #if !defined(__GNUC__) && _MSC_VER < 1400
 
-	  #ifdef _CRTDBG_MAP_ALLOC            
-      #undef _CRTDBG_MAP_ALLOC        
-	  #endif  
-      
-	  #ifdef _DEBUG            
-	    #include <crtdbg.h>            
-      #define THIS_FILE __FILE__            
+    #ifdef _CRTDBG_MAP_ALLOC
+      #undef _CRTDBG_MAP_ALLOC
+    #endif
+
+    #ifdef _DEBUG
+      #include <crtdbg.h>
+      #define THIS_FILE __FILE__
       #define DEBUG_NEW       new(_NORMAL_BLOCK, THIS_FILE, __LINE__)
       #define malloc(s)       _malloc_dbg(s, _NORMAL_BLOCK, THIS_FILE, __LINE__)
       #define calloc(c, s)    _calloc_dbg(c, s, _NORMAL_BLOCK, THIS_FILE, __LINE__)
       #define realloc(p, s)   _realloc_dbg(p, s, _NORMAL_BLOCK, THIS_FILE, __LINE__)
       #define _expand(p, s)   _expand_dbg(p, s, _NORMAL_BLOCK, THIS_FILE, __LINE__)
       #define free(p)         _free_dbg(p, _NORMAL_BLOCK)
-      #define _msize(p)       _msize_dbg(p, _NORMAL_BLOCK)        
+      #define _msize(p)       _msize_dbg(p, _NORMAL_BLOCK)
     #endif
-  
+
   #else
-    #define DEBUG_NEW new   
-	#endif
+    #define DEBUG_NEW new
+  #endif
 
   #define muldiv MulDiv
-   
+
 #elif defined(PLATFORM_WINCE)
 
-  #define DEBUG_NEW new   
+  #define DEBUG_NEW new
   #define stricmp _stricmp
   #define strnicmp _strnicmp
   #define strdup _strdup
 
 inline int muldiv(IN int nNumber, IN int nNumerator, IN int nDenominator)
 {
-	__int64 multiple = nNumber * nNumerator;
-	return static_cast<int>(multiple / nDenominator);
+  __int64 multiple = nNumber * nNumerator;
+  return static_cast<int>(multiple / nDenominator);
 }
 
-#else  
+#elif defined(LINUX)
+
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <unistd.h>
+  #include <X11/keysym.h>
+  #include "vk_codes.h"
 
   #define stricmp strcasecmp
 
-#ifdef PLATFORM_DESKTOP
-	#define muldiv(i1,i2,i3) ::MulDiv(i1, i2, i3)
-#else
-  #define muldiv(i1,i2,i3) (((i1)*(i2))/(i3))
-#endif
+  #ifdef PLATFORM_DESKTOP
+    #define muldiv(i1,i2,i3) ::MulDiv(i1, i2, i3)
+  #else
+    #define muldiv(i1,i2,i3) (((i1)*(i2))/(i3))
+  #endif
+
+  #define MAX_PATH 2048
 
 #endif
 
@@ -142,7 +150,9 @@ typedef unsigned short        ushort;
   typedef float               real;
 #else
   typedef double              real;
-#endif  
+#endif
+
+#define assert_static(e) (1/int(e))
 
 /*inline checks()
 {
@@ -153,11 +163,11 @@ typedef unsigned short        ushort;
 }*/
 
 
-namespace locked 
+namespace locked
 {
-  
-#if defined(PLATFORM_WIN32_GNU)          
-  
+
+#if defined(PLATFORM_WIN32_GNU)
+
   typedef long counter;
   inline long inc(counter& v)               {    return InterlockedIncrement(&v);  }
   inline long dec(counter& v)               {    return InterlockedDecrement(&v);  }
@@ -187,7 +197,7 @@ struct perf_counter
   LARGE_INTEGER start;
   LARGE_INTEGER freq;
 
-  perf_counter() 
+  perf_counter()
   {
     ::QueryPerformanceCounter(&start);
     ::QueryPerformanceFrequency(&freq);
@@ -199,7 +209,7 @@ struct perf_counter
     return double(stop.QuadPart - start.QuadPart) * 1000.0 / double(freq.QuadPart);
   }
 #else
-  perf_counter() 
+  perf_counter()
   {
   }
   double elapsed()

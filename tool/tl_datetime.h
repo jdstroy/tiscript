@@ -13,25 +13,11 @@
 #include <time.h>
 #include "tl_string.h"
 #include "tl_ustring.h"
+#include "tl_slice.h"
 
 namespace tool
 {
-#ifdef _WIN32
-  typedef __int64             datetime_t;
-#define ZEROTIME  0
-#else
-#if defined(__osf__ )
-  typedef signed   long       datetime_t;
-#define ZEROTIME  0L
-#else
-#if defined(__GNUC__)
-  typedef signed   long long  datetime_t;
-#define ZEROTIME  0LL
-#else
-#error "integer 8 byte type is not defined"
-#endif
-#endif
-#endif
+  typedef int64  datetime_t;
 
   class date_time
   {
@@ -49,7 +35,23 @@ namespace tool
       YMD = 2
     };
 
+    enum time_format_hours
+    {
+      H_12 = 0,
+      H_24 = 1
+    };
+
+    enum time_format_marker_pos
+    {
+      MP_AFTER = 0,
+      MP_BEFORE = 1,
+    };
+
     static void date_format(date_format_order& order, wchar& separator );
+    static void time_format(time_format_hours&      hours, 
+                            time_format_marker_pos& marker_pos,
+                            ustring& am_text,
+                            ustring& pm_text);
 
   public:
 
@@ -86,7 +88,19 @@ namespace tool
     ustring locale_format(const wchar* fmt) const; 
     ustring default_format(bool full = false) const; 
 
-    
+    enum type
+    { 
+      DT_UNKNOWN          = 0x00,
+      DT_HAS_DATE         = 0x01,
+      DT_HAS_TIME         = 0x02,
+      DT_HAS_SECONDS      = 0x04,
+      DT_UTC              = 0x10, 
+    };
+
+    static  date_time parse_iso /*8601*/( tool::wchars str, uint& dt ); 
+    static  date_time parse_iso /*8601*/( tool::chars str, uint& dt ); // utc == true if it is known to be UTC time
+     
+    string  emit_iso /*8601*/( uint dt ) const; // utc == true if it is known to be UTC time
 
     // Operations
   public:
@@ -103,14 +117,14 @@ namespace tool
     // getters
     int year    () const;
     int month   () const;     // month of year (1 = Jan)
-    int day     () const;     // day of month (0-31)
+    int day     () const;     // day of month (1-31)
     int hours   () const;     // hour in day (0-23)
     int minutes () const;     // minute in hour (0-59)
     int seconds () const;     // second in minute (0-59)
     int millis  () const;     // millisecond in minute (0-999)
     int micros  () const;     // microsecond in minute (0-999)
     int nanos   () const;     // nanosecond in minute (0-999), step of 100ns
-    int day_of_week () const; // 1=Sun, 2=Mon, ..., 7=Sat
+    int day_of_week () const; // (mon=0...sun=6)
     int day_of_year () const; // days since start of year, Jan 1 = 1
 
     // setters
@@ -160,7 +174,7 @@ namespace tool
 
 
   inline
-    date_time::date_time () : _time ( ZEROTIME )
+    date_time::date_time () : _time ( 0 )
   {
     ;
   }  // 1 Jan-1601, 00:00, 100ns clicks

@@ -16,14 +16,14 @@
 #include <stdarg.h>
 #include "tl_basic.h"
 #include "tl_string.h"
+#include "tl_ustring.h"
 #include "tl_slice.h"
 
 
 #if !defined(_WIN32)
-#define _vsnprintf	vsnprintf
+#define _vsnprintf  vsnprintf
 #else
 #include <windows.h>
-//#include <rpc.h>
 #include <objbase.h>
 #endif
 
@@ -508,7 +508,7 @@ namespace tool
   bool
     string::starts_with ( const char *s ) const
   {
-	int slen = s? int(::strlen(s)): 0;
+  int slen = s? int(::strlen(s)): 0;
     if( slen == 0 ) return false;
     if( slen > length()) return false;
 
@@ -712,7 +712,7 @@ namespace tool
   int
     string::replace ( const char *from, const char *to )
   {
-	int to_length = int(::strlen ( to ));
+  int to_length = int(::strlen ( to ));
     int from_length = int(::strlen ( from ));
 
     if(from_length == 0)
@@ -781,31 +781,31 @@ namespace tool
   string::string ( const wchar *us )
   {
     if(us && *us)
-    {
-#ifdef WINDOWS
-      size_t uslen = wcslen(us);
-      size_t slen = ::WideCharToMultiByte(CP_ACP,0, us, uslen,0,0,0,0 );
-      if(slen != 0) {
-        my_data = new_data ( slen, 1 );
-        ::WideCharToMultiByte(CP_ACP,0, us, uslen, head(),slen,0,0 );
-        return;
-        //wcstombs ( chars (), s, slen );
-      }
-#else
-      int slen = wcstombs(0, us, 0xFFFFFFF);
-      if(slen != 0)
-      {
-        my_data = new_data ( slen, 1 );
-        ::wcstombs(head(),us, slen );
-        return;
-      }
-#endif
-    }
-    my_data = &null_data;
-
+      init( us, wcslen(us));
+    else
+      my_data = &null_data;
   }
 
   string::string ( const wchar *us, int uslen )
+    {
+    init( us, uslen );
+      }
+
+  string::string ( const ustring& us )
+      {
+    init( us, us.length() );
+      }
+
+  string &
+    string::operator= ( const ustring& s )
+  {
+    release_data();
+    init(s,s.length());
+    return *this;
+    }
+
+
+  void string::init( const wchar *us, int uslen )
   {
     if(us && uslen)
     {
@@ -820,10 +820,10 @@ namespace tool
       //char mbc[32];
       int i, slen = 0;
       const wchar *p = us;
-	  wchar wcc[2]; wcc[1] = 0;
+    wchar wcc[2]; wcc[1] = 0;
       for(i = 0; i < uslen; ++i)
       {
-	    wcc[0] = us[i];
+      wcc[0] = us[i];
         int t = wcstombs(0,wcc,10);
         slen += t > 0? t : 0;
       }

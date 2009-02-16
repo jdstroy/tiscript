@@ -75,12 +75,23 @@ namespace tool
       return _array.size () == 0;
     };
 
+    bool operator == (const dictionary& rd) const { return _array == rd._array; }
+    bool operator != (const dictionary& rd) const { return _array != rd._array; }
 
     struct dict_item
     {
       c_key      key;
       c_element  element;
+      bool operator == (const dict_item& rd) const { return key == rd.key && element == rd.element; }
+      bool operator != (const dict_item& rd) const { return key != rd.key || element != rd.element; }
     };
+
+    // push unnamed value
+    void push(const c_element& v)
+    {
+      dict_item it; it.element = v;
+      _array.push(it);
+    }
 
   protected:
     struct hash_item

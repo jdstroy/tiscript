@@ -11,11 +11,12 @@
 #define __tl_filesystem_h
 
 #include "tl_basic.h"
+#include "tl_ustring.h"
 //#include "json-aux.h"
 
 #if !defined(PLATFORM_WINCE)
- #include <sys/types.h>
- #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #endif
 
 
@@ -133,7 +134,38 @@ namespace tool
       }
       return false;
 #endif
+    }
+    
+    void    split_path(const wchar *path, ustring& drive, ustring& dir, ustring& name, ustring& ext);
 
+    inline bool mime_type( const wchar* path_or_ext, ustring& out, bool from_content = false)
+    {
+#ifdef WINDOWS
+      if( !path_or_ext || !path_or_ext[0])
+        return false;
+      ustring buf;
+      if( path_or_ext[0] != '.')
+      {
+        ustring drive, dir, name, ext;
+        split_path(path_or_ext, drive, dir, name, ext);
+        buf = ext;
+        path_or_ext = buf;
+      }
+      HKEY hKey;
+      LONG rv = ::RegOpenKeyExW(HKEY_CLASSES_ROOT, path_or_ext, 0, KEY_EXECUTE, &hKey);
+      if( rv != ERROR_SUCCESS )
+        return false;
+      wchar outbuf[1024] = {0};
+      DWORD dwtype = REG_SZ;
+      DWORD dwsize = sizeof(outbuf);
+      rv = ::RegQueryValueExW(hKey, L"Content Type", 0, &dwtype, (LPBYTE)outbuf, &dwsize);
+      if( rv != ERROR_SUCCESS || dwsize == 0)
+        return false;
+      out = outbuf; 
+      //::FindMimeFromData() and from_content anyone?
+      return true;
+#else
+#endif
     }
 
 

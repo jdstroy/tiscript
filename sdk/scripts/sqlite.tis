@@ -1,0 +1,62 @@
+namespace SQLite
+{
+  include library "tiscript-sqlite"; // places its DB and Recordset objects in SQLite namespace.
+                                     // Use include inside namespace if you expect conflicting names.
+  
+  // returns map of table definitions found in the DB
+  function DB.tables()
+  {
+    var rs = this.exec("SELECT name,sql FROM sqlite_master WHERE type='table' ORDER BY name;" );
+    var names = {};
+    if ( rs instanceof Recordset )
+      do names[rs#name] = rs#sql while( rs.next() );
+    return names;
+  }
+  // returns map of indexes found in the DB
+  function DB.indexes()
+  {
+    var rs = this.exec("SELECT name,sql FROM sqlite_master WHERE type='index' ORDER BY name;" );
+    var names = {};
+    if ( rs instanceof Recordset )
+      do names[rs#name] = rs#sql while( rs.next() );
+    return names;
+    
+  }
+
+  // fills the table DOM element by data from the Recordset: 
+  function Recordset.present( out /*stream*/ )
+  {
+    out.printf("Recordset fields:\n");
+    for (var n = 0; n < this.length; ++n)
+      out.printf("\t%s:%s:%s\n", this.name(n,#database), this.name(n,#table), this.name(n,#field) );
+
+    out.printf("Recordset rows:\n");
+    // data rows:
+    do 
+    {
+      out.printf("\t");
+      for (var v in this)
+        out.printf("%v ",v); // print field data
+      out.printf("\n");
+    } while( this.next() );
+  }
+  
+  // Returns object constructed from current row as { field1: value1, field2: value2, etc. }
+  // Not too much effective but someone may need it
+  function Recordset.rowAsObject()
+  {
+    var names = this.names;
+    if( !names )
+    {
+      names = [];
+      for (var n = 0; n < this.length; ++n)
+        names.push( symbol(this.name(n)) );
+      this.names = names;
+    }
+    var obj = {}; var n = 0;    
+    for (var v in this)
+      obj[names[n++]] = v;
+    return obj;
+  }
+}
+

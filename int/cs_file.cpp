@@ -39,12 +39,12 @@ C_METHOD_ENTRY( "toString",         CSF_toString        ),
 C_METHOD_ENTRY( "getc",             CSF_getc            ),
 C_METHOD_ENTRY( "putc",             CSF_putc            ),
 C_METHOD_ENTRY( "readln",           CSF_readln          ),
-C_METHOD_ENTRY(	0,                  0                  )
+C_METHOD_ENTRY( 0,                  0                  )
 };
 
 /* file properties */
 static vp_method properties[] = {
-VP_METHOD_ENTRY( 0,                0,					0					)
+VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
 /* prototypes */
@@ -75,13 +75,13 @@ bool CsFileP(VM *c, value obj)
 /* EnterPort - add a built-in port to the symbol table */
 static void EnterPort(VM *c,char *name,stream **pStream)
 {
-	stream *s;
-	if (!(s = CsMakeIndirectStream(c,pStream)))
+  stream *s;
+  if (!(s = CsMakeIndirectStream(c,pStream)))
         CsInsufficientMemory(c);
     CsCheck(c,2);
     CsPush(c,CsMakeFile(c,s));
     CsPush(c,CsInternCString(c,name));
-    CsCreateGlobalConst(c,CsTop(c),c->sp[1]);
+    CsSetNamespaceConst(c,CsTop(c),c->sp[1]);
     CsDrop(c,2);
 }
 
@@ -113,13 +113,13 @@ static void CsTimeout(VM *c)
 
 static value CSF_openFile(VM *c)
 {
-    wchar *fname,*mode;
-    stream *s;
-    CsParseArguments(c,"**SS",&fname,&mode);
-    s = OpenFileStream(c,fname,mode);
-    if( !s )
-      return c->nullValue;
-    return CsMakeFile(c,s);
+  wchar *fname,*mode;
+  stream *s;
+  CsParseArguments(c,"**SS",&fname,&mode);
+  s = OpenFileStream(c,fname,mode);
+  if( !s )
+    return c->nullValue;
+  return CsMakeFile(c,s);
 }
 
 static value CSF_openSocket(VM *c)
@@ -350,20 +350,20 @@ static value CSF_putc(VM *c)
       return true;
   }
 
-  static bool PrintObjectData(VM *c,value val,stream *s, int *tabs, tool::pool<value>& emited)
+  static bool PrintObjectData(VM *c,value obj,stream *s, int *tabs, tool::pool<value>& emited)
   {
-      if(val == c->nullValue)
+      if(obj == c->nullValue)
       {
         return s->put_str("null");
       }
-      if(val == c->undefinedValue)
+      if(obj == c->undefinedValue)
       {
         return s->put_str("undefined");
       }
 
-      if( _CsIsPersistent(val) ) val = CsFetchObjectData(c, val);
+      if( _CsIsPersistent(obj) ) obj = CsFetchObjectData(c, obj);
 
-      if (CsObjectPropertyCount(val) == 0)
+      if (CsObjectPropertyCount(obj) == 0)
         return s->put_str("{}");
 
       if (tabs)
@@ -376,7 +376,7 @@ static value CSF_putc(VM *c)
       if (!s->put('{'))
         return false;
 
-      struct scanner: object_scanner
+      /*struct scanner: object_scanner
       {
         stream *s;
         int *tabs;
@@ -404,6 +404,18 @@ static value CSF_putc(VM *c)
       osc.s = s;
       osc.tabs = tabs;
       CsScanObject( c, val, osc );
+      */
+
+      int  n = 0;
+      each_property gen(c, obj);
+      for( value key,val; gen(key,val);)
+      {
+          if (n++) s->put(','); if(tabs) s->put('\n');
+          if(tabs) for( int t = 0; t < *tabs; ++t ) s->put('\t');
+          if (!PrintData(c,key,s,tabs,emited)) break;
+          if (!s->put_str(":")) return false;
+          if (!PrintData(c,val,s,tabs,emited)) break;
+      }
 
       if(tabs)
       {

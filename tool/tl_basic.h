@@ -20,10 +20,19 @@
 #include <stdarg.h>
 #include <assert.h>
 
-#if !defined(WINDOWS)
+#if defined(WINDOWS)
+  #ifndef min       // Hopefully this isn't already defined
+    #define min(a,b)        (((a) < (b)) ? (a) : (b))
+    #define max(a,b)        (((a) > (b)) ? (a) : (b))
+  #endif
+#else
   #include <unistd.h>
-#endif
 
+  template <typename T1,typename T2>
+    inline T1 min(const T1 a, const T2 b) { return a < T1(b) ? a : T1(b); }
+  template <typename T1,typename T2>
+    inline T1 max(const T1 a, const T2 b) { return a > T1(b) ? a : T1(b); }
+#endif
 
 /****************************************************************************/
 
@@ -34,34 +43,9 @@
 namespace tool
 {
 
-#ifndef NULL
-#define NULL 0
-#endif
-
-#ifndef EXIT_FAILURE
-#define EXIT_FAILURE 1
-#endif
-
-#ifndef EXIT_SUCCESS
-#define EXIT_SUCCESS 0
-#endif
-
-#ifndef min       // Hopefully this isn't already defined
-
-  #define min(a,b)        (((a) < (b)) ? (a) : (b))
-  #define max(a,b)        (((a) > (b)) ? (a) : (b))
-  //template <typename T>
-  //  inline T min(const T a, const T b) { return a < b ? a : b; }
-  //template <typename T>
-  //  inline T max(const T a, const T b) { return a > b ? a : b; }
-
-  //inline char *
-  //  min ( char *arg1, char *arg2 )
-  //{
-  //  return ( strcmp ( arg1, arg2 ) < 0 ) ? arg1 : arg2;
-  //}
-
-#endif
+//#ifndef NULL
+//#define NULL 0
+//#endif
 
   template <class T>
   inline T
@@ -158,10 +142,16 @@ template <typename T>
         assert(_ref_cntr > 0);
         long t = locked::dec(_ref_cntr);
         if(t == 0)
-          delete this;
+          finalize();
+          //delete this;
         return t;
     }
     virtual void add_ref() { locked::inc(_ref_cntr); }
+
+    virtual void finalize() 
+    {  
+      delete this;
+    }
   };
 
   template <class T>
@@ -262,6 +252,16 @@ template <typename T>
     }
   };
 
+  // nocopy thing
+  template<typename T = int>
+    struct nocopy
+    {
+    private:
+        nocopy(const nocopy&);
+        nocopy& operator = (const nocopy&);
+    protected:
+        nocopy() {}
+    };
 
   //
   // following is a correct implementation of the auto_ptr function
@@ -459,12 +459,13 @@ template <typename T>
       }
     };
 
-template <typename TC>
+template <typename TC, typename TV>
   class itostr
     {
-      TC buffer[38];
+      TC buffer[86];
+      uint buffer_length;
     public:
-      itostr(int n, int radix = 10)
+      itostr(TV n, int radix = 10, int width = 0)
       {
         buffer[0] = 0;
         if(radix < 2 || radix > 36) return;
@@ -478,6 +479,11 @@ template <typename TC>
         do buffer[i++] = TC(digits[n % radix]);
         while ((n /= radix) > 0);
 
+        if ( width && i < width)
+        {
+          while(i < width)
+            buffer[i++] = TC('0');
+        }
         if (sign < 0)
           buffer[i++] = TC('-');
         buffer[i] = TC('\0');
@@ -488,17 +494,17 @@ template <typename TC>
         {
           swap(*p1,*p2); ++p1; --p2;
         }
+        buffer_length = i;
+
       }
-      /*
-      char *itoa(int n, char *s, int b)
-      {
-      }
-      */
-      operator const TC*() { return buffer; }
+      operator const TC*() const { return buffer; }
+      uint length() const { return buffer_length; }
     };
 
-    typedef itostr<char> itoa;
-    typedef itostr<wchar> itow;
+    typedef itostr<char,int> itoa;
+    typedef itostr<wchar,int> itow;
+    typedef itostr<char,int64> i64toa;
+    typedef itostr<wchar,int64> i64tow;
 
     /** Float to string converter.
         Use it as ostream << ftoa(234.1); or
@@ -534,6 +540,16 @@ template <typename TC>
       operator const wchar_t*() { return buffer; }
     };
 
+  inline int wtoi( const wchar* strz, int base = 0 )
+  {
+    wchar_t *endptr;
+    return (int)wcstol(strz, &endptr, base);
+  }
+  inline double wtof( const wchar* strz )
+  {
+    wchar_t *endptr;
+    return (double)wcstod(strz, &endptr);
+  }
 
   #define items_in(a) (sizeof(a)/sizeof(a[0]))
   //chars in sting literal
@@ -706,10 +722,10 @@ template<typename T>
         void link_before(l2elem* before) { (_prev = before->_prev)->_next = this; (_next = before)->_prev = this; }
         void unlink() { _prev->_next = _next; _next->_prev = _prev; }
         void prune() { _next = _prev = this;}
-        bool empty() const { return _next == this;  };
+        bool is_empty() const { return _next == this;  };
 
-        inline T* next() {  return static_cast<T*>(_next); }
-        inline T* prev() {  return static_cast<T*>(_prev); }
+        inline T* next() const {  return static_cast<T*>(_next); }
+        inline T* prev() const {  return static_cast<T*>(_prev); }
 
     };
 
@@ -764,8 +780,6 @@ template <typename T>
     memset(&t,0,sizeof(T));
   }
 
-
-
 unsigned int crc32( const unsigned char *buffer, unsigned int count);
 
 #define REVERSE_BYTE_BITS(a)\
@@ -777,6 +791,37 @@ unsigned int crc32( const unsigned char *buffer, unsigned int count);
   ((a >> 5) & (1 << 1)) |\
   ((a >> 3) & (1 << 2)) |\
   ((a >> 1) & (1 << 3))
+
+/* Integer square root by Halleck's method, with Legalize's speedup */
+inline long isqrt (long x) 
+{
+  long   squaredbit, remainder, root;
+  if (x<1) return 0;
+  
+ /* Load the binary constant 01 00 00 ... 00, where the number
+  * of zero bits to the right of the single one bit
+  * is even, and the one bit is as far left as is consistant
+  * with that condition.)
+  */
+  squaredbit  = (long) ((((unsigned long) ~0L) >> 1) & 
+                      ~(((unsigned long) ~0L) >> 2));
+ /* This portable load replaces the loop that used to be 
+  * here, and was donated by  legalize@xmission.com 
+  */
+
+ /* Form bits of the answer. */
+  remainder = x;  root = 0;
+  while (squaredbit > 0) {
+    if (remainder >= (squaredbit | root)) {
+        remainder -= (squaredbit | root);
+        root >>= 1; root |= squaredbit;
+    } else {
+        root >>= 1;
+    }
+    squaredbit >>= 2; 
+  }
+  return root;
+}
 
 
 #if defined(_DEBUG)

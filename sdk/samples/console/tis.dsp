@@ -101,11 +101,7 @@ SOURCE=.\tis.cpp
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
-SOURCE="..\..\include\json-aux.h"
-# End Source File
-# Begin Source File
-
-SOURCE="..\..\include\json-value.h"
+SOURCE="..\..\include\tiscript-streams.hpp"
 # End Source File
 # Begin Source File
 

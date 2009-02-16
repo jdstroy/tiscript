@@ -29,7 +29,6 @@
 #include "tl_dictionary.h"
 #include "tl_hash_table.h"
 #include "tl_datetime.h" // OS dependent
-#include "tl_regexp.h"
 #include "tl_wregexp.h"
 #include "tl_url.h"
 #include "tl_mm_file.h"
@@ -81,6 +80,9 @@ namespace tool
   };
 
   tstring  get_standard_dir(STANDARD_DIR sd);
+
+  bool get_lang_country(string& lang,string& country, bool for_user);
+
   extern unsigned int get_ticks();
 
 #ifdef WIN32

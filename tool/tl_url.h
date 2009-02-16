@@ -29,6 +29,7 @@ namespace tool
     string src;
 
     string protocol;
+    bool   protocol_path; // protocol looks like path - starts from "//"
     string hostname;
     int    port;
     int    dport;
@@ -47,7 +48,7 @@ namespace tool
     string password;
     
   public:
-    url () : port ( 0 ), dport( 0 )
+    url () : port ( 0 ), dport( 0 ), protocol_path(false)
     {
     }
     url (const char* src) : port ( 0 ), dport( 0 ) { if(!parse(src)) clear(); }
@@ -57,7 +58,6 @@ namespace tool
     }
 
     
-
     bool parse ( const char * src );
 
     void clear () 
@@ -76,7 +76,11 @@ namespace tool
     }
 
     static string escape ( const char *url, bool space_to_plus = false );
+    static ustring escape ( const wchar *url, bool space_to_plus = false ) { return escape(string(url),space_to_plus); }
     static string unescape ( const char *src );
+    static ustring unescape ( const wchar *src ) { return unescape(string(src)); }
+    static bool looks_like_encoded(const string& s);
+    static bool looks_like_encoded(const ustring& s) { return looks_like_encoded(string(s)); }
 
     bool equals(const url& doc, bool only_doc = false) 
     {
@@ -143,8 +147,9 @@ namespace tool
     return relpath( string( absp ), string( basep ) );
   }
 
-  bool get_lang_country(string& lang,string& country, bool for_user);
-
+  bool is_hyperlink_char(wchar uc);
+  bool is_hyperlink(tool::ustring& text);
+  bool is_hyperlink(const tool::ustring& text, tool::ustring& out);
 
 };
 

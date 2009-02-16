@@ -41,7 +41,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "Release"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
-# ADD CPP /nologo /MT /W3 /GX /Ox /Oa /Og /Oi /Os /Op /Oy /Ob2 /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
+# ADD CPP /nologo /MT /W3 /GX /Ox /Oa /Og /Oi /Os /Op /Ob2 /D "WIN32" /D "NDEBUG" /D "_MBCS" /D "_LIB" /YX /FD /c
 # SUBTRACT CPP /Ot
 # ADD BASE RSC /l 0x1009 /d "NDEBUG"
 # ADD RSC /l 0x1009 /d "NDEBUG"
@@ -84,6 +84,18 @@ LIB32=link.exe -lib
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
+# Begin Group "ucdata"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=..\tool\ucdata\ucdata_lt.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\tool\ucdata\ucdata_lt.h
+# End Source File
+# End Group
 # Begin Source File
 
 SOURCE=..\tool\snprintf.cpp

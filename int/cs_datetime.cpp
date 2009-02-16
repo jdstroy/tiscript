@@ -68,6 +68,7 @@ static value CSF_setTime(VM *c);
 
 static value CSF_day(VM *c,value obj); static void CSF_set_day(VM *c,value obj,value value);
 static value CSF_dayOfWeek(VM *c,value obj); 
+static value CSF_firstDayOfWeek(VM *c,value obj); 
 static value CSF_month(VM *c,value obj); static void CSF_set_month(VM *c,value obj,value value);
 static value CSF_year(VM *c,value obj); static void CSF_set_year(VM *c,value obj,value value);
 static value CSF_hour(VM *c,value obj); static void CSF_set_hour(VM *c,value obj,value value);
@@ -150,7 +151,7 @@ C_METHOD_ENTRY( "timeZoneName",    CSF_localTimeZone    ),
 C_METHOD_ENTRY( "isDaylight",      CSF_isDaylight   ),
 
 
-C_METHOD_ENTRY(	0,                  0                  )
+C_METHOD_ENTRY( 0,                  0                  )
 };
 
 /* file properties */
@@ -173,7 +174,9 @@ VP_METHOD_ENTRY( "UTCminute",       CSF_utc_minute,        CSF_set_utc_minute  )
 VP_METHOD_ENTRY( "UTCsecond",       CSF_utc_second,        CSF_set_utc_second  ),
 VP_METHOD_ENTRY( "UTCmillisecond",  CSF_utc_millisecond,   CSF_set_utc_millisecond  ),
 
-VP_METHOD_ENTRY( 0,                0,					0					)
+VP_METHOD_ENTRY( "firstDayOfWeek",  CSF_firstDayOfWeek, 0  ),
+
+VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
 /* CsInitDate - initialize the 'Date' obj */
@@ -242,12 +245,12 @@ static value CSF_ctor(VM *c)
     switch( n )
     {
     case 0: 
-	{
-	//SYSTEMTIME st;
-	//::GetSystemTime( &st ); 
-	//::SystemTimeToFileTime(&st,&t);
-	  t = tool::date_time::now().time();
-	} break;
+  {
+  //SYSTEMTIME st;
+  //::GetSystemTime( &st ); 
+  //::SystemTimeToFileTime(&st,&t);
+    t = tool::date_time::now().time();
+  } break;
     case 1: 
         if( CsFloatP(p1) )
         {
@@ -287,7 +290,7 @@ static value CSF_ctor(VM *c)
             }
           }
         }
-	t = ts.time();
+  t = ts.time();
         //SystemTimeToFileTime(&ts,&t);
         break;
       }
@@ -482,6 +485,12 @@ static value CSF_dayOfWeek(VM *c,value obj)
     tool::date_time st = get_local(c,obj);
     return CsMakeInteger(c,st.day_of_week());
 }
+
+static value CSF_firstDayOfWeek(VM *c,value obj)
+{
+    return CsMakeInteger(c,tool::date_time::first_day_of_week());
+}
+
 static value CSF_hour(VM *c,value obj)
 {
     tool::date_time st = get_local(c,obj);
@@ -1155,7 +1164,7 @@ static value CSF_dayOfWeekName(VM *c)
 
 static value CSF_valueOf(VM *c)
 {
-    value d;
+    value d; 
     CsParseArguments(c,"V=*|B",&d,c->dateDispatch);
     tool::datetime_t ft = CsDateValue(c,d);
     /*

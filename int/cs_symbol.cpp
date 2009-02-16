@@ -107,14 +107,14 @@ static value CSF_toString(VM *c);
 
 /* Vector methods */
 static c_method methods[] = {
-C_METHOD_ENTRY(	"toString",  CSF_toString  ),
-C_METHOD_ENTRY(	0,           0             )
+C_METHOD_ENTRY( "toString",  CSF_toString  ),
+C_METHOD_ENTRY( 0,           0             )
 };
 
 /* Vector properties */
 static vp_method properties[] = {
 //VP_METHOD_ENTRY( "printName",      CSF_printName,      0                   ),
-VP_METHOD_ENTRY( 0,                0,					0					)
+VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
 /* CsInitSymbol - initialize the 'CsSymbol' obj */
@@ -133,7 +133,7 @@ value CSF_toString(VM *c)
     int_t sym;
 
     /* parse the arguments */
-    CsParseArguments(c,"s*",&sym);
+    CsParseArguments(c,"L*",&sym);
 
     sym &= 0x0FFFFFFF;
 
@@ -159,7 +159,7 @@ static value CSF_printName(VM *c,value obj)
 //#define SetSymbolHashValue(o,v)         (((CsSymbol *)o)->hashValue = (v))
 //#define SetSymbolPrintNameLength(o,v)   (((CsSymbol *)o)->printNameLength = (v))
 
-static bool   GetSymbolProperty(VM *c,value obj,value tag,value *pValue);
+static bool   GetSymbolProperty(VM *c,value& obj,value tag,value *pValue);
 static bool   SetSymbolProperty(VM *c,value obj,value tag,value value);
 static bool   SymbolPrint(VM *c,value val,stream *s, bool toLocale);
 static long   SymbolSize(value obj);
@@ -185,7 +185,7 @@ dispatch CsSymbolDispatch = {
 };
 
 /* GetSymbolProperty - CsSymbol get property handler */
-static bool GetSymbolProperty(VM *c,value obj,value tag,value *pValue)
+static bool GetSymbolProperty(VM *c,value& obj,value tag,value *pValue)
 {
     return CsGetVirtualProperty(c,obj,c->symbolObject,tag,pValue);
 }
@@ -217,7 +217,7 @@ static bool SymbolPrint(VM *c,value val,stream *s, bool toLocale)
 /* SymbolSize - CsSymbol size handler */
 static long SymbolSize(value obj)
 {
-	//CsSymbol *sym = (CsSymbol *)obj;
+  //CsSymbol *sym = (CsSymbol *)obj;
   //return sizeof(CsSymbol) + CsRoundSize(sym->printNameLength - 1);
   return sizeof(value);
 }
@@ -225,7 +225,7 @@ static long SymbolSize(value obj)
 /* SymbolCopy - CsSymbol copy handler */
 static value SymbolCopy(VM *c,value obj)
 {
-	return obj;
+  return obj;
 }
 
 /* SymbolHash - CsSymbol hash handler */
@@ -299,12 +299,12 @@ value CsInternString(VM *c,const char *printName, int length)
 bool CsGlobalValue(CsScope *scope,value sym,value *pValue)
 {
   VM *c = scope->c;
-	value obj,property;
-	for (CsScope* ps = scope ; ps ; ps = ps->next)
+  value obj,property;
+  for (CsScope* ps = scope ; ps ; ps = ps->next)
   {
         obj = CsScopeObject(ps);
         if ((property = CsFindProperty(c,obj,sym,NULL,NULL)) != 0) {
-			      *pValue = CsPropertyValue(property);
+            *pValue = CsPropertyValue(property);
             return true;
         }
   }
@@ -313,13 +313,16 @@ bool CsGlobalValue(CsScope *scope,value sym,value *pValue)
 
 bool CsGetGlobalValue(VM *c,value sym,value *pValue)
 {
-	value obj,property;
-	for (CsScope* ps = c->scopes ; ps ; ps = ps->next)
+  value obj,property;
+  value pobj = 0;
+  for (CsScope* ps = c->scopes ; ps ; ps = ps->next)
   {
         obj = CsScopeObject(ps);
+        if( pobj == obj) 
+          continue;
         if ((property = CsFindProperty(c,obj,sym,NULL,NULL)) != 0)
         {
-			      *pValue = CsPropertyValue(property);
+            *pValue = CsPropertyValue(property);
             return true;
         }
 
@@ -330,12 +333,13 @@ bool CsGetGlobalValue(VM *c,value sym,value *pValue)
           {
             if( property = CsFindProperty(c,obj,sym,0,0))
             {
-	            *pValue = CsPropertyValue(property);
+              *pValue = CsPropertyValue(property);
                return true;
             }
             obj = CsObjectClass(obj);
           }
         }
+        pobj = obj;
   }
   return false;
 }
@@ -367,11 +371,11 @@ value CsGetGlobalValueByPath(VM *c,const char* path)
 bool CsGlobalValue(CsScope *scope,value sym,value *pValue)
 {
   VM *c = scope->c;
-	value obj,property;
+  value obj,property;
   CsScope* ps = scope;
-	for (obj = CsScopeObject(ps); ps CsPointerP(obj) ; obj = CsObjectClass(obj))
+  for (obj = CsScopeObject(ps); ps CsPointerP(obj) ; obj = CsObjectClass(obj))
         if ((property = CsFindProperty(c,obj,sym,NULL,NULL)) != NULL) {
-			      *pValue = CsPropertyValue(property);
+            *pValue = CsPropertyValue(property);
             return true;
         }
     return false;
@@ -379,16 +383,96 @@ bool CsGlobalValue(CsScope *scope,value sym,value *pValue)
 */
 
 /* CsSetGlobalValue - set the value of a global symbol */
+bool CsSetGlobalOrNamespaceValue(VM* c,value tag,value val)
+{
+    //CsSetProperty(scope->c,CsScopeObject(scope),sym,value);
+    value obj = c->getCurrentNS();
+
+    value p;
+
+    while(CsObjectOrMethodP(obj)) 
+    {
+      if( p = CsFindProperty(c,obj,tag,NULL,NULL))
+      {
+        value propValue = CsPropertyValue(p);
+        if (CsVPMethodP(propValue))
+        {
+          vp_method *method = ptr<vp_method>(propValue);
+          if (method->set(c,obj,val))
+            return true;
+          else
+            CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
+        }
+        else if(CsPropertyMethodP(propValue))
+          CsSendMessage(c,obj,propValue,1, val);
+        else if( CsPropertyIsConst(p) )
+          CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
+        else
+          CsSetPropertyValue(p,val);
+        return true;
+      }
+      obj = CsObjectClass(obj);
+    }
+    /* add it as a property of globals */
+    CsSetGlobalValue(CsCurrentScope(c),tag,val);
+    return true;
+}
+
+bool CsGetGlobalOrNamespaceValue(VM *c,value tag,value *pValue)
+{
+    value obj = c->getCurrentNS();
+    value p;
+
+    while( CsObjectOrMethodP(obj) ) 
+    {
+      if( p = CsFindProperty(c,obj,tag,NULL,NULL))
+      {
+        value propValue = CsPropertyValue(p);
+        if (CsVPMethodP(propValue))
+        {
+          vp_method *method = ptr<vp_method>(propValue);
+          if (method->get(c,obj,*pValue))
+            return true;
+          else
+            CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
+        }
+        else if(CsPropertyMethodP(propValue))
+          *pValue = CsSendMessage(c,obj,propValue,1, c->nothingValue);
+        else
+          *pValue = propValue;
+        return true;
+      }
+      obj = CsObjectClass(obj);
+    }
+
+    /* add it as a property of globals */
+    return CsGetGlobalValue(c,tag,pValue);
+}
+
+
 void CsSetGlobalValue(CsScope *scope,value sym,value value)
 {
     CsSetProperty(scope->c,CsScopeObject(scope),sym,value);
 }
 
-void CsCreateGlobalConst(VM *c, value sym,value val)
+
+void CsSetNamespaceValue(VM *c,value sym,value val)
+{
+#ifdef _DEBUG
+    if(sym == VM::undefinedValue)
+      sym = sym;
+#endif
+    CsSetProperty1(c,c->getCurrentNS(),sym,val);
+}
+
+
+void CsSetNamespaceConst(VM *c, value sym,value val)
 {
     //printf("CsSetGlobalValue step 0 %x %x\n", scope, scope->c );
     if( !CsSymbolP(sym) )
       CsThrowKnownError(c,CsErrImpossible);
+
+    dispatch* pd = CsGetDispatch(c->getCurrentNS());
 
     CsAddConstant(c,c->getCurrentNS(),sym, val);
 }
@@ -409,7 +493,7 @@ static value AllocateSymbolSpace(VM *c,long size)
     c->symbolSpace->bytesRemaining -= size;
     p = (value)c->symbolSpace->nextByte;
     c->symbolSpace->nextByte += size;
-	return p;
+  return p;
 } */
 
 }

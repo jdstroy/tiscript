@@ -143,9 +143,9 @@ value CSF_eval(VM *c)
     {
       auto_scope as(c,v_namespace);
       if( CsStringP(v) )
-        return CsEvalString(&as,CsStringAddress(v), CsStringSize(v));
+        return CsEvalString(CsCurrentScope(c),CsStringAddress(v), CsStringSize(v));
       else if( CsFileP(c,v) )
-        return CsEvalStream(&as,CsFileStream(v));
+        return CsEvalStream(CsCurrentScope(c),CsFileStream(v));
       else
         CsTypeError(c,v);
     }
@@ -253,7 +253,7 @@ value CsEvalStream(CsScope *scope,stream *s)
     value val;
     CsInitScanner(scope->c->compiler,s);
     val = CsCompileExpr(scope, true);
-    return val ? CsSendMessage(scope, CsGetArgSafe(scope->c,1) , val,0) : scope->c->undefinedValue;
+    return val ? CsSendMessage(scope, CsGetArgSafe(scope->c,1) , val,0) : VM::undefinedValue;
 }
 
 /* CsEvalDataStream - evaluate a data stream, JSON++ like literal */
@@ -328,20 +328,42 @@ value CsInclude(CsScope *scope, const tool::ustring& path)
   return val;
 }
 
+value CsIncludeLibrary(CsScope *scope, const tool::ustring& name)
+{
+  value sym = CsMakeSymbol(scope->c, name, name.length());
+
+  if( CsGetProperty(scope->c, scope->globals, sym, &sym) )
+    return VM::falseValue;
+  tool::ustring fullpath = tool::get_home_dir(tool::tstring(name));
+  if( !CsLoadExtLibrary(scope->c, fullpath) )
+    CsThrowKnownError(scope->c,CsErrFileNotFound, fullpath.c_str());
+  CsSetGlobalValue(scope, sym, scope->c->trueValue);
+  return VM::trueValue;
+}
+
 /* CsLoadStream - read and evaluate a stream of expressions */
-value CsLoadStream(CsScope *scope,stream *is, stream *os)
+value CsLoadStream(CsScope *scope,stream *is, stream *os, int line_no)
 {
     VM *c = scope->c;
+
     value expr;
     CsInitScanner(c->compiler,is);
-
+    //c->currentNS = VM::undefinedValue;
     value r = c->nothingValue;
 
     if(!os)
     {
-      if ((expr = CsCompileExpressions(scope, false)) != 0)
+      TRY
+      {
+        auto_scope as(c,scope->globals);
+        if ((expr = CsCompileExpressions(scope, false, line_no)) != 0)
       {
           return CsCallFunction(scope,expr,0);
+      }
+    }
+      CATCH_ERROR(e)
+      {
+        RETHROW(e);
       }
     }
     else // PHP style of processing -
@@ -356,7 +378,8 @@ value CsLoadStream(CsScope *scope,stream *is, stream *os)
       //os->put( 0xFEFF ); // bom
       TRY
       {
-        if ((expr = CsCompileExpressions(scope, true)) != 0)
+        auto_scope as(c,scope->globals);
+        if ((expr = CsCompileExpressions(scope, true, line_no)) != 0)
         {
             r = CsCallFunction(scope,expr,0);
         }

@@ -30,14 +30,14 @@ static value CSF_log10(VM *c);
 static value CSF_pow(VM *c);
 
 #ifndef M_E
-#define M_E		    2.71828182845904523536028747135266250
-#define M_LN10		2.302585092994046
-#define M_LN2		  0.693147180559945309417232121458176568
-#define M_LOG10E	0.434294481903251827651128918916605082
-#define M_LOG2E		1.44269504088896340735992468100189214
-#define M_PI		  3.14159265358979323846264338327950288
-#define M_SQRT1_2	0.707106781186547524400844362104849039
-#define M_SQRT2		1.41421356237309504880168872420969808
+#define M_E       2.71828182845904523536028747135266250
+#define M_LN10    2.302585092994046
+#define M_LN2     0.693147180559945309417232121458176568
+#define M_LOG10E  0.434294481903251827651128918916605082
+#define M_LOG2E   1.44269504088896340735992468100189214
+#define M_PI      3.14159265358979323846264338327950288
+#define M_SQRT1_2 0.707106781186547524400844362104849039
+#define M_SQRT2   1.41421356237309504880168872420969808
 #endif
 //E Property | LN2 Property | LN10 Property | LOG2E Property | LOG10E Property | PI Property | SQRT1_2 Property | SQRT2 Property
 
@@ -59,7 +59,7 @@ C_METHOD_ENTRY( "log",              CSF_log             ),
 C_METHOD_ENTRY( "log2",             CSF_log2            ),
 C_METHOD_ENTRY( "log10",            CSF_log10           ),
 C_METHOD_ENTRY( "pow",              CSF_pow             ),
-C_METHOD_ENTRY( 0,					0					)
+C_METHOD_ENTRY( 0,          0         )
 };
 
 /* Vector properties */
@@ -72,7 +72,7 @@ VP_METHOD_ENTRY( "LOG10E",    CSF_LOG10E,     0  ),
 VP_METHOD_ENTRY( "PI",        CSF_PI,         0  ),
 VP_METHOD_ENTRY( "SQRT1_2",   CSF_SQRT1_2,    0  ),
 VP_METHOD_ENTRY( "SQRT2",     CSF_SQRT2,      0  ), */
-VP_METHOD_ENTRY( 0,                0,					0	 )
+VP_METHOD_ENTRY( 0,                0,         0  )
 };
 
 
@@ -83,7 +83,7 @@ static float_t oneOverLog2;
 /* prototypes */
 static float_t FloatValue(value val);
 
-static bool GetMathProperty(VM *c,value obj,value tag,value *pValue);
+static bool GetMathProperty(VM *c,value& obj,value tag,value *pValue);
 static bool SetMathProperty(VM *c,value obj,value tag,value v);
 
 /* Math object pdispatch */
@@ -111,7 +111,7 @@ value sym_PI;
 value sym_SQRT1_2;
 value sym_SQRT2;
 
-bool GetMathProperty(VM *c,value obj,value tag,value *pValue)
+bool GetMathProperty(VM *c,value& obj,value tag,value *pValue)
 {
     //value p;
     if( CsSymbolP(tag) )

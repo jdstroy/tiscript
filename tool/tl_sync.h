@@ -30,16 +30,16 @@ class mutex {
     CRITICAL_SECTION cs;
  public:
     void lock() {
-	    EnterCriticalSection(&cs);
+      EnterCriticalSection(&cs);
     }
     void unlock() {
-	    LeaveCriticalSection(&cs);
+      LeaveCriticalSection(&cs);
     }
     mutex() {
-	    InitializeCriticalSection(&cs);
+      InitializeCriticalSection(&cs);
     }
     ~mutex() {
-	    DeleteCriticalSection(&cs);
+      DeleteCriticalSection(&cs);
     }
 };
 
@@ -48,25 +48,25 @@ struct event
     HANDLE h;
 
     event() {
-	    h = CreateEvent(NULL, FALSE, FALSE, NULL);
+      h = CreateEvent(NULL, FALSE, FALSE, NULL);
     }
     ~event() {
-	    CloseHandle(h);
+      CloseHandle(h);
     }
     void signal() {
-	    SetEvent(h);
+      SetEvent(h);
     }
     void pulse() {
-	    PulseEvent(h);
+      PulseEvent(h);
     }
 
     void wait(mutex& m) {
-	    m.unlock();
-	    WaitForSingleObject(h, INFINITE);
-	    m.lock();
+      m.unlock();
+      WaitForSingleObject(h, INFINITE);
+      m.lock();
     }
     void wait() {
-	    WaitForSingleObject(h, INFINITE);
+      WaitForSingleObject(h, INFINITE);
     }
 
 };
@@ -90,23 +90,23 @@ class mutex {
     {
         pthread_t _self = pthread_self();
         if (owner != _self) {
-	    pthread_mutex_lock(&cs);
+      pthread_mutex_lock(&cs);
             owner = _self;
-	}
-	count += 1;
+  }
+  count += 1;
     }
     void unlock() {
-	assert(pthread_self() == owner);
-	if (--count == 0) {
-	    owner = 0;
-	    pthread_mutex_unlock(&cs);
-	}
+  assert(pthread_self() == owner);
+  if (--count == 0) {
+      owner = 0;
+      pthread_mutex_unlock(&cs);
+  }
     }
     mutex() {
-	pthread_mutex_init(&cs, NULL);
+  pthread_mutex_init(&cs, NULL);
     }
     ~mutex() {
-	pthread_mutex_destroy(&cs);
+  pthread_mutex_destroy(&cs);
     }
 };
 
@@ -115,22 +115,22 @@ class event {
 
    public:
     event() {
-	pthread_cond_init(&cond, NULL);
+  pthread_cond_init(&cond, NULL);
     }
     ~event() {
-	pthread_cond_destroy(&cond);
+  pthread_cond_destroy(&cond);
     }
     void signal() {
-	pthread_cond_signal(&cond);
+  pthread_cond_signal(&cond);
     }
     void wait(mutex& m) {
-	pthread_t self = pthread_self();
-	assert(m.owner == self && m.count == 1);
-	m.count = 0;
-	m.owner = 0;
-	pthread_cond_wait(&cond, &m.cs);
-	m.count = 1;
-	m.owner = self;
+  pthread_t self = pthread_self();
+  assert(m.owner == self && m.count == 1);
+  m.count = 0;
+  m.owner = 0;
+  pthread_cond_wait(&cond, &m.cs);
+  m.count = 1;
+  m.owner = self;
     }
 };
 
@@ -146,12 +146,34 @@ class critical_section {
     mutex& _m;
   public:
     critical_section(mutex& m) : _m(m) {
-	    _m.lock();
+      _m.lock();
     }
     ~critical_section() {
-	    _m.unlock();
+      _m.unlock();
     }
 };
+
+class critical_section_cond { 
+    mutex* _pm;
+  public:
+    critical_section_cond() : _pm(0) {}
+    void lock(mutex& m) 
+    { 
+      _pm = &m; 
+      if(_pm) _pm->lock(); 
+    }
+    void unlock() 
+    { 
+      if(_pm) { _pm->unlock(); _pm = 0; }
+    }
+
+    ~critical_section_cond() 
+    { 
+      if(_pm)
+	      _pm->unlock();
+    }
+};
+
 
 #ifdef WINDOWS
 
@@ -192,7 +214,7 @@ public:
         for(int i = 0; i < n_pool_size; i++)
         {
 #ifdef WINDOWS
-			      thread_handles.push( CreateThread(0, 0, thread, (LPVOID)this, 0, 0));
+            thread_handles.push( CreateThread(0, 0, thread, (LPVOID)this, 0, 0));
 #else
           thread_handles.push(_beginthread(thread, 0,this));
 #endif
@@ -330,7 +352,7 @@ protected:
             }
         locked::dec(pthis->active);
 #ifdef WINDOWS
-		    ExitThread(0);
+        ExitThread(0);
         return 0;
 #else
         _endthread();
