@@ -1,5 +1,28 @@
-#summary One-sentence summary of this page.
+#summary Test of WYSIWYG Wiki editing in Sciter/BlockNote.
 
-= Test of escapement =
+Test of WYSIWYG Wiki editing in Sciter/BlockNote.
+Headings:
+=Heading1=
 
-Here goes `*`bold`*` `***` * text.
+==Heading2==
+
+===Heading3===
+
+====Heading4====
+
+=====Heading5=====
+
+Lists test:
+  #Item 1111
+  #Item 2222
+    *Item aaaa
+    *Item bbbb
+  #Item 3333
+  #Item 4444
+  #Item 5555
+Spans:
+*Strong* _emphasis_ {{{code}}}.
+Table:
+||*Column1*||*Column2*||*Column3*||
+||data1.1||data1.2||data1.3||
+||data2.1||data2.2||data2.3||
