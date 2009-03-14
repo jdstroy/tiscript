@@ -477,7 +477,7 @@ namespace aux
     { 
       n = ::WideCharToMultiByte(CP_ACP,0,wstr,nu,0,0,0,0);
       buffer = (n < (16-1))? local:new char[n+1];
-      WideCharToMultiByte(CP_ACP,0,wstr,nu,buffer,n,0,0);
+      ::WideCharToMultiByte(CP_ACP,0,wstr,nu,buffer,n,0,0);
       buffer[n] = 0;
     }
   public:
@@ -504,9 +504,9 @@ namespace aux
     unsigned int nu;
     void init(const char* str, unsigned int n)
     { 
-      nu = MultiByteToWideChar(CP_THREAD_ACP,0,str,n,0,0);
+      nu = ::MultiByteToWideChar(CP_THREAD_ACP,0,str,n,0,0);
       buffer = ( nu < (16-1) )? local: new wchar_t[nu+1];
-      MultiByteToWideChar(CP_ACP,0,str,n,buffer,nu);
+      ::MultiByteToWideChar(CP_ACP,0,str,n,buffer,nu);
       buffer[nu] = 0;
     }
   public:

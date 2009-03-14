@@ -188,6 +188,13 @@ inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
 
     inline value iface_value( header* ph, int n )    { return (uint64)(uint32)ph | 0x1000000000000000LL | (uint64(n) << 32); }
     inline value iface_base ( value v )  { return v & 0x00000000FFFFFFFFLL; }
+
+    #define NOTHING_VALUE   0x2000000000000001LL
+    #define UNDEFINED_VALUE 0x2000000000000002LL
+    #define NULL_VALUE      0x2000000000000003LL
+    #define TRUE_VALUE      0x2000000000000004LL
+    #define FALSE_VALUE     0x2000000000000005LL
+
 #else
     inline value ptr_value( header* ph )    { return (value)ph; }
     inline value symbol_value( symbol_t i ) { return ((unsigned int)i)       | 0x2000000000000000i64; }
@@ -199,11 +206,16 @@ inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
     inline value iface_value( value base, int n )    { return base | 0x1000000000000000i64 | (uint64(n) << 32); }
     inline value iface_base ( value v )  { return v & 0xFFFFFFFFi64; }
 
+    #define NOTHING_VALUE   0x2000000000000001i64
+    #define UNDEFINED_VALUE 0x2000000000000002i64
+    #define NULL_VALUE      0x2000000000000003i64
+    #define TRUE_VALUE      0x2000000000000004i64
+    #define FALSE_VALUE     0x2000000000000005i64
+
 #endif
 
 
 //#define ptr_value(h) ( (value)(h) )
-
 
 inline bool is_symbol( const value& v)    { return (hidword(v) & 0xF0000000) == 0x20000000; }
 inline bool is_int( const value& v)       { return (hidword(v) & 0xF0000000) == 0x40000000; }
@@ -225,7 +237,13 @@ inline int      symbol_idx( const value& v)     { assert(is_symbol(v)); return l
 
 inline void dprint_value(value v) { dword d1 = hidword(v); dword d2 = lodword(v); printf("value=%x %x\n", d1,d2); }
 
-void check_thrown_error( VM *c);
+inline value value_to_set(value v) { 
+  if(v == NOTHING_VALUE)
+    return UNDEFINED_VALUE;
+  else
+    return v; 
+  //return v == NOTHING_VALUE? UNDEFINED_VALUE: v; 
+}
 
 /* output conversion functions */
 inline void CsIntegerToString(char *buf,int_t v) { sprintf(buf,"%ld",(long)(v)); }
@@ -434,11 +452,13 @@ struct VM: _VM, loader
 
     tool::ustring nativeThrowValue;
 
-    static value undefinedValue;        /* undefined value */
-    static value nullValue;             /* null value */
-    static value trueValue;             /* true value */
-    static value falseValue;            /* false value */
-    static value nothingValue;          /* internal 'nothing' value */
+    const static value nothingValue;          /* internal 'nothing' value */
+    const static value undefinedValue;        /* undefined value */
+
+    const static value nullValue;             /* null value */
+    const static value trueValue;             /* true value */
+    const static value falseValue;            /* false value */
+    
 
 };
 
@@ -817,6 +837,9 @@ enum WELL_KNOWN_SYMBOLS // this enum must match well_known_symbols table
 {
   S_NOTHING = 1,
   S_UNDEFINED,
+  S_NULL,
+  S_TRUE_,
+  S_FALSE_,
   S_BOOLEAN,
   S_INTEGER,
   S_FLOAT,
@@ -990,7 +1013,7 @@ inline void   CsSetVectorMaxSize(value o,int_t s) { ptr<vector>(o)->maxSize = s;
 inline value* CsVectorAddressI(value o)         { return (value *)(ptr<char>(o) + sizeof(vector)); }
        value* CsVectorAddress(VM *c,value obj);
 inline value  CsVectorElementI(value o,int_t i) { return CsVectorAddressI(o)[i]; }
-inline void   CsSetVectorElementI(value o,int_t i,value v) { CsVectorAddressI(o)[i] = v; }
+inline void   CsSetVectorElementI(value o,int_t i,value v) { CsVectorAddressI(o)[i] = value_to_set(v); }
        value  CsMakeVector(VM *c,int_t size);
        value  CsCloneVector(VM *c,value obj);
        int_t  CsVectorSize(VM *c,value obj);
@@ -1090,10 +1113,7 @@ struct vp_method: public header
       if(tag)
         val = (*((vp_get_ext_t)get_handler))(c,obj,tag);
       else
-      {
         val = (*get_handler)(c,obj);
-        check_thrown_error(c);
-      }
       return true;
     }
     inline bool set(VM* c, value obj, value val )
@@ -1102,10 +1122,7 @@ struct vp_method: public header
       if(tag)
         (*((vp_set_ext_t)set_handler))(c,obj,val,tag);
       else
-      {
         (*set_handler)(c, obj, val);
-        check_thrown_error(c);
-      }
       return true;
     }
 
@@ -1150,7 +1167,7 @@ inline  bool  CsPropertyP(value o)        { return CsIsType(o,&CsPropertyDispatc
 inline  value CsPropertyTag(value o)      { return CsFixedVectorElement(o,0); }
 inline  value CsPropertyValue(value o)    { return CsFixedVectorElement(o,1); }
 
-inline  void  CsSetPropertyValue(value o, value v) { CsSetFixedVectorElement(o,1,v); }
+inline  void  CsSetPropertyValue(value o, value v) { CsSetFixedVectorElement(o,1,value_to_set(v)); }
 
 inline  value CsPropertyNext(value o)               { return CsFixedVectorElement(o,2); }
 inline  void  CsSetPropertyNext(value o,value v)   { CsSetFixedVectorElement(o,2,v); }

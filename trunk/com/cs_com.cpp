@@ -541,6 +541,18 @@ static void do_statement(CsCompiler *c )
     //case T_DEFINE:      do_define(c);   break;
     case T_DEBUG:
           putcbyte(c,BC_DEBUG);
+          tkn = CsToken(c);
+          if( tkn != T_IDENTIFIER )
+          {
+DEBUG_PARSE_ERROR: 
+            CsParseError(c,"expecting 'namespace' or 'stacktrace' after the 'debug'");  break;
+          }
+          else if(strcmp(c->t_token, "namespace") == 0)
+             putcbyte(c,0); 
+          else if(strcmp(c->t_token, "stacktrace") == 0)
+             putcbyte(c,1); 
+          else
+             goto DEBUG_PARSE_ERROR;
           break;
 
     case T_IF:          do_if(c);       break;
@@ -3253,7 +3265,7 @@ static void do_function(CsCompiler *c, FUNCTION_TYPE fct, bool store)
 static void do_lambda(CsCompiler *c,PVAL *pv)
 {
     char name[256];
-    sprintf(name, "@%d", c->lineNumber);
+    sprintf(name, "@%d@%d", c->lineNumber, c->line.size());
     qualified_name qn(c);
     qn.append( name );
     /* compile function body */

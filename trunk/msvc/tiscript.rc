@@ -28,8 +28,8 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_CAN
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 4,0,0,1
- PRODUCTVERSION 4,0,0,1
+ FILEVERSION TISCRIPT_VERSION
+ PRODUCTVERSION TISCRIPT_VERSION
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -47,14 +47,14 @@ BEGIN
             VALUE "Comments", "Contains code of DyBase ( www.garret.ru ) and UCData (http://crl.nmsu.edu/~mleisher/ucdata.html),  special credits to their authors.\0"
             VALUE "CompanyName", "Terra Informatica Software, Inc.\0"
             VALUE "FileDescription", "tisscript, Compiler and VM\0"
-            VALUE "FileVersion", "4, 0, 0, 1\0"
+            VALUE "FileVersion", TISCRIPT_VERSION_STR "\0"
             VALUE "InternalName", "tis\0"
             VALUE "LegalCopyright", "Copyright © 2002-2009, Terra Informatica Software, Inc., http://terrainformatica.com\0"
             VALUE "LegalTrademarks", "\0"
             VALUE "OriginalFilename", "tis.exe\0"
             VALUE "PrivateBuild", "\0"
             VALUE "ProductName", "Terra Informatica Script Engine \0"
-            VALUE "ProductVersion", "4, 0, 0, 1\0"
+            VALUE "ProductVersion", TISCRIPT_VERSION_STR "\0"
             VALUE "SpecialBuild", "\0"
         END
     END

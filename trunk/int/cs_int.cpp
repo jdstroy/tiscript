@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
-#include <setjmp.h>
+#include <math.h>
 #include "cs.h"
 #include "cs_int.h"
 #include "cs_com.h"
@@ -328,7 +328,6 @@ value CsCallMethod(VM *c,value obj, value method, value ofClass,  int argc,...)
 
     /* save the interpreter state */
     CsSavedState state(c);
-    //auto_scope as(c,c->scopes->globals);
 
     TRY
     {
@@ -339,6 +338,13 @@ value CsCallMethod(VM *c,value obj, value method, value ofClass,  int argc,...)
       CsPush(c,obj);
       CsPush(c,method);
       CsPush(c,ofClass); /* _next */
+
+#ifdef _DEBUG
+      dispatch *pd1 = CsGetDispatch(obj);
+      dispatch *pd2 = CsGetDispatch(method);
+      dispatch *pd3 = CsGetDispatch(ofClass);
+#endif
+
 
     /* push the arguments */
       va_start(ap,argc);
@@ -464,7 +470,7 @@ value CsSendMessageByName(VM *c,value obj,char *sname,int argc,...)
 
       /* push the obj, selector and _next argument */
       CsPush(c,obj);
-      CsPush(c,c->undefinedValue); /* filled in below */
+      CsPush(c,UNDEFINED_VALUE); /* filled in below */
       CsPush(c,obj); /* _next */
 
       /* push the arguments */
@@ -534,7 +540,7 @@ bool Execute(VM *c)
             i = *c->pc++;
             CsCheck(c,i);
             for (n = i; --n >= 0; )
-                CsPush(c,c->undefinedValue);
+                CsPush(c,UNDEFINED_VALUE);
             PushFrame(c,i);
             break;
         case BC_AFRAME:       /* handled by BC_CALL */
@@ -567,37 +573,43 @@ bool Execute(VM *c)
                 p2 = CsEnvNextFrame(p2);
             i = CsEnvSize(p2) - *c->pc++;
             c->val = CsEnvElement(p2,i);
+#ifdef _DEBUG
+            {
+              dispatch *pd = CsGetDispatch(c->val);
+              pd = pd;
+            }
+#endif
             break;
         case BC_ESET:
             i = *c->pc++;
             for (p2 = c->env; --i >= 0; )
                 p2 = CsEnvNextFrame(p2);
             i = CsEnvSize(p2) - *c->pc++;
-            CsSetEnvElement(p2,i,c->val);
+            CsSetEnvElement(p2,i,value_to_set(c->val));
             break;
         case BC_BRT:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            if ( CsToBoolean(c,c->val) == c->trueValue )
+            if ( CsToBoolean(c,c->val) == TRUE_VALUE )
                 c->pc = c->cbase + off;
             break;
         case BC_BRDEF: // branch if val != nothingValue
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            if ( c->val != c->nothingValue )
+            if ( c->val != NOTHING_VALUE )
                 c->pc = c->cbase + off;
             break;
         case BC_BRUNDEF:
-            //c->val = ( CsGetArg(c,3) != c->nothingValue )? c->trueValue : c->falseValue;
+            //c->val = ( CsGetArg(c,3) != NOTHING_VALUE )? TRUE_VALUE : FALSE_VALUE;
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            if ( c->val == c->nothingValue )
+            if ( c->val == NOTHING_VALUE )
                 c->pc = c->cbase + off;
             break;
         case BC_BRF:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            if ( CsToBoolean(c,c->val) == c->falseValue )
+            if ( CsToBoolean(c,c->val) == FALSE_VALUE )
                 c->pc = c->cbase + off;
             break;
         case BC_BR:
@@ -624,25 +636,25 @@ bool Execute(VM *c)
             c->pc = c->cbase + off;
             break;
         case BC_T:
-            c->val = c->trueValue;
+            c->val = TRUE_VALUE;
             break;
         case BC_F:
-            c->val = c->falseValue;
+            c->val = FALSE_VALUE;
             break;
         case BC_NULL:
-            c->val = c->nullValue;
+            c->val = NULL_VALUE;
             break;
         case BC_UNDEFINED:
-            c->val = c->undefinedValue;
+            c->val = UNDEFINED_VALUE;
             break;
         case BC_NOTHING:
-            c->val = c->nothingValue;
+            c->val = NOTHING_VALUE;
             break;
         case BC_PUSH:
             CsCPush(c,c->val);
             break;
         case BC_NOT:
-            c->val = CsToBoolean(c,c->val) == c->trueValue? c->falseValue:c->trueValue;
+            c->val = CsToBoolean(c,c->val) == TRUE_VALUE? FALSE_VALUE:TRUE_VALUE;
             break;
         case BC_NEG:
             UnaryOp(c,'-');
@@ -762,18 +774,18 @@ bool Execute(VM *c)
             off = *c->pc++;
             off |= *c->pc++ << 8;
             //CsSetGlobalValue(CsCurrentScope(c),CsCompiledCodeLiteral(c->code,off),c->val);
-            CsSetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),c->val);
+            CsSetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val));
             break;
 
         case BC_GSETNS:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            CsSetNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),c->val);
+            CsSetNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val));
             break;
         case BC_GSETC:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            CsSetNamespaceConst(c,CsCompiledCodeLiteral(c->code,off),c->val);
+            CsSetNamespaceConst(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val));
             break;
 
         case BC_GETP:
@@ -781,13 +793,13 @@ bool Execute(VM *c)
             if (!CsGetProperty(c,p1,c->val,&c->val))
             {
                 //CsThrowKnownError(c,CsErrNoProperty,p1,c->val);
-                c->val = c->undefinedValue;
+                c->val = UNDEFINED_VALUE;
             }
             break;
         case BC_SETP:
             p2 = CsPop(c);
             p1 = CsPop(c);
-            if (!CsSetProperty(c,p1,p2,c->val))
+            if (!CsSetProperty(c,p1,p2,value_to_set(c->val)))
                 CsThrowKnownError(c,CsErrNoProperty,p1,p2);
             break;
         case BC_SETPM: // set method, used in class declarations only
@@ -818,7 +830,7 @@ bool Execute(VM *c)
         case BC_VSET:
             p2 = CsPop(c);
             p1 = CsPop(c);
-            CsSetItem(c,p1,p2,c->val);
+            CsSetItem(c,p1,p2,value_to_set(c->val));
             break;
         case BC_DUP2:
             CsCheck(c,2);
@@ -863,12 +875,18 @@ bool Execute(VM *c)
         case BC_DEBUG:
             //c->val = c->val;
             //c->standardOutput->put_str("|");
-            c->standardOutput->put_str("\n-------------->");
+            n = *c->pc++;
+            switch( n )
+            {
+              case 0:
+                c->standardOutput->put_str("\ndebug namespace:\n");
             CsDumpScopes(c);
-            /*{
-              value v;
-              CsGetGlobalValue(c,CsSymbolOf("$"),&v);
-            }*/
+                break;
+              case 1:
+                c->standardOutput->put_str("\ndebug stacktrace:\n");
+                CsStackTrace(c);
+                break;
+            }
             break;
         case BC_NEWOBJECT:
             if(*c->pc++)
@@ -888,7 +906,7 @@ bool Execute(VM *c)
         case BC_NEWCLASS:
             {
               value parentClass = CsPop(c);
-              if( parentClass == c->undefinedValue )
+              if( parentClass == UNDEFINED_VALUE )
                   parentClass = c->currentScope.globals;
               value classNameSymbol = c->val;
 #ifdef _DEBUG
@@ -905,7 +923,7 @@ bool Execute(VM *c)
             c->val = CsMakeVector(c,n);
             p = CsVectorAddressI(c->val) + n;
             while (--n >= 0)
-                *--p = CsPop(c);
+                *--p = value_to_set(CsPop(c));
             break;
         case BC_THROW:
             THROW_ERROR(CsErrThrown);
@@ -1246,12 +1264,12 @@ int Send(VM *c,FrameDispatch *d,int argc)
 {
     value _this = c->sp[argc];
 
-    if(_this == c->undefinedValue)
+    if(_this == UNDEFINED_VALUE)
       CsThrowKnownError(c,CsErrUnboundVariable,CsSymbolOf("this"));
 
     value next = c->sp[argc - 2];
     value selector = c->sp[argc - 1];
-    value method = c->undefinedValue;
+    value method = UNDEFINED_VALUE;
 
     //bool  root_call = _this == next;
 
@@ -1317,15 +1335,15 @@ int Send(VM *c,FrameDispatch *d,int argc)
       next = CsObjectClass(next);
       if( root_call && next && CsObjectOrMethodP(next) )
         next = CsObjectClass(next);
-      if(!next) next = c->undefinedValue;
+      if(!next) next = UNDEFINED_VALUE;
     }
     else
-      next = c->undefinedValue;
+      next = UNDEFINED_VALUE;
 
     c->sp[argc - 2] = next;*/
 
     if (!CsObjectOrMethodP(next) || (c->sp[argc - 2] = CsObjectClass(next)) == 0)
-        c->sp[argc - 2] = c->undefinedValue;
+        c->sp[argc - 2] = UNDEFINED_VALUE;
 
     /* call the method */
     return Call(c,d,argc);
@@ -1352,7 +1370,7 @@ value CsInternalCall(VM *c,int argc)
     return c->val;
 }
 
-void check_thrown_error( VM *c)
+static void check_thrown_error( VM *c)
 {
   if( c->nativeThrowValue.length() )
   {
@@ -1417,12 +1435,19 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
        CsTooFewArguments(c);
     //else if (!rflag && argc > rargc + oargc)
     //    CsTooManyArguments(c);
+    else if (!rflag && argc > rargc + oargc)
+    {
+      // drop rest of arguments.
+      int delta = c->argc - (rargc + oargc);
+      CsDrop(c,delta);
+      c->argc -= delta;
+    }
 
     /* fill out the optional arguments */
     if ((n = targc - argc) > 0) {
         CsCheck(c,n);
         while (--n >= 0)
-            CsPush(c,c->undefinedValue);
+            CsPush(c,UNDEFINED_VALUE);
     }
 
     /* build the rest argument */
@@ -1444,7 +1469,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     CsCheck(c,WordSize(sizeof(CallFrame)) + CsFirstEnvElement);
 
     /* complete the environment frame */
-    CsPush(c,c->undefinedValue);  /* names */
+    CsPush(c,UNDEFINED_VALUE);  /* names */
     CsPush(c,CsMethodEnv(method));/* nextFrame */
 
     /* initialize the frame */
@@ -1544,7 +1569,7 @@ static void PushFrame(VM *c,int size)
     CsCheck(c,WordSize(sizeof(BlockFrame)) + CsFirstEnvElement);
 
     /* complete the environment frame */
-    CsPush(c,c->undefinedValue);     /* names */
+    CsPush(c,UNDEFINED_VALUE);     /* names */
     CsPush(c,c->env);          /* nextFrame */
 
     /* initialized the frame */
@@ -1610,8 +1635,8 @@ static value UnstackEnv(VM *c,value env)
 
     /* initialize */
     CsCheck(c,3);
-    CsPush(c,c->undefinedValue);
-    CsPush(c,c->undefinedValue);
+    CsPush(c,UNDEFINED_VALUE);
+    CsPush(c,UNDEFINED_VALUE);
 
     /* copy each stack environment frame to the heap */
     while (CsStackEnvironmentP(env)) {
@@ -1629,7 +1654,7 @@ static value UnstackEnv(VM *c,value env)
             *dst++ = *src++;
 
         /* link the newo frame into the newo environment */
-        if (CsTop(c) == c->undefinedValue)
+        if (CsTop(c) == UNDEFINED_VALUE)
             c->sp[1] = newo;
         else
             CsSetEnvNextFrame(CsTop(c),newo);
@@ -1647,7 +1672,7 @@ static value UnstackEnv(VM *c,value env)
     }
 
     /* link the first heap frame into the newo environment */
-    if (CsTop(c) == c->undefinedValue)
+    if (CsTop(c) == UNDEFINED_VALUE)
         c->sp[1] = env;
     else
         CsSetEnvNextFrame(CsTop(c),env);
@@ -1753,33 +1778,33 @@ value CsToBoolean(VM* c, value obj)
 {
   if(CsSymbolP(obj))
   {
-    if(obj == c->falseValue)
+    if(obj == FALSE_VALUE)
       return obj;
-    if(obj == c->undefinedValue || obj == c->nullValue  || obj == c->nothingValue )
-      return c->falseValue;
-    return c->trueValue;
+    if(obj == UNDEFINED_VALUE || obj == NULL_VALUE  || obj == NOTHING_VALUE )
+      return FALSE_VALUE;
+    return TRUE_VALUE;
   }
   if (CsIntegerP(obj))
-    return CsIntegerValue(obj) != 0? c->trueValue: c->falseValue;
+    return CsIntegerValue(obj) != 0? TRUE_VALUE: FALSE_VALUE;
   if (CsFloatP(obj))
-    return CsFloatValue(obj) != 0.0? c->trueValue: c->falseValue;
+    return CsFloatValue(obj) != 0.0? TRUE_VALUE: FALSE_VALUE;
   if (CsStringP(obj))
-    return CsStringSize(obj) != 0? c->trueValue: c->falseValue;
+    return CsStringSize(obj) != 0? TRUE_VALUE: FALSE_VALUE;
   if (CsVectorP(obj))
-    return CsVectorSize(c,obj) != 0? c->trueValue: c->falseValue;
+    return CsVectorSize(c,obj) != 0? TRUE_VALUE: FALSE_VALUE;
   if (CsByteVectorP(obj))
-    return CsByteVectorSize(obj) != 0? c->trueValue: c->falseValue;
-  return c->trueValue;
+    return CsByteVectorSize(obj) != 0? TRUE_VALUE: FALSE_VALUE;
+  return TRUE_VALUE;
 
 }
 
 /* CsEql - compare two objects for equality */
 bool CsEqualOp(VM* c, value obj1,value obj2)
 {
-    if ( CsIntegerP(obj1) || CsIntegerP(obj2))
-        return CsToInteger(c,obj1) == CsToInteger(c,obj2);
-    else if (CsFloatP(obj1) || CsFloatP(obj2))
+    if (CsFloatP(obj1) || CsFloatP(obj2))
         return CsToFloat(c,obj1) == CsToFloat(c,obj2);
+    else if ( CsIntegerP(obj1) || CsIntegerP(obj2))
+        return CsToInteger(c,obj1) == CsToInteger(c,obj2);
     else if (CsStringP(obj1) || CsStringP(obj2))
         return CompareStrings(CsToString(c,obj1),CsToString(c,obj2)) == 0;
     else if (CsBooleanP(c,obj1) || CsBooleanP(c,obj2))
@@ -1787,21 +1812,23 @@ bool CsEqualOp(VM* c, value obj1,value obj2)
     else if (CsVectorP(obj1) && CsVectorP(obj2))
         return CsVectorsEqual(c,obj1,obj2);
     else
-        return obj1 == obj2;
+        return value_to_set(obj1) == value_to_set(obj2);
 }
 
-
+static const float_t epsilon_minus = -0.00000000000000088; 
+static const float_t epsilon_plus = 0.00000000000000088; 
 
 /* CsCompareObjects - compare two objects */
 int CsCompareObjects(VM *c,value obj1,value obj2, bool suppressError)
 {
-    if ( CsIntegerP(obj1) || CsIntegerP(obj2))
-        return to_int(CsToInteger(c,obj1)) - to_int(CsToInteger(c,obj2));
-    else if (CsFloatP(obj1) || CsFloatP(obj2))
+    if (CsFloatP(obj1) || CsFloatP(obj2))
     {
         float_t diff = to_float(CsToFloat(c,obj1)) - to_float(CsToFloat(c,obj2));
-        return diff < 0 ? -1 : diff == 0 ? 0 : 1;
+        return diff < epsilon_minus ? -1 : (diff > epsilon_plus ? 1 : 0);
+        //return diff < 0 ? -1 : (diff > 0 ? 1 : 0);
     }
+    else if ( CsIntegerP(obj1) || CsIntegerP(obj2))
+        return to_int(CsToInteger(c,obj1)) - to_int(CsToInteger(c,obj2));
     else if (CsStringP(obj1) && CsStringP(obj2))
         return CompareStrings(obj1,obj2);
     else if (CsVectorP(obj1) && CsVectorP(obj2))
@@ -1878,7 +1905,7 @@ void CsCopyStack(VM *c)
 int GetLineNumber(VM *c, value ccode, int pc )
 {
   value lna = CsCompiledCodeLineNumbers(ccode);
-  if( lna == c->undefinedValue )
+  if( lna == UNDEFINED_VALUE )
     return 0;
   LineNumberEntry* plne = (LineNumberEntry*)CsByteVectorAddress(lna);
   int n = CsByteVectorSize(lna) / sizeof(LineNumberEntry);
@@ -1896,7 +1923,7 @@ void CsStreamStackTrace(VM *c,stream *s)
     if (c->code) {
         value name = CsCompiledCodeName(c->code);
         //s->put_str("\tat ");
-        //if (name == c->undefinedValue)
+        //if (name == UNDEFINED_VALUE)
         //    CsPrint(c,c->code,s);
         //else
         //    CsDisplay(c,name,s);
@@ -1962,7 +1989,7 @@ inline value FindFirstMember(VM *c, value& index, value collection)
   //{
   //  return CsFindFirstSymbol(c,obj);
   //}
-  return c->nothingValue;
+  return NOTHING_VALUE;
 }
 
 inline value FindNextMember(VM *c, value& index, value collection)
@@ -1983,7 +2010,7 @@ inline value FindNextMember(VM *c, value& index, value collection)
   //{
   //  return CsFindNextSymbol(c,obj,mbr);
   //}
-  return c->nothingValue;
+  return NOTHING_VALUE;
 }
 */
 
@@ -1994,9 +2021,9 @@ value GetNextMember(VM *c, value* index, value collection)
   {
     return (*(pd->getNextElement))(c,index,collection);
   }
-  else if(collection != c->nothingValue)
+  else if(collection != NOTHING_VALUE)
     CsThrowKnownError(c,CsErrNoSuchFeature,collection, "enumeration");
-  return c->nothingValue;
+  return NOTHING_VALUE;
 }
 
 value CsGetRange(VM *c, value col, value start, value end)
@@ -2012,7 +2039,7 @@ value CsGetRange(VM *c, value col, value start, value end)
     int iStart = CsIntegerP(start)? CsIntegerValue(start): 0;
     int iEnd = CsIntegerP(end)? CsIntegerValue(end): -1;
     return CsVectorSlice(c, col, iStart, iEnd);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
   }
   else if(CsDbIndexP(c, col))
   {
@@ -2020,13 +2047,13 @@ value CsGetRange(VM *c, value col, value start, value end)
   }
   else
     CsThrowKnownError(c,CsErrNoSuchFeature,col, "range operation");
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 /*
 value IteratorNextElement(VM *c, value* index, value gen)
 {
-    if(*index == c->nothingValue) // first
+    if(*index == NOTHING_VALUE) // first
     {
       *index = int_value(0);
       return ptr<generator>(gen)->val;
@@ -2048,9 +2075,9 @@ value IteratorNextElement(VM *c, value* index, value gen)
       {
           state.restore();
           gen = CsPop(c);
-          ptr<CsIterator>(gen)->code = c->nothingValue;
-          ptr<CsIterator>(gen)->env = c->nothingValue;
-          ptr<CsIterator>(gen)->globals = c->nothingValue;
+          ptr<CsIterator>(gen)->code = NOTHING_VALUE;
+          ptr<CsIterator>(gen)->env = NOTHING_VALUE;
+          ptr<CsIterator>(gen)->globals = NOTHING_VALUE;
           throw e;
       }
       //int pcoff = c->pc - c->cbase;
@@ -2059,9 +2086,9 @@ value IteratorNextElement(VM *c, value* index, value gen)
       gen = CsPop(c);
       if(r) // it's finished
       {
-        ptr<CsIterator>(gen)->code = c->nothingValue;
-        ptr<CsIterator>(gen)->env = c->nothingValue;
-        ptr<CsIterator>(gen)->globals = c->nothingValue;
+        ptr<CsIterator>(gen)->code = NOTHING_VALUE;
+        ptr<CsIterator>(gen)->env = NOTHING_VALUE;
+        ptr<CsIterator>(gen)->globals = NOTHING_VALUE;
       }
       else
       {
@@ -2072,7 +2099,7 @@ value IteratorNextElement(VM *c, value* index, value gen)
     else
       assert(false);
 
-    return c->nothingValue;
+    return NOTHING_VALUE;
 }
 
 */

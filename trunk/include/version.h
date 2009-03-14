@@ -1,0 +1,2 @@
+#define TISCRIPT_VERSION 4,0,0,2
+#define TISCRIPT_VERSION_STR "4,0,0,2"
