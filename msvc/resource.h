@@ -1,3 +1,6 @@
+
+#include "version.h"
+
 //{{NO_DEPENDENCIES}}
 // Microsoft Developer Studio generated include file.
 // Used by tiscript.rc

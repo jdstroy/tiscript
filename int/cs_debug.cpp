@@ -100,7 +100,7 @@ OTDEF otab[] = {
 {       BC_BRUNDEF,   "BRUNDEF",      FMT_WORD        },
 {       BC_INCLUDE,   "INCLUDE",      FMT_NONE        },
 {       BC_LIKE,      "LIKE",         FMT_NONE        },
-{       BC_DEBUG,     "DEBUG",        FMT_NONE        },
+{       BC_DEBUG,     "DEBUG",        FMT_BYTE        },
 
 {       BC_S_CALL,    "BC_S_CALL",    FMT_WORD        },
 {       BC_S_RETURN,  "BC_S_RETURN",  FMT_NONE        },

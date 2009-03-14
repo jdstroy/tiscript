@@ -22,6 +22,9 @@ static const char* well_known_symbols[] =
   // CsTypeOf set of values
   "nothing",
   "undefined",
+  "null",
+  "true",
+  "false",
   "boolean",
   "integer",
   "float",

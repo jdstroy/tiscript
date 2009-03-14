@@ -52,11 +52,11 @@ void finalize()
   symbol_table().clear();
 }
 
-value VM::undefinedValue = 0;        /* undefined value */
-value VM::nullValue = 0;             /* null value */
-value VM::trueValue = 0;             /* true value */
-value VM::falseValue = 0;            /* false value */
-value VM::nothingValue = 0;          /* internal 'nothing' value */
+const value VM::undefinedValue = UNDEFINED_VALUE;        /* undefined value */
+const value VM::nullValue = NULL_VALUE;             /* null value */
+const value VM::trueValue = TRUE_VALUE;             /* true value */
+const value VM::falseValue = FALSE_VALUE;            /* false value */
+const value VM::nothingValue = NOTHING_VALUE;          /* internal 'nothing' value */
 
 
 //void finalize();
@@ -103,6 +103,7 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     /* make the symbol table */
     //this->symbols = CsMakeObject(this,this->undefinedValue);
 
+#if 0
     if(!undefinedValue)
     {
       /* make the undefined symbol */
@@ -114,6 +115,7 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
       falseValue = CsMakeSymbol(this,"false",5);
       trueValue = CsMakeSymbol(this,"true",4);
     }
+#endif
 
     /* fixup the symbol table */
     //CsSetObjectClass(this->symbols,this->undefinedValue);
@@ -561,11 +563,11 @@ void CsCollectGarbage(VM *c)
     //    ms->free = ms->base;
     ms->free = ms->base;
 
-    /* copy the root objects */
+    /* copy the root objects 
     c->undefinedValue = CsCopyValue(c,c->undefinedValue);
     c->nullValue = CsCopyValue(c,c->nullValue);
     c->trueValue = CsCopyValue(c,c->trueValue);
-    c->falseValue = CsCopyValue(c,c->falseValue);
+    c->falseValue = CsCopyValue(c,c->falseValue);*/
 
     //c->prototypeValue = CsCopyValue(c,c->prototypeValue);
     //c->symbols = CsCopyValue(c,c->symbols);

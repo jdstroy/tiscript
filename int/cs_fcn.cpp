@@ -104,7 +104,6 @@ C_METHOD_ENTRY( "mm",               CSF_mm               ),
 C_METHOD_ENTRY( "cm",               CSF_cm               ),
 
 
-
 //C_METHOD_ENTRY( "quit",             CSF_quit            ),
 C_METHOD_ENTRY( 0,          0         )
 };
