@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+//#include "config.h"
 #include "tool.h"
 #include "tl_slice.h"
 
@@ -184,6 +185,8 @@ inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
     inline value symbol_value( symbol_t i ) { return 0x2000000000000000LL | i; }
            value symbol_value( const char* str );
     inline value int_value( int_t i )       { return 0x4000000000000000LL | (i & 0x00000000FFFFFFFFLL); }
+    inline value unit_value( int_t i, int_t u ) { return 0x4000000000000000LL | (i & 0x00000000FFFFFFFFLL) | (uint64(u & 0xFF) << 32); }
+
     inline value float_value( float_t f )   { value t; t = *(value*)&f; return ((t >> 1)&0x7FFFFFFFFFFFFFFFLL ) | 0x8000000000000000LL; }
 
     inline value iface_value( header* ph, int n )    { return (uint64)(uint32)ph | 0x1000000000000000LL | (uint64(n) << 32); }
@@ -200,6 +203,7 @@ inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
     inline value symbol_value( symbol_t i ) { return ((unsigned int)i)       | 0x2000000000000000i64; }
            value symbol_value( const char* str );
     inline value int_value( int_t i )       { return ((unsigned int)i)       | 0x4000000000000000i64; }
+    inline value unit_value( int_t i, int_t u ) { return ((unsigned int)i) | 0x4000000000000000i64 | (uint64(u & 0xFF) << 32); }
     inline value float_value( float_t f )   { value t; t = *(value*)&f; return (t >> 1 ) | 0x8000000000000000i64; }
 
     inline value iface_value( header* ph, int n )    { return (uint64)ph | 0x1000000000000000i64 | (uint64(n) << 32); }
@@ -218,8 +222,9 @@ inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
 //#define ptr_value(h) ( (value)(h) )
 
 inline bool is_symbol( const value& v)    { return (hidword(v) & 0xF0000000) == 0x20000000; }
-inline bool is_int( const value& v)       { return (hidword(v) & 0xF0000000) == 0x40000000; }
+inline bool is_int( const value& v)       { return hidword(v) == 0x40000000; }
 inline bool is_float( const value& v)     { return (hidword(v) & 0x80000000) == 0x80000000; }
+inline bool is_unit( const value& v)      { return (hidword(v) & 0xF0000000) == 0x40000000 && hidword(v) != 0x40000000; }
 inline bool is_ptr( const value& v) {
   dword dw;
   dw = hidword(v);
@@ -231,6 +236,9 @@ inline bool is_iface_ptr( const value& v) { return (hidword(v) & 0xF0000000) == 
 inline int_t    to_int( const value& v )    { return (int_t)lodword(v); }
 inline symbol_t to_symbol( const value& v ) { return (symbol_t)lodword(v); }
 inline float_t  to_float( const value& v )  { float_t t; *((value*)(&t)) = v << 1; return t;}
+
+inline int_t    to_unit( const value& v, int_t& u )  { u = hidword(v) & 0xFF; return (int_t)lodword(v); }
+inline int_t    get_unit( const value& v )  { return hidword(v) & 0xFF; }
 
 inline int      iface_no( const value& v)       { return int(v >> 32) & 0xF; } // only 16 ifaces so far
 inline int      symbol_idx( const value& v)     { assert(is_symbol(v)); return lodword(v); }
@@ -260,6 +268,8 @@ typedef struct CsFrame CsFrame;
 typedef struct c_method c_method;
 typedef struct vp_method vp_method;
 typedef struct constant constant;
+
+struct debug_peer;
 
 /* round a size up to a multiple of the size of a int64 */
 #define CsRoundSize(x)   (((x) + 0xF) & ~0xF)
@@ -365,6 +375,7 @@ struct _VM
     byte *pc;                    /* program counter */
     value val;                   /* value register */
     value env;                   /* environment register */
+    value env_yield;             /* environment register used in BC_PRE_YIELD, BC_YIELD */
     value currentNS;             /* current namespace register */
 
     value objectObject;          /* base of obj inheritance tree */
@@ -376,6 +387,8 @@ struct _VM
     value symbolObject;          /* obj for the Symbol type */
     value stringObject;          /* obj for the String type */
     value integerObject;         /* obj for the Integer type */
+    value colorObject;           /* obj for the Color type */
+    value lengthObject;          /* obj for the Length type */
     value floatObject;           /* obj for the Float type */
     value errorObject;           /* obj for the Error type */
     value regexpObject;          /* obj for the Regexp type */
@@ -427,10 +440,13 @@ struct loader
   virtual stream* open( const tool::ustring& url ) = 0;
 };
 
+
 /* interpreter context structure */
 struct VM: _VM, loader
 {
     loader* ploader;
+    debug_peer* pdebug;
+    tool::mutex guard;
 
     VM( unsigned int features = 0xFFFFFFFF,
       long size = HEAP_SIZE, long expandSize = EXPAND_SIZE,long stackSize = STACK_SIZE );
@@ -459,7 +475,18 @@ struct VM: _VM, loader
     const static value trueValue;             /* true value */
     const static value falseValue;            /* false value */
     
+    static VM* get_current();
 
+    virtual bool post( tool::functor* pc )
+    {
+      if( get_current() == this )
+      {
+        pc->operator()();
+        pc->release();
+        return true;
+      }
+      return false;
+    }
 };
 
 
@@ -581,6 +608,8 @@ struct dispatch {
 };
 
 extern dispatch CsIntegerDispatch;
+extern dispatch CsColorDispatch;
+extern dispatch CsLengthDispatch;
 extern dispatch CsSymbolDispatch;
 extern dispatch CsFloatDispatch;
 
@@ -623,6 +652,13 @@ inline  dispatch*   CsGetDispatch(value o) {
                         return &CsSymbolDispatch;
                       else if( is_float(o) )
                         return &CsFloatDispatch;
+                      else if( is_unit(o) )
+                      {
+                        if(get_unit(o) == tool::value::clr)    
+                          return &CsColorDispatch;
+                        else
+                          return &CsLengthDispatch;
+                      }
                       else if( is_iface_ptr(o) )
                       {
                         dispatch* pd = CsQuickGetDispatch(o);
@@ -708,13 +744,19 @@ inline  value CsBrokenHeartForwardingAddr(value o){ return ptr<CsBrokenHeart>(o)
 inline  void  CsBrokenHeartSetForwardingAddr(value o,value v) { ptr<CsBrokenHeart>(o)->forwardingAddr = v; }
 
 inline bool  CsIntegerP(value o)             { return is_int(o); }
-inline value CsMakeInteger(VM *c,int_t val)  { return int_value(val); }
+inline value CsMakeInteger(int_t val)        { return int_value(val); }
 inline int_t CsIntegerValue(value o)         { return to_int(o); }
 
 inline bool     CsFloatP(value o)            { return is_float(o); }
 inline float_t  CsFloatValue(value o)        { return to_float(o); }
 //inline void CsSetFloatValue(value o,float_t v)  { ptr<CsFloat>(o)->value = v; }
 inline value    CsMakeFloat(VM *c,float_t v) { return float_value(v); }
+
+inline bool  CsColorP(value o)             { return is_unit(o) && get_unit(o) == tool::value::clr; }
+inline bool  CsLengthP(value o)            { return is_unit(o) && get_unit(o) != tool::value::clr; }
+
+inline uint   CsColorValue(value o)        { int u; return (uint)to_unit(o,u); }
+       value  CSF_color(VM *c);
 
 /* NUMBER */
 
@@ -849,6 +891,8 @@ enum WELL_KNOWN_SYMBOLS // this enum must match well_known_symbols table
   S_OBJECT,
   S_SYMBOL,
   S_FUNCTION,
+  S_COLOR,
+  S_LENGTH,
   // ...
   S_STORAGE,
   S_INDEX,
@@ -1042,6 +1086,7 @@ inline  value*  CsBasicVectorAddress(value o) { return (value *)(ptr<char>(o) + 
 inline  value   CsBasicVectorElement(value o, int_t i)     { return CsBasicVectorAddress(o)[i]; }
 inline  void    CsSetBasicVectorElement(value o,int_t i,value v) { CsBasicVectorAddress(o)[i] = v; }
 value CsMakeBasicVector(VM *c,dispatch *type,int_t size);
+value CsMakeBasicVector(VM *c,int_t size);
 
 /* FIXED VECTOR */
 struct CsFixedVector: public header
@@ -1089,6 +1134,8 @@ inline c_method*     CsCMethodPtr(value o)     { return ptr<c_method>(o); }
 value CsMakeCMethod(VM *c,const char *name, c_method_t handler);
 void  CsInitCMethod(c_method *ptr);
 
+void check_thrown_error( VM *c);
+
 
 /* VIRTUAL PROPERTY METHOD */
 
@@ -1114,6 +1161,7 @@ struct vp_method: public header
         val = (*((vp_get_ext_t)get_handler))(c,obj,tag);
       else
         val = (*get_handler)(c,obj);
+      check_thrown_error(c);
       return true;
     }
     inline bool set(VM* c, value obj, value val )
@@ -1123,6 +1171,7 @@ struct vp_method: public header
         (*((vp_set_ext_t)set_handler))(c,obj,val,tag);
       else
         (*set_handler)(c, obj, val);
+      check_thrown_error(c);
       return true;
     }
 
@@ -1195,14 +1244,13 @@ struct CsMethod: public object/* CsMethod is an Object! */
 
 struct generator: public header
 {
-    value globals;       // global variables
-    value env;           // environment
-    value code;          // code obj
-    value val;
-    value localFrames;   // environments of local frames.
-    int   argc;
+    value        code;
+    value        env;
+    value        globals;
+    value        ns;  // namespace
+    value        val; // first value
+    //value localFrames;   // environments of local frames.
     int   pcoffset;      // program counter offset
-
 };
 
 extern dispatch CsMethodDispatch;
@@ -1227,17 +1275,17 @@ inline bool   CsObjectOrMethodP(value o) {
 
 inline bool   CsGeneratorP(value o)                   { return CsIsBaseType(o,&CsGeneratorDispatch); }
 
-/*inline value  CsGeneratorMethod(value o)              { return CsBasicVectorElement(o,0); }
+/*inline value  CsGeneratorCode(value o)                { return CsBasicVectorElement(o,0); }
 inline value  CsGeneratorEnv(value o)                 { return CsBasicVectorElement(o,1); }
 inline value  CsGeneratorGlobals(value o)             { return CsBasicVectorElement(o,2); }
 inline int    CsGeneratorPC(value o)                  { return to_int(CsBasicVectorElement(o,3)); }
-inline value  CsGeneratorValue(value o)               { return CsBasicVectorElement(o,4); }
+//inline value  CsGeneratorValue(value o)               { return CsBasicVectorElement(o,4); }
 
-inline void   CsSetGeneratorMethod(value o,value v)   { CsSetBasicVectorElement(o,0,v); }
+inline void   CsSetGeneratorCode(value o,value v)   { CsSetBasicVectorElement(o,0,v); }
 inline void   CsSetGeneratorEnv(value o,value v)      { CsSetBasicVectorElement(o,1,v); }
 inline void   CsSetGeneratorGlobals(value o,value v)  { CsSetBasicVectorElement(o,2,v); }
 inline void   CsSetGeneratorPC(value o,int v)         { CsSetBasicVectorElement(o,3,int_value(v)); }
-inline void   CsSetGeneratorValue(value o,value v)    { CsSetBasicVectorElement(o,4,v); } */
+//inline void   CsSetGeneratorValue(value o,value v)    { CsSetBasicVectorElement(o,4,v); }*/
 
 //#define CsMethodSize                   3
 
@@ -1375,6 +1423,7 @@ struct stream
       while( (c = get()) != EOS )
         buf.push( (wchar) c );
     }
+    value   scanf(VM* c, const wchar* fmt);
 
 };
 
@@ -1407,6 +1456,22 @@ struct string_stream : public stream
     virtual void         stream_name(const wchar* nn) { name = nn; }
 
 };
+
+struct string_i_stream : public stream
+{
+    tool::wchars  str;
+    uint          pos;
+
+    string_i_stream(tool::wchars s): str(s) , pos(0) {}
+    string_i_stream(const wchar* s, int l): str(s,l) , pos(0) {}
+
+    virtual bool is_string_stream() const { return true; }
+    virtual bool is_input_stream() const { return true; }
+
+    virtual int  get() { if( pos < str.length ) return str[pos++]; return 0; }
+
+};
+
 
 struct string_stream_sd: string_stream
 {
@@ -1571,6 +1636,8 @@ struct vargs
 
 value CsCallFunction(CsScope *scope,value fun, vargs& args);
 value CsCallMethod(VM *c,value obj, value method, value ofClass, int argc,...);
+value CsExecuteNext(VM* c, value gen);
+bool  Execute(VM *c, value gen = 0);
 
 value       CsSendMessage(CsScope *scope, value obj, value selectorOrMethod,int argc,...);
 value       CsSendMessage(VM *c,value obj, value selectorOrMethod,int argc,...);
@@ -1718,6 +1785,12 @@ void CsInitInteger(VM *c);
 /* cs_float.c prototypes */
 void CsInitFloat(VM *c);
 
+/* cs_color.c prototypes */
+void CsInitColor(VM *c);
+
+/* cs_length.c prototypes */
+void CsInitLength(VM *c);
+
 /* cs_bytevector prototypes */
 void CsInitByteVector(VM *c);
 
@@ -1744,8 +1817,8 @@ void CsEnterLibrarySymbols(VM *c);
 /* cs_eval.c prototypes */
 void CsUseEval(VM *c);
 void CsUnuseEval(VM *c);
-value CsEvalString(CsScope *scope,const wchar *str,size_t length);
-value CsEvalStream(CsScope *scope,stream *s);
+value CsEvalString(CsScope *scope,value self,const wchar *str,size_t length);
+value CsEvalStream(CsScope *scope,value self,stream *s);
 
 /* evaluate (parse) JSON++ literal in the string and stream */
 value CsEvalDataString(CsScope *scope,const wchar *str,size_t length);

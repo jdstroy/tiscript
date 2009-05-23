@@ -576,6 +576,7 @@ template <typename TC, typename TV>
     WIN_2003      = 0x114,
 
     WIN_VISTA     = 0x120,
+    WIN_7_OR_ABOVE= 0x130,
 
     SOME_LINUX    = 0, // :-p
 
@@ -584,6 +585,10 @@ template <typename TC, typename TV>
 
   inline bool getbit(uint32 MASK, uint32 v) { return (v & MASK) != 0; }
   inline void setbit(uint32 MASK, uint32& v, bool on) { if(on) v |= MASK; else v &= ~MASK; }
+
+  inline bool getbit(uint64 MASK, uint64 v) { return (v & MASK) != 0; }
+  inline void setbit(uint64 MASK, uint64& v, bool on) { if(on) v |= MASK; else v &= ~MASK; }
+
 
   template<typename T, class CMP>
     struct sorter
@@ -737,6 +742,23 @@ template<typename T>
     ~semaphore() { --_cnt; }
   };
 
+  // I do not know what is this either. Let it be auto_state.
+  struct auto_state
+  {
+    bool  _state_value;
+    bool& _state;
+    auto_state(bool& state): _state(state) { _state_value = state; state = false; }
+    ~auto_state() { _state = _state_value; }
+  };
+
+  struct functor: public resource
+  {
+    functor() {}
+    virtual ~functor() {}
+    virtual void operator()() = 0; 
+  };
+
+
 #if defined(WINDOWS)
   inline void beep() { MessageBeep(MB_ICONEXCLAMATION); }
   inline void sleep(uint ms) { Sleep(ms); }
@@ -846,6 +868,35 @@ inline long isqrt (long x)
 
 void setup_debug_output(void* p, debug_output_func* pf);
 
-
+#ifdef DEBUG_RELEASE
+  class log4
+  {
+  protected:
+    FILE *file;
+    log4():file(0)
+    {
+        char executableFilePath[MAX_PATH];
+        ::GetModuleFileName(NULL, executableFilePath, MAX_PATH);
+        char *executableFileName = ::strrchr(executableFilePath, '\\');
+        char *lastDot = ::strrchr(executableFileName, '.');
+        strcpy(lastDot, ".log");
+        file = fopen(executableFilePath, "wt");
+    }
+    static log4& inst() 
+    {
+      static log4 _inst;
+      return _inst;
+    }
+  public: 
+    ~log4() { fclose(file); }
+    static void printf(const char* fmt, ...)
+    {
+      va_list args;
+      va_start ( args, fmt );
+      vfprintf( inst().file, fmt, args );
+      va_end ( args );
+    }
+  };      
+#endif
 
 #endif

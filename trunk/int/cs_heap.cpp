@@ -67,6 +67,7 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     memset( static_cast<_VM*>(this),0, sizeof(_VM));
     this->expandSize = expandSize;
     this->ploader = this;
+    this->pdebug  = 0;
 
     this->pins.next = &this->pins;
     this->pins.prev = &this->pins;
@@ -162,6 +163,8 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     CsInitSymbol(this);
     CsInitString(this);
     CsInitInteger(this);
+    CsInitColor(this);
+    CsInitLength(this);
     CsInitByteVector(this);
     CsInitFloat(this);
 
@@ -200,11 +203,16 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     /* return successfully */
     valid = 0xAFED;
 
+    if(!thread_get_data())
+      thread_set_data(this);
 }
 
 /* CsFreeInterpreter - free an interpreter structure */
 VM::~VM()
 {
+    if(thread_get_data() == this)
+      thread_set_data(0);
+
     //CsMemorySpace *space,*nextSpace;
     //CsProtectedPtrs *p,*nextp;
     dispatch *d,*nextd;
@@ -259,6 +267,11 @@ VM::~VM()
         if (s != &this->globalScope && s != &this->currentScope)
             CsFree(this,s);
     }
+}
+
+VM* VM::get_current()
+{
+  return (VM*)thread_get_data();
 }
 
 //reset
@@ -326,6 +339,7 @@ static void InitInterpreter(VM *c)
     /* initialize the registers */
     c->val = c->undefinedValue;
     c->env = c->undefinedValue;
+    c->env_yield = c->undefinedValue;
     c->currentNS = c->undefinedValue;
     c->code = 0;
 }
@@ -592,6 +606,8 @@ void CsCollectGarbage(VM *c)
     c->stringObject = CsCopyValue(c,c->stringObject);
     c->errorObject = CsCopyValue(c,c->errorObject);
     c->integerObject = CsCopyValue(c,c->integerObject);
+    c->colorObject = CsCopyValue(c,c->colorObject);
+    c->lengthObject = CsCopyValue(c,c->lengthObject);
     c->floatObject = CsCopyValue(c,c->floatObject);
     c->byteVectorObject = CsCopyValue(c,c->byteVectorObject);
 
@@ -620,6 +636,7 @@ void CsCollectGarbage(VM *c)
         ss->globals = CsCopyValue(c,ss->globals);
         ss->ns = CsCopyValue(c,ss->ns);
         ss->env = CsCopyValue(c,ss->env);
+        //ss->env_yield = CsCopyValue(c,ss->env_yield);
         if (ss->code != 0)
             ss->code = CsCopyValue(c,ss->code);
     }
@@ -634,6 +651,7 @@ void CsCollectGarbage(VM *c)
     /* copy the registers */
     c->val = CsCopyValue(c,c->val);
     c->env = CsCopyValue(c,c->env);
+    c->env_yield = CsCopyValue(c,c->env_yield);
     c->currentNS = CsCopyValue(c,c->currentNS);
 
     /* copy any user objects */
@@ -939,7 +957,7 @@ void pvalue::pin(VM* c, value v)
   if( c )
   {
     pvm = c; 
-
+    tool::critical_section cs(pvm->guard);
     (next = c->pins.next)->prev = this;
     (prev = &c->pins)->next = this; 
     val = v; 
@@ -955,6 +973,8 @@ void pvalue::unpin()
 
    assert(next->prev == this);
    assert(prev->next == this);
+
+   tool::critical_section cs(pvm->guard);
 
    next->prev = prev;
    prev->next = next;

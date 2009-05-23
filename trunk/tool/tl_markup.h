@@ -29,6 +29,7 @@ template< typename CHAR_TYPE >
   {
   public:
     typedef CHAR_TYPE char_type;
+    typedef slice<typename CHAR_TYPE> token_value;
 
     enum token_type
     {
@@ -71,7 +72,7 @@ template< typename CHAR_TYPE >
     token_type      get_token()  { return (this->*c_scan)(); }
 
     // get value of TT_WORD, TT_SPACE, TT_ATTR and TT_DATA
-    slice<CHAR_TYPE> get_value() { return value(); }
+    token_value     get_value() { return value(); }
 
     // get attribute name
     const char*     get_attr_name()               { attr_name[attr_name_length] = 0; return attr_name; }

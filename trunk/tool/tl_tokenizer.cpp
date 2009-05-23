@@ -985,7 +985,7 @@ DATE_LITERAL:
   {
     int64 li = v.get_int64();
     int64 dollars = li / 10000;
-    uint cents = uint64(li) % 10000;
+    uint cents = uint(uint64(li) % 10000);
     
     i64tow sd(dollars);
     out.put(sd,sd.length());

@@ -119,10 +119,10 @@ namespace tool
 
   template<>
   inline unsigned int
-    hash<unsigned int> (unsigned int const& the_dword )
+    hash<uint> (uint const& the_uint )
   {
     //return (unsigned int) the_dword;
-    dword key = the_dword;
+    unsigned int key = the_uint;
     
     key += ~(key << 16);
     key ^=  (key >>  5);
@@ -133,6 +133,41 @@ namespace tool
    
     return key;
   }
+  /*
+  template<>
+  inline unsigned int
+    hash<dword> (dword const& the_dword )
+  {
+    //return (unsigned int) the_dword;
+    uint key = the_dword;
+    
+    key += ~(key << 16);
+    key ^=  (key >>  5);
+    key +=  (key <<  3);
+    key ^=  (key >> 13);
+    key += ~(key <<  9);
+    key ^=  (key >> 17);
+   
+    return key;
+  }
+  */
+
+  /*template<>
+  inline unsigned int
+    hash<unsigned int> (unsigned int const& the_uint )
+  {
+    //return (unsigned int) the_dword;
+    uint key = the_uint;
+    
+    key += ~(key << 16);
+    key ^=  (key >>  5);
+    key +=  (key <<  3);
+    key ^=  (key >> 13);
+    key += ~(key <<  9);
+    key ^=  (key >> 17);
+   
+    return key;
+  }*/
 
   template<>
   inline unsigned int

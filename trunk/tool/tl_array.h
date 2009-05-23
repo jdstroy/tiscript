@@ -690,7 +690,7 @@ inline void
     int k = size() - 1;
     while( i < k )
     {
-      swap( _elements[i], _elements[k] );
+      swop( _elements[i], _elements[k] );
       ++i; --k;
     }
   }

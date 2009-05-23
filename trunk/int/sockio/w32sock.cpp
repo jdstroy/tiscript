@@ -269,7 +269,7 @@ bool win_socket::connect(int max_attempts, time_t timeout)
 	    closesocket(s);
 	    if (errcode == WSAECONNREFUSED) {
 		if (--max_attempts > 0) {  
-		    Sleep(timeout*MILLISECOND);
+                Sleep((DWORD)(timeout*MILLISECOND));
 		} else { 
 		    break;
 		}
@@ -469,7 +469,7 @@ socket_t* socket_t::connect(char const* _address,
 
     if (domain == sock_local_domain 
 	  || (domain == sock_any_domain 
-	    && ((port = strchr(_address, ':')) == NULL 
+                && ((port = (char*)strchr(_address, ':')) == NULL 
 		|| ((hostname_len = port - _address) == 9 
 		    && strncmp(_address, "localhost", hostname_len) == 0)
 		|| (gethostname(hostname, sizeof hostname) != 0 

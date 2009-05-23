@@ -33,6 +33,7 @@ static value CSF_lastIndexOf(VM *c);
 static value CSF_localeCompare(VM *c);
 static value CSF_slice(VM *c);
 static value CSF_printf(VM *c);
+static value CSF_scanf(VM *c);
 
 static value CSF_trim(VM *c);
 
@@ -104,6 +105,7 @@ C_METHOD_ENTRY( "UID",              CSF_UID ),
 //C_METHOD_ENTRY( "toStream",         CSF_toString ),
 
 C_METHOD_ENTRY( "printf",           CSF_printf ),
+C_METHOD_ENTRY( "scanf",            CSF_scanf ),
 C_METHOD_ENTRY( "toFloat",          CSF_toFloat         ),
 C_METHOD_ENTRY( 0,                  0                   )
 };
@@ -171,7 +173,7 @@ static value CSF_charCodeAt(VM *c)
     CsParseArguments(c,"S#*i",&str,&len,&index);
 
     if(index >= 0 && index < len)
-      return CsMakeInteger(c,str[index]);
+      return CsMakeInteger(str[index]);
     else
       return c->undefinedValue;
 }
@@ -276,10 +278,10 @@ static value CSF_indexOf(VM *c)
     p = wcsstr(str + startIndex,str2);
 
     if (!p)
-        return CsMakeInteger(c,-1);
+        return CsMakeInteger(-1);
     
     /* return the index of the substring */
-    return CsMakeInteger(c,p - str);
+    return CsMakeInteger(p - str);
 }
 
 /* CSF_toLowerCase - built-in method 'toLowerCase' */
@@ -523,10 +525,10 @@ static value CSF_lastIndexOf(VM *c)
     p = wcsrnstr(str, startIndex,str2);
 
     if (!p)
-        return CsMakeInteger(c,-1);
+        return CsMakeInteger(-1);
     
     /* return the index of the substring */
-    return CsMakeInteger(c,p - str);
+    return CsMakeInteger(p - str);
 
 }
 
@@ -616,9 +618,9 @@ static value CSF_localeCompare(VM *c)
     if ( !str || !str2)
         return c->undefinedValue;
 //#if defined(PLATFORM_WINCE)        
-    return CsMakeInteger(c,wcscmp(str,str2));
+    return CsMakeInteger(wcscmp(str,str2));
 //#else
-//  return CsMakeInteger(c,wcscoll(str,str2));
+//  return CsMakeInteger(wcscoll(str,str2));
 //#endif
 
 }
@@ -668,6 +670,19 @@ static value CSF_printf(VM *c)
     r = s.string_o(c);
     s.close();
     return r;
+}
+
+static value CSF_scanf(VM *c)
+{
+    int len;
+    wchar *str = 0;
+    wchar *fmt = 0;
+    
+    /* parse the arguments */
+    CsParseArguments(c,"S#*S",&str,&len,&fmt);
+
+    string_i_stream s(str,len);
+    return s.scanf(c,fmt);
 }
 
 
@@ -808,7 +823,7 @@ static value CSF_toInteger(VM *c)
     int_t i = wcstol(s.start,&pend,radix);
     if( s.end() != pend )
       return dv? dv: c->undefinedValue;
-    return CsMakeInteger(c,i);
+    return CsMakeInteger(i);
 }
 
 /* CSF_toFloat - built-in method 'toFloat' */
@@ -829,7 +844,7 @@ static value CSF_toFloat(VM *c)
 /* CSF_size - built-in property 'length' */
 static value CSF_length(VM *c,value obj)
 {
-    return CsMakeInteger(c,CsStringSize(obj));
+    return CsMakeInteger(CsStringSize(obj));
 }
 
 static value CSF_UID(VM *c)
@@ -873,7 +888,7 @@ static value CsStringGetItem(VM *c,value obj,value tag)
         int_t i;
         if ((i = CsIntegerValue(tag)) < 0 || (size_t)i >= CsStringSize(obj))
             CsThrowKnownError(c,CsErrIndexOutOfBounds,tag);
-        return CsMakeInteger(c,CsStringChar(obj,i));
+        return CsMakeInteger(CsStringChar(obj,i));
     }
     return c->undefinedValue;
 }

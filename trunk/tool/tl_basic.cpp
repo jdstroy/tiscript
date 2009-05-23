@@ -57,9 +57,9 @@ namespace tool
            return WIN_XP;
          if ( osvi.dwMajorVersion == 5 && osvi.dwMinorVersion == 2 )
            return WIN_2003;
-         if ( osvi.dwMajorVersion == 6 )
+         if ( osvi.dwMajorVersion == 6 && osvi.dwMinorVersion == 0 )
            return WIN_VISTA;
-         break;
+         return WIN_7_OR_ABOVE;
 
       case VER_PLATFORM_WIN32_WINDOWS:
 

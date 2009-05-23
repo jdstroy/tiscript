@@ -82,9 +82,6 @@ void split_path(const wchar *path, ustring& drive, ustring& dir, ustring& name, 
 #endif
 }
 
-
-const value value::undefined;
-
 tstring get_home_dir(void* hinst)
 {
 #ifdef WIN32

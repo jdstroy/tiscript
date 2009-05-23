@@ -46,6 +46,18 @@ TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
 <P><STRONG>( </STRONG>&nbsp;<STRONG>)</STRONG> returns: <EM>string</EM></P>
 <P>Returns <EM>base64</EM> representation of the byte vector.</P></TD>
   </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>save</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>filename</EM>:string <STRONG>)</STRONG> returns: <EM>true|false</EM></DIV>
+<P>Saves content of the byte vector into the file. If file exists then it will be overwritten.</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>load</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>filename</EM>:string <STRONG>)</STRONG> returns: <EM>Bytes</EM></DIV>
+<P>Static method. Creates new Bytes object, loads file into it and returns that object.</P></TD>
+  </TR>
 </TABLE>
 </DIV>
 </BODY>

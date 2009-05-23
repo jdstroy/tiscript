@@ -339,7 +339,7 @@ static bool ReadIntegerValue(VM *c,value *pv,stream *s)
     int_t n;
     if (!ReadInteger(&n,s))
         return false;
-    *pv = CsMakeInteger(c,n);
+    *pv = CsMakeInteger(n);
     return true;
 }
 

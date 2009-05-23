@@ -144,8 +144,11 @@ static void PushNewArgFrame(CsCompiler *c);
 static void PopArgFrame(CsCompiler *c);
 static void FreeArguments(CsCompiler *c);
 static bool FindArgument(CsCompiler *c,const char *name,int *plev,int *poff, bool* pimmutable);
-static int   addliteral(CsCompiler *c,value lit);
+static void CloseArgFrame(CsCompiler *c, ATABLE *atable, int ptr /* BC_FRAME arg offset */);
+
+static int   addliteral(CsCompiler *c,value lit, bool unique = false);
 static value getliteral(CsCompiler *c,int idx);
+static void  setliteral(CsCompiler *c,int idx, value val);
 
 
 static void foptional(CsCompiler *c,int rtkn);
@@ -542,7 +545,7 @@ static void do_statement(CsCompiler *c )
     case T_DEBUG:
           putcbyte(c,BC_DEBUG);
           tkn = CsToken(c);
-          if( tkn != T_IDENTIFIER )
+          if( tkn != T_IDENTIFIER && tkn != T_NAMESPACE)
           {
 DEBUG_PARSE_ERROR: 
             CsParseError(c,"expecting 'namespace' or 'stacktrace' after the 'debug'");  break;
@@ -596,7 +599,8 @@ DEBUG_PARSE_ERROR:
 /* compile_code - compile a function or method */
 static void compile_code(CsCompiler *c,const char *name, FUNCTION_TYPE fct)
 {
-    ++c->functionLevel;
+    tool::semaphore   _1(c->functionLevel);
+    tool::auto_state  _2(c->is_generator);
 
     VM *ic = c->ic;
     int type;
@@ -800,8 +804,6 @@ static void compile_code(CsCompiler *c,const char *name, FUNCTION_TYPE fct)
     emit_literal(c,addliteral(c,code));
     putcbyte(c,BC_CLOSE);
     putcbyte(c,fct);
-    --c->functionLevel;
-
 }
 
 /* do_if - compile the 'if/else' expression */
@@ -969,13 +971,30 @@ static void do_dowhile(CsCompiler *c)
 
 static void do_for_in(CsCompiler *c, PVAL* pv, const tool::string& name);
 
+
+static void CloseArgFrame(CsCompiler *c, ATABLE *atable, int ptr /* BC_FRAME arg offset */)
+{
+    int arg_cnt = ArgumentsCount(c, atable); //tcnt;
+    c->cbase[ptr] = arg_cnt;
+    if( c->ic->pdebug )
+    {
+      int off = c->cbase[ptr+1];
+      off |= c->cbase[ptr+2] << 8;
+      value name_vector = CsMakeBasicVector(c->ic,arg_cnt);
+      setliteral(c,off,name_vector);
+    }
+    putcbyte(c,BC_UNFRAME);
+    PopArgFrame(c);
+}
+
+
 /* do_for - compile the 'for' statement */
 static void do_for(CsCompiler *c)
 {
     int tkn,nxt,end,body,update;
     SENTRY *ob,*oc;
 
-    int ptr = 0; /* BC_CFRAME arg offset */
+    int ptr = 0; /* BC_FRAME arg offset */
     //int tcnt = 0; /* num locals */
     ATABLE *atable = NULL;
      //++c->blockLevel;
@@ -1048,9 +1067,7 @@ static void do_for(CsCompiler *c)
     /* pop the local frame */
 END:
     if (atable) {
-        c->cbase[ptr] = ArgumentsCount(c, atable); //tcnt;
-        putcbyte(c,BC_UNFRAME);
-        PopArgFrame(c);
+        CloseArgFrame(c,atable,ptr);
         --c->blockLevel;
     }
     //
@@ -1395,7 +1412,7 @@ static void do_switch(CsCompiler *c)
     int nxt = 0, nxtbody = 0, end = 0, dflt = 0;
 
     ATABLE *atable = NULL;
-    int ptr = 0; /* BC_CFRAME arg offset */
+    int ptr = 0; /* BC_FRAME arg offset */
 
     SENTRY *old_break;
 
@@ -1487,9 +1504,7 @@ static void do_switch(CsCompiler *c)
 
     if (atable) 
     {
-        c->cbase[ptr] = ArgumentsCount(c, atable); //tcnt;
-        putcbyte(c,BC_UNFRAME);
-        PopArgFrame(c);
+        CloseArgFrame(c,atable,ptr);
         --c->blockLevel;
     }
 
@@ -1891,7 +1906,7 @@ static DECORATOR_OF do_decorator_parameter(CsCompiler *c,PVAL *pv, tool::string&
         frequire(c,')');
         break;
     case T_INTEGER:
-        pv->val = addliteral(c,CsMakeInteger(c->ic,c->t_value));
+        pv->val = addliteral(c,CsMakeInteger(c->t_value));
         pv->fcn = code_literal;
         break;
     case T_FLOAT:
@@ -2128,7 +2143,7 @@ static void do_class_decl(CsCompiler *c, int decl_type, bool store)
 static void do_block(CsCompiler *c, char *parameter)
 {
     ATABLE *atable = NULL;
-    int ptr = 0; /* BC_CFRAME arg offset */
+    int ptr = 0; /* BC_FRAME arg offset */
     //int tcnt = 0; /* num locals */
     int tkn;
     int n = 0;
@@ -2168,9 +2183,7 @@ static void do_block(CsCompiler *c, char *parameter)
 
     /* pop the local frame */
     if (atable) {
-        c->cbase[ptr] = ArgumentsCount(c, atable);
-        putcbyte(c,BC_UNFRAME);
-        PopArgFrame(c);
+        CloseArgFrame(c,atable,ptr);
         --c->blockLevel;
     }
 
@@ -2182,7 +2195,7 @@ static void do_block(CsCompiler *c, char *parameter)
 static void do_property_block(CsCompiler *c, const char* valName)
 {
     ATABLE *atable = NULL;
-    int ptr = 0; /* BC_CFRAME arg offset */
+    int ptr = 0; /* BC_FRAME arg offset */
     //int tcnt = 0; /* num locals */
     int tkn;
     int n = 0;
@@ -2214,9 +2227,7 @@ static void do_property_block(CsCompiler *c, const char* valName)
 
     /* pop the local frame */
     if (atable) {
-        c->cbase[ptr] = ArgumentsCount(c, atable);
-        putcbyte(c,BC_UNFRAME);
-        PopArgFrame(c);
+        CloseArgFrame(c,atable,ptr);
         --c->blockLevel;
     }
 
@@ -2295,15 +2306,12 @@ static void do_yield(CsCompiler *c)
       if ((tkn = CsToken(c)) != ';')
         CsSaveToken(c,tkn);
     }
-    //putcbyte(c,BC_PUSH);
-    //if (!load_argument(c,"this"))
-    //  CsParseError(c,"Use of yield outside of a function");
-    putcbyte(c,BC_YIELD);
-    end = putcword(c,NIL);
+    c->is_generator = true;
+    putcbyte(c,BC_PRE_YIELD);
     UnwindStack(c,c->blockLevel);
     UnwindTryStack(c,end);
     fixup(c,end,codeaddr(c));
-    putcbyte(c,BC_RETURN);
+    putcbyte(c,BC_YIELD);
 }
 
 
@@ -3006,7 +3014,7 @@ static void do_primary(CsCompiler *c,PVAL *pv)
         frequire(c,')');
         break;
     case T_INTEGER:
-        pv->val = addliteral(c,CsMakeInteger(c->ic,c->t_value));
+        pv->val = addliteral(c,CsMakeInteger(c->t_value));
         //do_lit_integer(c,);
         pv->fcn = code_literal;
         break;
@@ -3849,8 +3857,9 @@ static void InjectArgFrame(CsCompiler *c, ATABLE **patable, int *pptr)
         PushArgFrame(c,*patable);
 
         /* create a new argument frame */
-        putcbyte(c,BC_CFRAME);
+        putcbyte(c,BC_FRAME);
         *pptr = putcbyte(c,0);
+        putcword(c,addliteral(c,NOTHING_VALUE,true));
 
         ++c->blockLevel;
 
@@ -3984,9 +3993,10 @@ static bool FindArgument(CsCompiler *c,const char *name,int *plev,int *poff,bool
 }
 
 /* addliteral - add a literal to the literal vector */
-static int addliteral(CsCompiler *c,value lit)
+static int addliteral(CsCompiler *c,value lit, bool unique)
 {
     long p;
+    if( !unique )
     for (p = c->lbase; p < c->lptr; ++p)
         if (CsVectorElement(c->ic,c->literalbuf,p) == lit)
             return (int)(CsFirstLiteral + (p - c->lbase));
@@ -3995,10 +4005,16 @@ static int addliteral(CsCompiler *c,value lit)
     CsSetVectorElement(c->ic,c->literalbuf,p = c->lptr++,lit);
     return (int)(CsFirstLiteral + (p - c->lbase));
 }
+
 static value getliteral(CsCompiler *c,int idx)
 {
   return CsVectorElement(c->ic,c->literalbuf, idx - CsFirstLiteral + c->lbase );
 }
+static void setliteral(CsCompiler *c,int idx, value val)
+{
+  CsSetVectorElement(c->ic,c->literalbuf, idx - CsFirstLiteral + c->lbase, val );
+}
+
 
 /* frequire - fetch a CsToken and check it */
 static void frequire(CsCompiler *c,int rtkn)
@@ -4043,7 +4059,7 @@ static void require_or(CsCompiler *c,int tkn,int rtkn1,int rtkn2)
 /* do_lit_integer - compile a literal integer */
 static void do_lit_integer(CsCompiler *c,int_t n)
 {
-    emit_literal(c,addliteral(c,CsMakeInteger(c->ic,n)));
+    emit_literal(c,addliteral(c,CsMakeInteger(n)));
 }
 
 /* do_lit_float - compile a literal float */

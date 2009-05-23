@@ -136,7 +136,7 @@ static value CSF_token(VM *c)
     xml_scanner_ctl* pscan;
     CsParseArguments(c,"V=*",&val,c->xmlScannerDispatch);
     pscan = (xml_scanner_ctl *)CsCObjectValue(val);
-    return CsMakeInteger(c,pscan->scan.get_token());
+    return CsMakeInteger(pscan->scan.get_token());
 }
 
 static value CSF_get_tag(VM *c,value obj)

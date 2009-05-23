@@ -18,6 +18,7 @@
  **/
 
 #include "aux-cvt.h"
+#include "limits.h"
 
 namespace aux 
 {
@@ -281,13 +282,20 @@ template <typename T >
   template <typename CT, CT sep = '-', CT end = ']' >
     struct charset
     {
-      #define SET_SIZE (1 << (sizeof(CT) * 8))
+      #define SET_SIZE (1 << (sizeof(CT) * CHAR_BIT))
+      #define SIGNIFICANT_BITS_MASK unsigned( SET_SIZE - 1 ) 
       
-      unsigned char codes[ SET_SIZE >> 3 ];
+      unsigned char codes[ SET_SIZE / CHAR_BIT ];
       
-      void set ( unsigned from, unsigned to, bool v )    
+      unsigned charcode(CT c) // proper unsigned_cast
       {
-         for ( unsigned i = from; i <= to; ++i )
+        return SIGNIFICANT_BITS_MASK & unsigned(c);
+      }
+
+    private:  
+      void set ( CT from, CT to, bool v )    
+      {
+         for ( unsigned i = charcode(from); i <= charcode(to); ++i )
          {
            unsigned int bit = i & 7;
            unsigned int octet = i >> 3;
@@ -295,6 +303,7 @@ template <typename T >
          }
       } 
       void init ( unsigned char v )  { memset(codes,v,(SET_SIZE >> 3)); }
+    public:
 
       void parse ( const CT* &pp )
       {
@@ -303,23 +312,24 @@ template <typename T >
         unsigned char inv = *p == '^'? 0xff:0;
         if ( inv ) { ++p; }
         init ( inv );
-        if ( *p == sep ) set(unsigned(sep),unsigned(sep),inv == 0);
+        if ( *p == sep ) set(sep,sep,inv == 0);
         while ( *p )
         {
           if ( p[0] == end ) { p++; break; }
-          if ( p[1] == sep && p[2] != 0 ) { set ( unsigned(p[0]), unsigned(p[2]), inv == 0 );  p += 3; }
-          else { unsigned t = *p++; set(t,t, inv == 0); }
+          if ( p[1] == sep && p[2] != 0 ) { set (p[0], p[2], inv == 0 );  p += 3; }
+          else { CT t = *p++; set(t,t, inv == 0); }
         }
         pp = (const CT *) p;
       }
 
       bool valid ( CT c )
       {
-        unsigned int bit = unsigned(c) & 7;
-        unsigned int octet = unsigned(c) >> 3;
+        unsigned int bit = charcode(c) & 7;
+        unsigned int octet = charcode(c) >> 3;
         return (codes[octet] & (1 << bit)) != 0;
       } 
       #undef SET_SIZE
+      #undef SIGNIFICANT_BITS_MASK
     };
 
   template <typename CT >

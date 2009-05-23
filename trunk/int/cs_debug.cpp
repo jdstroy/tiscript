@@ -58,7 +58,7 @@ OTDEF otab[] = {
 {       BC_EREF,      "EREF",         FMT_2BYTE       },
 {       BC_ESET,      "ESET",         FMT_2BYTE       },
 {       BC_FRAME,     "FRAME",        FMT_BYTE        },
-{       BC_CFRAME,    "CFRAME",       FMT_BYTE        },
+//{       BC_CFRAME,    "CFRAME",       FMT_BYTE        },
 {       BC_UNFRAME,   "UNFRAME",      FMT_NONE        },
 {       BC_VREF,      "VREF",         FMT_NONE        },
 {       BC_VSET,      "VSET",         FMT_NONE        },
@@ -119,6 +119,8 @@ OTDEF otab[] = {
 {       BC_ROTATE,    "ROTATE",       FMT_BYTE        },
 
 {       BC_INCLUDE_LIBRARY, "INCLUDE LIBRARY", FMT_NONE  }, 
+{       BC_PRE_YIELD, "PRE_YIELD", FMT_NONE  }, 
+
 
 {0,0,0}
 };

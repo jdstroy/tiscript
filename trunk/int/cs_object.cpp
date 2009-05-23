@@ -92,7 +92,7 @@ static value CSF_ctor(VM *c)
 static value CSF_length(VM *c,value obj)
 {
     FETCH( c, obj );
-    return CsMakeInteger(c,CsObjectPropertyCount(obj));
+    return CsMakeInteger(CsObjectPropertyCount(obj));
 }
 
 

@@ -270,7 +270,7 @@ fillport:
       return false;
     if ( iswalnum ( c ) )
       return true;
-    if ( strchr ( "/:$-_.!*'(),?&=", c ) )
+    if ( strchr ( "/:$-_.!*'(),?&=@#", c ) )
       return true;
     return false;
   }
@@ -680,7 +680,7 @@ string url::compose_object() const
 // Filter an unix path
 #define RE_UNIX_PATH        L"(/[_a-zA-Z0-9\\.\\-]*)+"
 
-#define RE_PARAMS        L"(\\?[_a-zA-Z0-9\\&\\=\\%]+)?"
+#define RE_PARAMS        L"(\\?[_a-zA-Z0-9\\&\\=\\%\\,\\-\\!\\(\\)\\{\\}]+)?"
 #define RE_ANCHOR        L"(\\#[_a-zA-Z0-9\\%]+)?"
 // filters an URL - ftp or http.
 
@@ -693,16 +693,16 @@ tool::wregexp re_email( L"^([Mm][Aa][Ii][Ll][Tt][Oo]:)?(" RE_EMAIL_ADDR L")" );
 tool::wregexp re_www(   L"^" RE_WWW RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" RE_PARAMS RE_ANCHOR );
 tool::wregexp re_ftp(   L"^" RE_FTP RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" );
 
-bool is_hyperlink_char(wchar uc)
-{
+bool is_hyperlink_char(wchar uc) { return is_url_char(uc); }
+/*{
   if(uc > 127)
     return false;
-  if(strchr(".:/-_@?=%&#",uc))
+  if(strchr("/:$-_.!*'(),?&=@#",uc)) //  ".:/-_@?=%&#"
     return true;
   if(isalnum(uc))
     return true;
   return false;
-}
+}*/
 
 bool is_hyperlink(const tool::ustring& text, tool::ustring& out)
   {

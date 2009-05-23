@@ -352,7 +352,7 @@ value CsError(VM *c, int n, value message)
     //CsInitStringOutputStream(c,&s,256);
     CsStreamStackTrace(c,&s);
     v[2] = s.string_o(c);
-    v[3] = CsMakeInteger(c, n);
+    v[3] = CsMakeInteger(n);
     s.close();
 
     return CsMakeFixedVector(c,&CsErrorDispatch,NumErrorFields,v);

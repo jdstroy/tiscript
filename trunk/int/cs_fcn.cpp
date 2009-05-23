@@ -30,52 +30,19 @@ static value CSF_toInteger(VM *c);
 static value CSF_toFloat(VM *c);
 static value CSF_crackUrl(VM *c);
 
-value length_string( VM *c, tool::value::unit_type type )
-{
-    value v;
-    CsParseArguments(c,"**V",&v);
-    //html::block* self = block_ptr(c,obj);
-
-    char bf[64];
-    tool::chars str; str.start = bf;
-    const char* units = "";
-
-    switch(type)
-    {
-      case tool::value::em: units = "em"; break;
-      case tool::value::ex: units = "ex"; break;
-      case tool::value::pr: units = "%"; break;
-      case tool::value::sp: units = "%%"; break;
-      case tool::value::px: units = "px"; break;
-      case tool::value::in: units = "in"; break;
-      case tool::value::cm: units = "cm"; break;
-      case tool::value::mm: units = "mm"; break;
-      case tool::value::pt: units = "pt"; break;
-      case tool::value::pc: units = "pc"; break;
-      default: break;
-    }
-    if( CsIntegerP(v) )
-      str.length = sprintf(bf,"%d%s",CsIntegerValue(v), units);
-    else if( CsFloatP(v) )
-      str.length = sprintf(bf,"%f%s",CsFloatValue(v), units);
-    else
-    {
-      CsThrowKnownError(c, CsErrUnexpectedTypeError, v, "only integer or float");
-      return CsMakeString(c, tool::wchars());
-    }
-    return CsMakeString(c, str);
-}
-
-static value CSF_em(VM *c) { return length_string( c, tool::value::em ); }
-static value CSF_ex(VM *c) { return length_string( c, tool::value::ex ); }
-static value CSF_pr(VM *c) { return length_string( c, tool::value::pr ); }
-static value CSF_sp(VM *c) { return length_string( c, tool::value::sp ); }
-static value CSF_px(VM *c) { return length_string( c, tool::value::px ); }
-static value CSF_in(VM *c) { return length_string( c, tool::value::in ); }
-static value CSF_cm(VM *c) { return length_string( c, tool::value::cm ); }
-static value CSF_mm(VM *c) { return length_string( c, tool::value::mm ); }
-static value CSF_pt(VM *c) { return length_string( c, tool::value::pt ); }
-static value CSF_pc(VM *c) { return length_string( c, tool::value::pc ); }
+value CSF_em(VM *c);
+value CSF_ex(VM *c);
+value CSF_pr(VM *c);
+value CSF_sp(VM *c);
+value CSF_px(VM *c);
+value CSF_in(VM *c);
+value CSF_cm(VM *c);
+value CSF_mm(VM *c);
+value CSF_pt(VM *c);
+value CSF_pc(VM *c);
+value CSF_dip(VM *c);
+value CSF_color(VM *c);
+value CSF_make_length(VM *c);
 
 
 /* function table */
@@ -102,7 +69,9 @@ C_METHOD_ENTRY( "pr",               CSF_pr               ),
 C_METHOD_ENTRY( "flex",             CSF_sp               ),
 C_METHOD_ENTRY( "mm",               CSF_mm               ),
 C_METHOD_ENTRY( "cm",               CSF_cm               ),
-
+C_METHOD_ENTRY( "dip",              CSF_dip              ),
+C_METHOD_ENTRY( "color",            CSF_color            ),
+C_METHOD_ENTRY( "length",           CSF_make_length      ),
 
 //C_METHOD_ENTRY( "quit",             CSF_quit            ),
 C_METHOD_ENTRY( 0,          0         )
@@ -125,7 +94,7 @@ static value CSF_type(VM *c)
 static value CSF_hash(VM *c)
 {
     CsCheckArgCnt(c,3);
-    return CsMakeInteger(c,CsHashValue(CsGetArg(c,3)));
+    return CsMakeInteger(CsHashValue(CsGetArg(c,3)));
 }
 
 static value CSF_symbol(VM *c)
@@ -272,7 +241,7 @@ static value CSF_rand(VM *c)
         rseed += 2147483647L;
 
     /* return a random number between 0 and n-1 */
-    return CsMakeInteger(c,(int_t) (i?(rseed % i):rseed) );
+    return CsMakeInteger((int_t) (i?(rseed % i):rseed) );
 }
 
 value CsToInteger(VM *c, value v)
@@ -285,18 +254,18 @@ value CsToInteger(VM *c, value v)
     else if (CsFloatP(v))
       i = (int_t) CsFloatValue(v);
     else if ( v == c->trueValue )
-      return CsMakeInteger(c,1);
+      return CsMakeInteger(1);
     else if ( v == c->falseValue )
-      return CsMakeInteger(c,0);
+      return CsMakeInteger(0);
     else if ( v == c->undefinedValue || v == c->nullValue )
-      return CsMakeInteger(c,0);
+      return CsMakeInteger(0);
     else if (CsStringP(v))
     {
       int_t n = wcstol(CsStringAddress(v),&pend,0);
       if( CsStringAddress(v) != pend )
-        return CsMakeInteger(c,n);
+        return CsMakeInteger(n);
     }
-    return CsMakeInteger(c,i);
+    return CsMakeInteger(i);
 }
 
 value CsToFloat(VM *c, value v)
@@ -311,7 +280,7 @@ value CsToFloat(VM *c, value v)
     else if ( v == c->falseValue )
       return CsMakeFloat(c,0);
     else if ( v == c->undefinedValue || v == c->nullValue )
-      return CsMakeInteger(c,0);
+      return CsMakeInteger(0);
     else if (CsStringP(v))
     {
       float_t n = wcstod(CsStringAddress(v),&pend);
@@ -333,24 +302,19 @@ static value CSF_toInteger(VM *c)
     else if (CsFloatP(v))
       i = (int_t) CsFloatValue(v);
     else if ( v == c->trueValue )
-      return CsMakeInteger(c,1);
+      return CsMakeInteger(1);
     else if ( v == c->falseValue )
-      return CsMakeInteger(c,0);
+      return CsMakeInteger(0);
     else if ( v == c->undefinedValue || v == c->nullValue )
-      return CsMakeInteger(c,0);
+      return CsMakeInteger(0);
     else if (CsStringP(v))
     {
       int_t n = wcstol(CsStringAddress(v),&pend,0);
       if( CsStringAddress(v) != pend )
-        return CsMakeInteger(c,n);
+        return CsMakeInteger(n);
     }
-    return CsMakeInteger(c,i);
+    return CsMakeInteger(i);
 }
-
-
-
-
-
 
 static value CSF_toFloat(VM *c)
 {
@@ -428,6 +392,10 @@ value CsTypeOf(VM *c, value val)
       return symbol_value(S_FUNCTION);
     if(d == c->dateDispatch)
       return symbol_value(S_DATE);
+    if(d == &CsColorDispatch)
+      return symbol_value(S_COLOR);
+    if(d == &CsLengthDispatch)
+      return symbol_value(S_LENGTH);
 
     return CsInternCString(c,d->typeName);
 }
@@ -448,7 +416,7 @@ static value CSF_crackUrl(VM *c)
       pvalue pval(c);
         
       pkey = CsSymbolOf("port");
-      pval = CsMakeInteger(c,u.port);
+      pval = CsMakeInteger(u.port);
       CsObjectSetItem(c,pobj,pkey,pval);
 
       pkey = CsSymbolOf("protocol");

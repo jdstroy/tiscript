@@ -468,49 +468,49 @@ inline tool::date_time get_utc(VM *c, value d)
 static value CSF_year(VM *c,value obj)
 {
     tool::date_time st = get_local(c,obj);
-    return CsMakeInteger(c,st.year());
+    return CsMakeInteger(st.year());
 }
 static value CSF_month(VM *c,value obj)
 {
     tool::date_time st = get_local(c,obj);
-    return CsMakeInteger(c,st.month());
+    return CsMakeInteger(st.month());
 }
 static value CSF_day(VM *c,value obj)
 {
     tool::date_time st = get_local(c,obj);
-    return CsMakeInteger(c,st.day());
+    return CsMakeInteger(st.day());
 }
 static value CSF_dayOfWeek(VM *c,value obj)
 {
     tool::date_time st = get_local(c,obj);
-    return CsMakeInteger(c,st.day_of_week());
+    return CsMakeInteger(st.day_of_week());
 }
 
 static value CSF_firstDayOfWeek(VM *c,value obj)
 {
-    return CsMakeInteger(c,tool::date_time::first_day_of_week());
+    return CsMakeInteger(tool::date_time::first_day_of_week());
 }
 
 static value CSF_hour(VM *c,value obj)
 {
     tool::date_time st = get_local(c,obj);
-    return CsMakeInteger(c,st.hours());
+    return CsMakeInteger(st.hours());
 }
 static value CSF_minute(VM *c,value obj)
 {
     tool::date_time st = get_local(c,obj);
-    return CsMakeInteger(c,st.minutes());
+    return CsMakeInteger(st.minutes());
 }
 static value CSF_second(VM *c,value obj)
 {
     tool::date_time st = get_local(c,obj);
-    return CsMakeInteger(c,st.seconds());
+    return CsMakeInteger(st.seconds());
 }
 
 static value CSF_millisecond(VM *c,value obj)
 {
     tool::date_time st = get_local(c,obj);
-    return CsMakeInteger(c,st.millis());
+    return CsMakeInteger(st.millis());
 }
 
 
@@ -518,42 +518,42 @@ static value CSF_millisecond(VM *c,value obj)
 static value CSF_utc_year(VM *c,value obj)
 {
     tool::date_time st = get_utc(c,obj);
-    return CsMakeInteger(c,st.year());
+    return CsMakeInteger(st.year());
 }
 static value CSF_utc_month(VM *c,value obj)
 {
     tool::date_time st = get_utc(c,obj);
-    return CsMakeInteger(c,st.month());
+    return CsMakeInteger(st.month());
 }
 static value CSF_utc_day(VM *c,value obj)
 {
     tool::date_time st = get_utc(c,obj);
-    return CsMakeInteger(c,st.day());
+    return CsMakeInteger(st.day());
 }
 static value CSF_utc_dayOfWeek(VM *c,value obj)
 {
     tool::date_time st = get_utc(c,obj);
-    return CsMakeInteger(c,st.day_of_week());
+    return CsMakeInteger(st.day_of_week());
 }
 static value CSF_utc_hour(VM *c,value obj)
 {
     tool::date_time st = get_utc(c,obj);
-    return CsMakeInteger(c,st.hours());
+    return CsMakeInteger(st.hours());
 }
 static value CSF_utc_minute(VM *c,value obj)
 {
     tool::date_time st = get_utc(c,obj);
-    return CsMakeInteger(c,st.minutes());
+    return CsMakeInteger(st.minutes());
 }
 static value CSF_utc_second(VM *c,value obj)
 {
     tool::date_time st = get_utc(c,obj);
-    return CsMakeInteger(c,st.seconds());
+    return CsMakeInteger(st.seconds());
 }
 static value CSF_utc_millisecond(VM *c,value obj)
 {
     tool::date_time st = get_utc(c,obj);
-    return CsMakeInteger(c,st.millis());
+    return CsMakeInteger(st.millis());
 }
 
 
@@ -564,110 +564,110 @@ static value CSF_utc_millisecond(VM *c,value obj)
 static value CSF_getFullYear(VM *c)
 {
     SYSTEMTIME st = get_local(c);
-    return CsMakeInteger(c, st.wYear);
+    return CsMakeInteger( st.wYear);
 }
 
 static value CSF_getYear(VM *c)
 {
     SYSTEMTIME st = get_local(c);
-    return CsMakeInteger(c,st.wYear - 1900);
+    return CsMakeInteger(st.wYear - 1900);
 }
 
 static value CSF_getMonth(VM *c)
 {
     SYSTEMTIME st = get_local(c);
-    return CsMakeInteger(c, st.wMonth - 1);
+    return CsMakeInteger( st.wMonth - 1);
 }
 
 static value CSF_getDate(VM *c)
 {
     SYSTEMTIME st = get_local(c);
-    return CsMakeInteger(c,st.wDay);
+    return CsMakeInteger(st.wDay);
 }
 
 static value CSF_getDay(VM *c)
 {
     SYSTEMTIME st = get_local(c);
-    return CsMakeInteger(c,st.wDayOfWeek);
+    return CsMakeInteger(st.wDayOfWeek);
 }
 
 static value CSF_getHours(VM *c)
 {
     SYSTEMTIME st = get_local(c);
-    return CsMakeInteger(c,st.wHour);
+    return CsMakeInteger(st.wHour);
 }
 
 static value CSF_getMinutes(VM *c)
 {
   SYSTEMTIME st = get_local(c);
-  return CsMakeInteger(c,st.wMinute);
+  return CsMakeInteger(st.wMinute);
 }
 
 static value CSF_getSeconds(VM *c)
 {
   SYSTEMTIME st = get_local(c);
-  return CsMakeInteger(c,st.wSecond);
+  return CsMakeInteger(st.wSecond);
 }
 
 static value CSF_getMilliseconds(VM *c)
 {
   SYSTEMTIME st = get_local(c);
-  return CsMakeInteger(c,st.wMilliseconds);
+  return CsMakeInteger(st.wMilliseconds);
 }
 
 static value CSF_getUTCFullYear(VM *c)
 {
     SYSTEMTIME st = get_utc(c);
-    return CsMakeInteger(c,st.wYear);
+    return CsMakeInteger(st.wYear);
 }
 
 static value CSF_getUTCYear(VM *c)
 {
     SYSTEMTIME st = get_utc(c);
-    return CsMakeInteger(c,st.wYear - 1900);
+    return CsMakeInteger(st.wYear - 1900);
 }
 
 static value CSF_getUTCMonth(VM *c)
 {
     SYSTEMTIME st = get_utc(c);
-    return CsMakeInteger(c,st.wMonth - 1);
+    return CsMakeInteger(st.wMonth - 1);
 }
 
 static value CSF_getUTCDate(VM *c)
 {
     SYSTEMTIME st = get_utc(c);
-    return CsMakeInteger(c,st.wDay);
+    return CsMakeInteger(st.wDay);
 }
 
 static value CSF_getUTCDay(VM *c)
 {
     SYSTEMTIME st = get_utc(c);
-    return CsMakeInteger(c,st.wDayOfWeek);
+    return CsMakeInteger(st.wDayOfWeek);
 }
 
 
 static value CSF_getUTCHours(VM *c)
 {
     SYSTEMTIME st = get_utc(c);
-    return CsMakeInteger(c,st.wHour);
+    return CsMakeInteger(st.wHour);
 }
 
 static value CSF_getUTCMinutes(VM *c)
 {
     SYSTEMTIME st = get_utc(c);
-    return CsMakeInteger(c,st.wMinute);
+    return CsMakeInteger(st.wMinute);
 }
 
 static value CSF_getUTCSeconds(VM *c)
 {
     SYSTEMTIME st = get_utc(c);
-    return CsMakeInteger(c,st.wSecond);
+    return CsMakeInteger(st.wSecond);
 }
 
 static value CSF_getUTCMilliseconds(VM *c)
 {
     SYSTEMTIME st = get_utc(c);
-    return CsMakeInteger(c,st.wMilliseconds);
+    return CsMakeInteger(st.wMilliseconds);
 }
 
 */
@@ -918,7 +918,7 @@ static value CSF_setMilliseconds(VM *c)
     SYSTEMTIME st = get_local(c);   
     st.wMilliseconds = int_param(c);
     set_local(c,st);
-    return CsMakeInteger(c,0);
+    return CsMakeInteger(0);
 }
 
 static value CSF_setUTCFullYear(VM *c)
@@ -983,7 +983,7 @@ static value CSF_setUTCMilliseconds(VM *c)
     SYSTEMTIME st = get_utc(c);   
     st.wMilliseconds = int_param(c);
     set_utc(c,st);
-    return CsMakeInteger(c,0);
+    return CsMakeInteger(0);
 }
 */
 
@@ -1182,16 +1182,16 @@ static value CSF_valueOf(VM *c)
 
 static value CSF_localOffset(VM *c)
 {
-  return CsMakeInteger(c, int_t(tool::date_time::local_offset_ms()));
+  return CsMakeInteger( int_t(tool::date_time::local_offset_ms()));
 /*
   TIME_ZONE_INFORMATION tzi;
   memset(&tzi,0, sizeof(tzi));
   switch( GetTimeZoneInformation( &tzi ))
   {
     case TIME_ZONE_ID_STANDARD:
-      return CsMakeInteger(c,tzi.Bias + tzi.StandardBias);
+      return CsMakeInteger(tzi.Bias + tzi.StandardBias);
     case TIME_ZONE_ID_DAYLIGHT:
-      return CsMakeInteger(c,tzi.Bias + tzi.DaylightBias);
+      return CsMakeInteger(tzi.Bias + tzi.DaylightBias);
   }
   return c->undefinedValue;
 */

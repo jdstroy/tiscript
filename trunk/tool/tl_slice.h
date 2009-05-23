@@ -178,6 +178,22 @@ namespace tool
 
     bool like(const T* pattern) const;
 
+    slice chop( const slice& delimeter, slice& head ) const
+    {
+      int d = index_of( s );
+      if( d < 0 ) { head = *this; return slice(); }
+      head = slice(start,d);
+      return slice(start + d + s.length, length - d - s.length);
+    }
+    bool split( const slice& delimeter, slice& head, slice& tail ) const
+    {
+      int d = index_of( s );
+      if( d < 0 ) return false;
+      head = slice(start,d);
+      tail = slice(start + d + s.length, length - d - s.length);
+      return true;
+    }
+
     slice head( const slice& s ) const
     {
       int d = index_of( s );
@@ -382,17 +398,19 @@ inline bool icmp(const chars& s1, const char* s2)
 template <typename CT, CT sep = '-', CT end = ']' >
   struct charset
   {
-
-    //enum { SET_SIZE = (1 << (min(sizeof(CT),2) * 8)) };
     enum { SET_SIZE = (1 << (sizeof(CT) * 8)) };
 
     unsigned char codes[ SET_SIZE >> 3 ];
 
-    void set ( int from, int to, bool v )
+      unsigned charcode(CT c)
     {
-       from = min(from,SET_SIZE-1);
-       to = min(to,SET_SIZE-1);
-       for ( int i = from; i <= to; ++i )
+        return ( SET_SIZE - 1 ) & unsigned(c);
+      }
+
+    private:  
+      void set ( CT from, CT to, bool v )    
+    {
+         for ( unsigned i = charcode(from); i <= charcode(to); ++i )
        {
          unsigned int bit = i & 7;
          unsigned int octet = i >> 3;
@@ -400,6 +418,7 @@ template <typename CT, CT sep = '-', CT end = ']' >
       }
     }
     void init ( unsigned char v )  { memset(codes,v,(SET_SIZE >> 3)); }
+    public:
 
     void parse ( const CT* &pp )
     {
@@ -412,21 +431,19 @@ template <typename CT, CT sep = '-', CT end = ']' >
       while ( *p )
       {
         if ( p[0] == end ) { p++; break; }
-        if ( p[1] == sep && p[2] != 0 ) { set ( unsigned(p[0]), unsigned(p[2]), inv == 0 );  p += 3; }
-        else { unsigned t = *p++; set(t,t, inv == 0); }
+          if ( p[1] == sep && p[2] != 0 ) { set (p[0], p[2], inv == 0 );  p += 3; }
+          else { CT t = *p++; set(t,t, inv == 0); }
       }
       pp = (const CT *) p;
     }
 
     bool valid ( CT c )
     {
-      unsigned int bit = unsigned(c) & 7;
-      unsigned int octet = unsigned(c) >> 3;
+      unsigned int bit = charcode(c) & 7;
+      unsigned int octet = charcode(c) >> 3;
       return (codes[octet] & (1 << bit)) != 0;
     }
-    #undef SET_SIZE
   };
-
 
 template <typename CT >
   inline int match ( slice<CT> cr, const CT *pattern )

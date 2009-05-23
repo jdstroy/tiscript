@@ -371,7 +371,7 @@ value CSF_get_length(VM *c, value obj)
 
   dybase_free_selection(s->dbS, selected_objects, numSelected);
 
-  return CsMakeInteger(c, numSelected );
+  return CsMakeInteger( numSelected );
 }
 
 static void CSF_set_asc(VM *c, value obj, value val)

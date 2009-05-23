@@ -63,6 +63,12 @@ typedef bool  TISAPI tiscript_object_enum(tiscript_VM *c,tiscript_value key, tis
 // destructor of native objects
 typedef void  TISAPI tiscript_finalizer(tiscript_VM *c,tiscript_value obj);
 
+// GC notifier for native objects
+typedef void  TISAPI tiscript_on_gc_copy(void* instance_data, tiscript_value new_self);
+
+// callback used for 
+typedef void TISAPI tiscript_callback(tiscript_VM *c,void* prm);
+
 struct tiscript_method_def
 {
   void*             dispatch; // a.k.a. VTBL
@@ -107,6 +113,7 @@ struct tiscript_class_def
    tiscript_set_item*     set_item;  // obj[idx] = v
    tiscript_finalizer*    finalizer; // destructor of native objects
    tiscript_iterator*     iterator;  // for(var el in collecton) handler
+   tiscript_on_gc_copy*   on_gc_copy; // called by GC to notify that 'self' is moved to new location  
 };
 
 struct tiscript_native_interface
@@ -212,6 +219,17 @@ struct tiscript_native_interface
    // pins
    void     (TISAPI *pin)(tiscript_VM*, tiscript_pvalue* pp);
    void     (TISAPI *unpin)(tiscript_pvalue* pp);
+
+   // create native_function_value and native_property_value, 
+   // use this if you want to add native functions/properties in runtime to exisiting classes or namespaces (including global ns)
+   tiscript_value (TISAPI *native_function_value)(tiscript_VM* pvm, tiscript_method_def* p_method_def);
+   tiscript_value (TISAPI *native_property_value)(tiscript_VM* pvm, tiscript_prop_def* p_prop_def);
+
+   // Schedule execution of the pfunc(prm) in the thread owning this VM.
+   // Used when you need to call scripting methods from threads other than main (GUI) thread
+   // It is safe to call tiscript functions inside the pfunc. 
+   // returns 'true' if scheduling of the call was accepted, 'false' when failure (VM has no dispatcher attached). 
+   bool           (TISAPI *post)(tiscript_VM* pvm, tiscript_callback* pfunc, void* prm);
 };
 
 #ifdef TISCRIPT_EXT_MODULE

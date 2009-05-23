@@ -190,7 +190,7 @@ static value CSF_abs(VM *c)
     CsCheckType(c,3,CsNumberP);
     if (CsIntegerP(CsGetArg(c,3))) {
         int_t v = CsIntegerValue(CsGetArg(c,3));
-        return CsMakeInteger(c,v >= 0 ? v : -v);
+        return CsMakeInteger(v >= 0 ? v : -v);
     }
     else {
         float_t v = CsFloatValue(CsGetArg(c,3));
@@ -272,7 +272,7 @@ static value CSF_ceil(VM *c)
 {
     CsCheckArgCnt(c,3);
     CsCheckType(c,3,CsNumberP);
-    return CsMakeInteger(c,(int_t)ceil(FloatValue(CsGetArg(c,3))));
+    return CsMakeInteger((int_t)ceil(FloatValue(CsGetArg(c,3))));
 }
 
 /* CSF_floor - built-in function 'floor' */
@@ -280,7 +280,7 @@ static value CSF_floor(VM *c)
 {
     CsCheckArgCnt(c,3);
     CsCheckType(c,3,CsNumberP);
-    return CsMakeInteger(c,(int_t)floor(FloatValue(CsGetArg(c,3))));
+    return CsMakeInteger((int_t)floor(FloatValue(CsGetArg(c,3))));
 }
 
 /* CSF_exp - built-in function 'exp' */

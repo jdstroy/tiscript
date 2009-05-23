@@ -197,6 +197,18 @@ int CsParseArguments(VM *c,char *fmt,...)
                     *p = (int)to_symbol(arg);
                 }
                 break;
+
+            case 'C':   /* color */
+                {   uint *p = va_arg(ap,uint *);
+                    if (CsColorP(arg))
+                      *p = (uint)CsColorValue(arg);
+                    else if (CsIntegerP(arg))
+                      *p = CsIntegerValue(arg);
+                    else
+                      CsUnexpectedTypeError(c,arg,"color");
+                }
+                break;
+
             default:
                 CsThrowKnownError(c,CsErrBadParseCode,(void *)spec);
                 break;

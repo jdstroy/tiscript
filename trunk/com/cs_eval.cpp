@@ -127,15 +127,16 @@ static value CSF_store(VM *c)
 /* CSF_Eval - built-in function 'Eval' */
 value CSF_eval(VM *c)
 {
+    value self;
     value v, v_namespace = 0;
-    CsParseArguments(c,"**V|V",&v,&v_namespace);
+    CsParseArguments(c,"V*V|V",&self,&v,&v_namespace);
 
     if(!v_namespace)
     {
       if( CsStringP(v) )
-        return CsEvalString(CsCurrentScope(c),CsStringAddress(v), CsStringSize(v));
+        return CsEvalString(CsCurrentScope(c),self,CsStringAddress(v), CsStringSize(v));
       else if( CsFileP(c,v) )
-        return CsEvalStream(CsCurrentScope(c),CsFileStream(v));
+        return CsEvalStream(CsCurrentScope(c),self,CsFileStream(v));
       else
         CsTypeError(c,v);
     }
@@ -143,9 +144,9 @@ value CSF_eval(VM *c)
     {
       auto_scope as(c,v_namespace);
       if( CsStringP(v) )
-        return CsEvalString(CsCurrentScope(c),CsStringAddress(v), CsStringSize(v));
+        return CsEvalString(CsCurrentScope(c),self,CsStringAddress(v), CsStringSize(v));
       else if( CsFileP(c,v) )
-        return CsEvalStream(CsCurrentScope(c),CsFileStream(v));
+        return CsEvalStream(CsCurrentScope(c),self,CsFileStream(v));
       else
         CsTypeError(c,v);
     }
@@ -222,12 +223,12 @@ static value CSF_compile(VM *c)
 }
 
 /* CsEvalString - evaluate a string */
-value CsEvalString(CsScope *scope,const wchar *str, size_t length)
+value CsEvalString(CsScope *scope,value self, const wchar *str, size_t length)
 {
     if(str && str[0])
     {
       string_stream s(str,length);
-      value v = CsEvalStream(scope,&s);
+      value v = CsEvalStream(scope,self,&s);
       s.close();
       return v;
     }
@@ -248,12 +249,12 @@ value CsEvalDataString(CsScope *scope,const wchar *str, size_t length)
 }
 
 /* CsEvalStream - evaluate a stream */
-value CsEvalStream(CsScope *scope,stream *s)
+value CsEvalStream(CsScope *scope,value self, stream *s)
 {
     value val;
     CsInitScanner(scope->c->compiler,s);
     val = CsCompileExpr(scope, true);
-    return val ? CsSendMessage(scope, CsGetArgSafe(scope->c,1) , val,0) : VM::undefinedValue;
+    return val ? CsSendMessage(scope, self, val,0) : VM::undefinedValue;
 }
 
 /* CsEvalDataStream - evaluate a data stream, JSON++ like literal */

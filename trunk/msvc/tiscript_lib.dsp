@@ -98,6 +98,10 @@ SOURCE=..\int\cs_cobject.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\int\cs_color.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\com\cs_com.cpp
 # End Source File
 # Begin Source File
@@ -155,6 +159,10 @@ SOURCE=..\int\cs_int.cpp
 # Begin Source File
 
 SOURCE=..\int\cs_integer.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\int\cs_length.cpp
 # End Source File
 # Begin Source File
 
