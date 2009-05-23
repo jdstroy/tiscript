@@ -185,6 +185,7 @@ namespace tool
       head = slice(start,d);
       return slice(start + d + delimeter.length, length - d - delimeter.length);
     }
+
     bool split( const slice& delimeter, slice& head, slice& tail ) const
     {
       int d = index_of( delimeter );

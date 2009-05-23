@@ -29,7 +29,7 @@ template< typename CHAR_TYPE >
   {
   public:
     typedef CHAR_TYPE char_type;
-    typedef slice<typename CHAR_TYPE> token_value;
+    typedef slice<CHAR_TYPE> token_value;
 
     enum token_type
     {
