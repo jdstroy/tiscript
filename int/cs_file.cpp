@@ -17,6 +17,7 @@ static value CSF_close(VM *c);
 static value CSF_print(VM *c);
 static value CSF_println(VM *c);
 static value CSF_printf(VM *c);
+static value CSF_scanf(VM *c);
 static value CSF_getc(VM *c);
 static value CSF_putc(VM *c);
 static value CSF_readln(VM *c);
@@ -35,6 +36,7 @@ C_METHOD_ENTRY( "close",            CSF_close           ),
 C_METHOD_ENTRY( "print",            CSF_print           ),
 C_METHOD_ENTRY( "println",          CSF_println         ),
 C_METHOD_ENTRY( "printf",           CSF_printf          ),
+C_METHOD_ENTRY( "scanf",            CSF_scanf           ),
 C_METHOD_ENTRY( "toString",         CSF_toString        ),
 C_METHOD_ENTRY( "getc",             CSF_getc            ),
 C_METHOD_ENTRY( "putc",             CSF_putc            ),
@@ -241,6 +243,17 @@ static value CSF_printf(VM *c)
     return c->trueValue;
 }
 
+/* CSF_scanf - built-in function 'scanf' */
+static value CSF_scanf(VM *c)
+{
+    stream *s;
+    wchar* fmt;
+    CsParseArguments(c,"P=*S",&s,c->fileDispatch,&fmt);
+    if (!s) return c->falseValue;
+    return s->scanf(c,fmt);
+}
+
+
 /* CSF_GetC - built-in method 'GetC' */
 static value CSF_getc(VM *c)
 {
@@ -252,7 +265,7 @@ static value CSF_getc(VM *c)
         return c->undefinedValue;
     if( ch == stream::TIMEOUT )
       CsTimeout(c);
-    return CsMakeInteger(c,ch);
+    return CsMakeInteger(ch);
 }
 
 /* CSF_PutC - built-in method 'PutC' */

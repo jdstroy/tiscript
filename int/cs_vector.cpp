@@ -273,7 +273,7 @@ static value CSF_removeByValue(VM *c)
 static value CSF_length(VM *c,value obj)
 {
     FETCH(c, obj);
-    return CsMakeInteger(c,CsVectorSize(c,obj));
+    return CsMakeInteger(CsVectorSize(c,obj));
 }
 
 /* CSF_set_length - built-in property 'size' */
@@ -641,7 +641,7 @@ static value CSF_sort(VM *c)
 static value CSF_indexOf(VM *c)
 {
     value vector;
-    value v, dv = CsMakeInteger(c,-1);
+    value v, dv = CsMakeInteger(-1);
 
     CsParseArguments(c,"V=*V|V",&vector,&CsVectorDispatch,&v, &dv);
 
@@ -651,7 +651,7 @@ static value CSF_indexOf(VM *c)
 
     for( int n = 0; n < d; ++n )
     {
-      if( CsEqualOp(c, p[n], v ) ) return CsMakeInteger(c,n);
+      if( CsEqualOp(c, p[n], v ) ) return CsMakeInteger(n);
     }
     return dv;
 }
@@ -723,7 +723,7 @@ inline value FindFirstMember(VM *c, value& index, value collection)
   {
     if(CsVectorSize(c,collection))
     {
-      index = CsMakeInteger(c,0);
+      index = CsMakeInteger(0);
       return CsVectorElement(c,collection,0);
     }
   }
@@ -740,14 +740,14 @@ value VectorNextElement(VM *c, value* index, value collection)
     {
       if(CsVectorSize(c,collection))
       {
-        *index = CsMakeInteger(c,0);
+        *index = CsMakeInteger(0);
         return CsVectorElement(c,collection,0);
       }
     }
     else if(CsIntegerP(*index))
     {
       int_t i = CsIntegerValue(*index) + 1;
-      *index = CsMakeInteger(c,i);
+      *index = CsMakeInteger(i);
       if(i < CsVectorSize(c,collection))
       {
         return CsVectorElement(c,collection,i);
@@ -1086,6 +1086,27 @@ value CsMakeBasicVector(VM *c,dispatch *type,int_t size)
     while (--size >= 0)
         *p++ = c->undefinedValue;
     return newo;
+}
+
+/* Tuple pdispatch - fixed vector here */
+dispatch CsTupleDispatch = {
+    "Tuple",
+    &CsTupleDispatch,
+    CsDefaultGetProperty,
+    CsDefaultSetProperty,
+    CsDefaultNewInstance,
+    CsDefaultPrint,
+    CsBasicVectorSizeHandler,
+    CsDefaultCopy,
+    CsBasicVectorScanHandler,
+    CsDefaultHash,
+    CsDefaultGetItem,
+    CsDefaultSetItem
+};
+
+value CsMakeBasicVector(VM *c, int_t size)
+{
+  return CsMakeBasicVector(c, &CsTupleDispatch,size);
 }
 
 /* CsMakeVector - make a new vector value */

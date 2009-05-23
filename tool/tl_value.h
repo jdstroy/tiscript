@@ -67,6 +67,10 @@ namespace tool
     virtual bool  to_bool() const { return true; }
 
     virtual uint  type() const { return 0; }
+
+    virtual bool    get_user_data( void** ppv) { return false; }
+    virtual bool    set_user_data( void* pv) { return false; }
+
   };
 
   struct visitor
@@ -121,34 +125,6 @@ namespace tool
     void release() { if(--ref_count == 0) free(this); }
   };
 
-  /*
-  struct enum_def
-  {
-    hash_table<ustring,int> strings;
-
-    enum_def(int dv = 0): def_val(dv) {}
-    int            def_val;
-    virtual bool parse(const ustring& str, int& v) 
-    {
-      return strings.find(str,v);
-    }
-    virtual ustring to_string(int v) const
-    {
-      if( v >= 0 && v < strings.size() )
-        return strings(v);
-      else
-        return ustring();
-    }
-    int push( const ustring& str )
-    {
-      int v = strings.size();
-      assert( !strings.find(str,v) );
-      strings[str] = v;
-      return v;
-    }
-  };
-  #define BEGIN_ENUM_DEF(name) */
-
   class value 
   {
   private:
@@ -177,6 +153,8 @@ namespace tool
       t_bytes,     //12
       t_object_proxy, //13, tiscript object proxy (pinned value)
       t_object, // 14 /eval/ object
+      t_resource,  // 15 - other thing derived from tool::resource
+      t_range,     // 16 - N..M, integer range.
       
     };
   
@@ -190,12 +168,13 @@ namespace tool
         rs, //value is -1,1 // smaller larger
         //-------- abs
         as, //value is x-small, etc 1,2,3,4,5,6,7
-        px, //pixels
+        px, //pixels, device dependent
         in, //Inches (1 inch = 2.54 centimeters). 
         cm, //Centimeters. 
         mm, //Millimeters. 
         pt, //Points (1 point = 1/72 inches). 
         pc, //Picas (1 pica = 12 points). 
+        dip,// device independent pixels, 1/96 of inch. Thus on 96 DPI screen these correspond to a single physical pixel
         nm, //Number
         // above-stated should match size_v
         clr,  // color
@@ -220,7 +199,7 @@ namespace tool
       UT_SYMBOL = 0xFFFF, // aka NMTOKEN
     };
 
-    value()                   :_type(t_undefined),_units(0),_data(0) {;}
+    value()                   :_type(t_undefined),_units(0) { _i(0);}
 
 
     explicit value(bool b, uint u = 0)             { _units = u; _type = t_bool; _b(b); }
@@ -238,7 +217,7 @@ namespace tool
     //explicit value(function_value* f);
 
     
-    value(const value& cv): _type(t_undefined), _units(0), _data(0) { set(cv); }
+    value(const value& cv): _type(t_undefined), _units(0) { _i(0); set(cv); }
     
     static value make_array(uint sz);
 
@@ -247,7 +226,7 @@ namespace tool
       value t;
       t._type= t_currency;
       t._units = u;
-      t._data = fixed;
+      t._i64(fixed);
       return t;
     }
     static value make_date(int64 date, /*date_time::type*/ uint u = 0 )
@@ -255,7 +234,7 @@ namespace tool
       value t;
       t._type= t_date;
       t._units = u;
-      t._data = date;
+      t._i64(date);
       return t;
     }
     static value make_function(function_value* f = 0);
@@ -279,7 +258,15 @@ namespace tool
       t._proxy( pr );
       return t;
     }
-
+    static value make_range(int s, int e, uint u = 0)
+    {
+      value t;
+      t._type= t_range;
+      t._units = u;
+      uint64 d = uint64((uint32)s) << 32 | uint64((uint32)e);
+      t._i64(d);
+      return t;
+    }
 
     void set(const value& cv);
     bool set(uint idx, const value& v); // set element by index
@@ -297,6 +284,7 @@ namespace tool
     value& operator = (const ustring& s) { *this = value(s); return *this; }
 
     value& set_object(object* obj, uint off = 0) {  clear(); _type = t_object; _units = off; obj->add_ref(); _obj(obj); return *this; }
+    value& set_resource(resource* res, uint un = 0) { clear(); _type = t_resource; _units = un; res->add_ref(); _res(res); return *this; }
 
     /*value& operator = (const array<value>& va)
     { 
@@ -321,13 +309,13 @@ namespace tool
         case t_null:
           return _type + uint(_units);
         case t_bool:
-          return _type + uint(_data);
+          return _type + uint(_i());
         case t_int:
-          return _type + 1 + uint(_data) + _units;
+          return _type + 1 + uint(_i()) + _units;
         case t_length:
-          return _type + 1 + uint(_data) + _units;
+          return _type + 1 + uint(_i()) + _units;
         case t_double:
-          return _type + uint(_data) + _units;
+          return _type + uint(_i()) + _units;
         case t_string:
           return ustring(_us()).hash();
         //case t_function:
@@ -335,7 +323,7 @@ namespace tool
         case t_undefined:
           return 0;
         }
-        return (unsigned int)_data;
+        return (unsigned int)_i();
     }
 
     //to_string()
@@ -360,6 +348,8 @@ namespace tool
     bool  is_proxy() const { return _type == t_object_proxy; }
     bool  is_proxy_of_object() const { return _type == t_object_proxy && _units == UT_OBJECT_OBJECT; }
     bool  is_proxy_of_array() const { return _type == t_object_proxy && _units == UT_OBJECT_ARRAY; }
+    bool  is_resource() const { return _type == t_resource; }
+    bool  is_range() const { return _type == t_range; }
 
     bool  is_string_symbol() const { return _type == t_string && _units == UT_SYMBOL; }
     // evalutable byte codes
@@ -392,48 +382,70 @@ namespace tool
               get_proxy() const { assert(_type == t_object_proxy); if(_type == t_object_proxy) return _proxy(); return 0; }
     date_time get_date() const { assert(_type == t_date); if(_type == t_date) return date_time((datetime_t)get_int64()); return date_time(); }
 
+    resource* get_resource() const { assert(_type == t_resource); if(_type == t_resource) return _res(); return 0; }
+
+    void      get_range(int& s, int& e)
+    {
+      uint64 d = _i64();
+      s = int((d >> 32) & uint64(0xFFFFFFFF));
+      e = int(d & uint64(0xFFFFFFFF));
+    }
 
     ustring   length_to_string() const
     {
       assert(is_length());
-      switch(units())
+      return length_to_string(_i(),units());
+    }
+
+    static ustring   length_to_string(int i, int u)
+    {
+      switch(u)
       {
         case value::em: 
-          if( _i() % 1000 == 0 ) return ustring::format(L"%dem",_i()/1000);
-          else return ustring::format(L"%fem",double(_i())/1000.0);
+          if( i % 1000 == 0 ) return ustring::format(L"%dem",i/1000);
+          else return ustring::format(L"%fem",double(i)/1000.0);
         case value::ex: 
-          if( _i() % 1000 == 0 ) return ustring::format(L"%dex",_i()/1000);
-          else return ustring::format(L"%fex",double(_i())/1000.0);
+          if( i % 1000 == 0 ) return ustring::format(L"%dex",i/1000);
+          else return ustring::format(L"%fex",double(i)/1000.0);
         case value::pr:
-          return ustring::format(L"%d%%",_i());
+          return ustring::format(L"%d%%",i);
         case value::sp:
-          return ustring::format(L"%d%%%%",_i());
+          return ustring::format(L"%d%%%%",i);
         case value::px:
-          return ustring::format(L"%dpx",_i());
+          return ustring::format(L"%dpx",i);
         case value::in:
-          if( _i() % 1000 == 0 ) return ustring::format(L"%din",_i()/1000);
-          else return ustring::format(L"%fin",double(_i())/1000.0);
+          if( i % 1000 == 0 ) return ustring::format(L"%din",i/1000);
+          else return ustring::format(L"%fin",double(i)/1000.0);
         case value::pt: //Points (1 point = 1/72 inches). 
-          if( _i() % 1000 == 0 ) return ustring::format(L"%dpt",_i()/1000);
-          else return ustring::format(L"%fpt",double(_i())/1000.0);
+          if( i % 1000 == 0 ) return ustring::format(L"%dpt",i/1000);
+          else return ustring::format(L"%fpt",double(i)/1000.0);
+        case value::dip:
+          if( i % 1000 == 0 ) return ustring::format(L"%ddip",i/1000);
+          else return ustring::format(L"%fdip",double(i)/1000.0);
         case value::pc: //Picas (1 pica = 12 points). 
-          if( _i() % 1000 == 0 ) return ustring::format(L"%dpc",_i()/1000);
-          else return ustring::format(L"%fpc",double(_i())/1000.0);
+          if( i % 1000 == 0 ) return ustring::format(L"%dpc",i/1000);
+          else return ustring::format(L"%fpc",double(i)/1000.0);
         case value::cm: // Cm (2.54cm = 1in). 
-          if( _i() % 1000 == 0 ) return ustring::format(L"%dcm",_i()/1000);
-          else return ustring::format(L"%fcm",double(_i())/1000.0);
+          if( i % 1000 == 0 ) return ustring::format(L"%dcm",i/1000);
+          else return ustring::format(L"%fcm",double(i)/1000.0);
         case value::mm:
-          if( _i() % 1000 == 0 ) return ustring::format(L"%dmm",_i()/1000);
-          else return ustring::format(L"%fmm",double(_i())/1000.0);
+          if( i % 1000 == 0 ) return ustring::format(L"%dmm",i/1000);
+          else return ustring::format(L"%fmm",double(i)/1000.0);
         default:
           return "{not a length unit}";
       }
     }
 
+
     int length_to_int() const
     {
       assert(is_length());
-      switch(units())
+      return length_to_int(_i(), units());
+    }
+
+    static int length_to_int(int i, int u)
+    {
+      switch(u)
       {
         case value::in:
         case value::pt: //Points (1 point = 1/72 inches). 
@@ -441,19 +453,20 @@ namespace tool
         case value::cm: // Cm (2.54cm = 1in). 
         case value::mm:
         case value::em: 
-        case value::ex: return _i()/1000;
+        case value::dip: 
+        case value::ex: return i/1000;
 
         case value::pr:
         case value::sp:
-        case value::px: return _i();
+        case value::px: return i;
         default:
           return 0;
       }
     }
-    double length_to_float() const
+
+    static int packed_length(int i, int u)
     {
-      assert(is_length());
-      switch(units())
+      switch(u)
       {
         case value::in:
         case value::pt: //Points (1 point = 1/72 inches). 
@@ -461,11 +474,59 @@ namespace tool
         case value::cm: // Cm (2.54cm = 1in). 
         case value::mm:
         case value::em: 
-        case value::ex: return double(_i())/1000.0;
+        case value::dip: 
+        case value::ex: return i*1000;
 
         case value::pr:
         case value::sp:
-        case value::px: return double(_i());
+        case value::px: return i;
+        default:
+          return 0;
+      }
+    }
+
+    double length_to_float() const
+    {
+      assert(is_length());
+      return length_to_float(_i(), units());
+    }
+
+    static double length_to_float(int i, int u)
+    {
+      switch(u)
+      {
+        case value::in:
+        case value::pt: //Points (1 point = 1/72 inches). 
+        case value::pc: //Picas (1 pica = 12 points). 
+        case value::cm: // Cm (2.54cm = 1in). 
+        case value::mm:
+        case value::em: 
+        case value::dip: 
+        case value::ex: return double(i)/1000.0;
+
+        case value::pr:
+        case value::sp:
+        case value::px: return double(i);
+        default:
+          return 0;
+      }
+    }
+    static int packed_length(double i, int u)
+    {
+      switch(u)
+      {
+        case value::in:
+        case value::pt: //Points (1 point = 1/72 inches). 
+        case value::pc: //Picas (1 pica = 12 points). 
+        case value::cm: // Cm (2.54cm = 1in). 
+        case value::mm:
+        case value::em: 
+        case value::dip: 
+        case value::ex: return int(i*1000.0);
+
+        case value::pr:
+        case value::sp:
+        case value::px: return int(i);
         default:
           return 0;
       }
@@ -560,7 +621,8 @@ namespace tool
       dt.parse_iso(us,dtype);
       if( dtype & (date_time::DT_HAS_DATE | date_time::DT_HAS_TIME) )
         return value::make_date( dt.time(), dtype );
-      return value(us);
+      value t = parse_length(us);
+      return t.is_undefined()? value(us) : t;
     }
     /*static value parse(const string& us)
     {
@@ -577,38 +639,46 @@ namespace tool
     {
       long  i, i1,i2 = 0;
       unit_type u = unit_type(0);
-      wchar* endptr;
-      i1 = wcstol(us,&endptr,10);
-      if( *endptr == '.' )
-        i2 = wcstol(endptr,&endptr,10);
+      wchar* uniptr;
+      i1 = wcstol(us,&uniptr,10);
+      if( uniptr == us.c_str() )
+        return value();
+      if( *uniptr == '.' )
+        i2 = wcstol(uniptr,&uniptr,10);
       i = i1 * 1000 + ( i2 > 1000? 0:i2 ); // fixed point
       
-      if( *endptr == 'e' )
+      int uni_length = us.c_str() + us.length() - uniptr;
+      if(uni_length <= 0)
       {
-        ++endptr;
-        if(*endptr == 'm')      { u = em; ++endptr; }
-        else if(*endptr == 'x') { u = ex; ++endptr; }
+        return value(i);
       }
-      else if( *endptr == 'p' )
+      if( *uniptr == 'e' )
       {
-        ++endptr;
-        if(*endptr == 'x')      { u = px; i = i1; ++endptr; }
-        else if(*endptr == 't') { u = pt; ++endptr; }
-        else if(*endptr == 'c') { u = pc; ++endptr; }
+        ++uniptr;
+        if(*uniptr == 'm')      { u = em; ++uniptr; }
+        else if(*uniptr == 'x') { u = ex; ++uniptr; }
       }
-      else if( *endptr == '%' )
+      else if( *uniptr == 'p' )
       {
-        ++endptr;
-        if(*endptr == '%')      { u = sp; i = i1; ++endptr; }
+        ++uniptr;
+        if(*uniptr == 'x')      { u = px; i = i1; ++uniptr; }
+        else if(*uniptr == 't') { u = pt; ++uniptr; }
+        else if(*uniptr == 'c') { u = pc; ++uniptr; }
+      }
+      else if( *uniptr == '%' )
+      {
+        ++uniptr;
+        if(*uniptr == '%')      { u = sp; i = i1; ++uniptr; }
         else                    { u = pr; i = i1; }
       }
-      else if( *endptr == 'i' && *++endptr == 'n' ) {  u = in; ++endptr; }
-      else if( *endptr == 'c' && *++endptr == 'm' ) {  u = cm; ++endptr; }
-      else if( *endptr == 'm' && *++endptr == 'm' ) {  u = mm; ++endptr; }
-      else if( *endptr == '*' )                     {  u = sp; i = i1 * 100; ++endptr; }
-      else if( *endptr == '#' )                     {  u = nm; i = i1; ++endptr; }
+      else if( *uniptr == 'd' && uni_length >= 3 && *++uniptr == 'i' && *++uniptr == 'p' ) {  u = dip; ++uniptr; }
+      else if( *uniptr == 'i' && *++uniptr == 'n' ) {  u = in; ++uniptr; }
+      else if( *uniptr == 'c' && *++uniptr == 'm' ) {  u = cm; ++uniptr; }
+      else if( *uniptr == 'm' && *++uniptr == 'm' ) {  u = mm; ++uniptr; }
+      else if( *uniptr == '*' )                     {  u = sp; i = i1 * 100; ++uniptr; }
+      else if( *uniptr == '#' )                     {  u = nm; i = i1; ++uniptr; }
 
-      if( *endptr != 0)
+      if( *uniptr != 0)
         return value();
 
       value v; 
@@ -832,34 +902,41 @@ namespace tool
     uint   _type;
     uint   _units;
 
-    uint64 _data;
+    union  data
+    {
+      uint64 i;
+      double f;
+      void*  ptr;
+    } _data;
 
-    inline bool            _b() const   { return _data != 0; }
-    inline int             _i() const   { return (int)_data; }
-    inline int64           _i64() const { return (int64)_data; }
-    inline double          _d() const   { return *((double*)&_data); }
-    inline string::data*   _s() const   { return (string::data*)(uint_ptr)_data; }
-    inline ustring::data*  _us() const  { return (ustring::data*)(uint_ptr)_data; }
-    inline array_value*    _a() const   { return (array_value*)(uint_ptr)_data; }
-    inline object*         _obj() const { return (object*)(uint_ptr)_data; }
-    inline function_value* _f() const   { return (function_value*)(uint_ptr)_data; }
-    inline map_value*      _m() const   { return (map_value*)(uint_ptr)_data; }
-    inline bytes_value*    _bytes() const  { return (bytes_value*)(uint_ptr)_data; } 
-    inline object_proxy*   _proxy() const  { return (object_proxy*)(uint_ptr)_data; } 
 
-    inline void   _b(bool b)            { _data = b; }
-    inline void   _i(int i)             { _data = i; }
-    inline void   _i64(int64 i)         { _data = i; }
-    inline void   _d(double d)          { *((double*)&_data) = d; }
-    inline void   _s(string::data* s)   { _data = (uint_ptr)s; }
-    inline void   _us(ustring::data* us){ _data = (uint_ptr)us; }
-    inline void   _a(array_value* a)    { _data = (uint_ptr)a; }
-    inline void   _obj(object* o)       { _data = (uint_ptr)o; }
-    inline void   _f(function_value* f) { _data = (uint_ptr)f; }
-    inline void   _m(map_value* f)      { _data = (uint_ptr)f; }
-    inline void   _bytes(bytes_value* bv)  { _data = (uint_ptr)bv; }
-    inline void   _proxy(object_proxy* pr) { _data = (uint_ptr)pr; }
+    inline bool            _b() const   { return _data.i != 0; }
+    inline int             _i() const   { return (int)_data.i; }
+    inline int64           _i64() const { return (int64)_data.i; }
+    inline double          _d() const   { return _data.f; }
+    inline string::data*   _s() const   { return (string::data*)_data.ptr; }
+    inline ustring::data*  _us() const  { return (ustring::data*)_data.ptr; }
+    inline array_value*    _a() const   { return (array_value*)_data.ptr; }
+    inline object*         _obj() const { return (object*)_data.ptr; }
+    inline function_value* _f() const   { return (function_value*)_data.ptr; }
+    inline map_value*      _m() const   { return (map_value*)_data.ptr; }
+    inline bytes_value*    _bytes() const  { return (bytes_value*)_data.ptr; } 
+    inline object_proxy*   _proxy() const  { return (object_proxy*)_data.ptr; } 
+    inline resource*       _res() const { return (resource*)_data.ptr; } 
     
+    inline void   _b(bool b)            { _data.i = b; }
+    inline void   _i(int i)             { _data.i = i; }
+    inline void   _i64(int64 i)         { _data.i = i; }
+    inline void   _d(double d)          { _data.f = d; }
+    inline void   _s(string::data* s)   { _data.i = 0; _data.ptr = s; }
+    inline void   _us(ustring::data* us){ _data.i = 0; _data.ptr = us; }
+    inline void   _a(array_value* a)    { _data.i = 0; _data.ptr = a; }
+    inline void   _obj(object* o)       { _data.i = 0; _data.ptr = o; }
+    inline void   _f(function_value* f) { _data.i = 0; _data.ptr = f; }
+    inline void   _m(map_value* f)      { _data.i = 0; _data.ptr = f; }
+    inline void   _bytes(bytes_value* bv)  { _data.i = 0; _data.ptr = bv; }
+    inline void   _proxy(object_proxy* pr) { _data.i = 0; _data.ptr = pr; }
+    inline void   _res(resource* pr)    { _data.i = 0; _data.ptr = pr; }
 
   };
   struct script_proxy: public resource
@@ -1007,6 +1084,7 @@ namespace tool
         case t_object:    {  object* p = cv._obj(); p->add_ref(); _obj(p); } break;
         case t_bytes:     {  bytes_value* p = cv._bytes(); p->add_ref(); _bytes(p); } break;
         case t_object_proxy: {  object_proxy* p = cv._proxy(); p->add_ref(); _proxy(p); } break;
+        case t_resource:    {  resource* p = cv._res(); p->add_ref(); _res(p); } break;
         case t_undefined:
         case t_null:
         case t_bool:
@@ -1014,6 +1092,7 @@ namespace tool
         case t_length:
         case t_date:
         case t_currency:
+        case t_range:
         case t_double:    {  _data = cv._data; } break;
         default:          assert(false); break;
       }
@@ -1030,6 +1109,7 @@ namespace tool
         case t_object:      { object* o = _obj(); o->release(); } break;
         case t_bytes:       { bytes_value* p = _bytes(); p->release(); } break; 
         case t_object_proxy:{ object_proxy* p = _proxy(); p->release(); } break; 
+        case t_resource:    { resource* p = _res(); p->release(); } break; 
         case t_undefined:
         case t_null:
         case t_bool:
@@ -1037,6 +1117,7 @@ namespace tool
         case t_length:
         case t_date:
         case t_currency:
+        case t_range:
         case t_double:   break;
         default:         
           assert(false); 
@@ -1044,7 +1125,7 @@ namespace tool
       }
       _type = t_undefined;
       _units = 0;
-      _data = 0;
+      _i64(0);
     }
 
     inline const value value::operator [] (uint idx) const 
@@ -1146,7 +1227,7 @@ namespace tool
     inline bool value::equal(const value& rs) const 
     {  
       if(_type != rs._type) return false;
-      if( _data != rs._data ) 
+      if( _i64() != rs._i64() ) 
       {
         if(_type == t_string)
            return _us()->length == rs._us()->length && wcscmp(_us()->chars, rs._us()->chars) == 0;
@@ -1328,27 +1409,27 @@ namespace tool
   
   struct float_v
   {
-    double _v;  
+    real _v;  
 
-    float_v(): _v(DBL_MIN) {}
-    float_v(const double& iv): _v(iv) {}
+    float_v(): _v(REAL_MIN) {}
+    float_v(const real& iv): _v(iv) {}
     
-    operator double() const { return _v == DBL_MIN? 0.0: _v; }
-    float_v& operator = (const double& nv) { _v = nv; return *this; }
+    operator real() const { return _v == REAL_MIN ? real(0.0): _v; }
+    float_v& operator = (const real& nv) { _v = nv; return *this; }
     float_v& operator = (const value& nv) 
     { 
       clear(); 
       if(nv.is_undefined())
         return *this; 
       else if(nv.is_null()) 
-        _v = DBL_MIN;
+        _v = REAL_MIN;
       else
-        _v = nv.to_float(); 
+        _v = real(nv.to_float()); 
       return *this; 
     }
 
-    static double null_val() { return DBL_MIN; }
-    static double inherit_val() { return DBL_MAX; }
+    static real null_val() { return REAL_MIN; }
+    static real inherit_val() { return REAL_MAX; }
 
     value to_value() const
     { 
@@ -1357,17 +1438,17 @@ namespace tool
       return value(_v); 
     }
   
-    bool undefined() const { return _v == DBL_MIN; }
-    bool defined() const { return _v != DBL_MIN; }
-    bool inherit() const { return _v == DBL_MAX; }
+    bool undefined() const { return _v == REAL_MIN; }
+    bool defined() const { return _v != REAL_MIN; }
+    bool inherit() const { return _v == REAL_MAX; }
 
-    void clear()      { _v = DBL_MIN; }
+    void clear()      { _v = REAL_MIN; }
 
     void inherit(const float_v& v) { if(v.defined()) _v = v._v; }
 
-    double val(const float_v& v1) const { return defined()? (double)_v: (double)v1; }
+    real val(const float_v& v1) const { return defined()? (real)_v: (real)v1; }
 
-    static double val(const float_v& v1,double defval) { return v1.defined()? v1._v:defval; }
+    static real val(const float_v& v1,real defval) { return v1.defined()? v1._v:defval; }
     
   };
 

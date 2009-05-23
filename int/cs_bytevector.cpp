@@ -157,7 +157,7 @@ static value CSF_load(VM *c)
 /* CSF_size - built-in property 'length' */
 static value CSF_length(VM *c,value obj)
 {
-    return CsMakeInteger(c,CsByteVectorSize(obj));
+    return CsMakeInteger(CsByteVectorSize(obj));
 }
 
 static value CSF_get_type(VM *c,value obj)
@@ -208,7 +208,7 @@ static value CsByteVectorGetItem(VM *c,value obj,value tag)
         int i;
         if ((i = CsIntegerValue(tag)) < 0 || i >= int(CsByteVectorSize(obj)))
             CsThrowKnownError(c,CsErrIndexOutOfBounds,tag);
-        return CsMakeInteger(c,CsByteVectorByte(obj,i));
+        return CsMakeInteger(CsByteVectorByte(obj,i));
     }
     return c->undefinedValue;
 }

@@ -5,7 +5,6 @@ namespace tis
   struct FrameDispatch;
   extern FrameDispatch CsTopCDispatch;
   extern int Send(VM *c,FrameDispatch *d,int argc);
-  extern bool Execute(VM *c);
 
   tool::value CsSendMessageByNameJSON(VM *c, value obj, const char *sname,int argc, const tool::value* argv, bool optional)
   {
@@ -315,7 +314,10 @@ namespace tis
     {
       case tool::value::t_undefined:  return c->undefinedValue;
       case tool::value::t_bool:       return v.get(false)? c->trueValue:c->falseValue;
-      case tool::value::t_int:        return CsMakeInteger(c, v.get(0));
+      case tool::value::t_int:        
+        if( v.units() == tool::value::clr )
+          return unit_value(v._int(),tool::value::clr);
+        return CsMakeInteger(v.get(0));
       case tool::value::t_double:     return CsMakeFloat(c, v.get(0.0));     
       case tool::value::t_string:     
         {
@@ -374,10 +376,11 @@ namespace tis
             return VM::nullValue;
         }
         break;
-
+      case tool::value::t_length:
+        return unit_value(v._int(),v.units());
     }
     assert(false);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
   }
 
   /*struct tos :object_scanner
@@ -519,6 +522,18 @@ namespace tis
         map[value_to_string(key)] = value_to_value(c,val);
       return map;
       */
+    }
+    if( CsColorP( v ) )
+    {
+      int i, u; 
+      i = to_unit(v,u);
+      return tool::value(i,tool::value::clr);
+    }
+    if( CsLengthP( v ) )
+    {
+      int i, u; 
+      i = to_unit(v,u);
+      return tool::value(i,u);
     }
 
     return tool::value();

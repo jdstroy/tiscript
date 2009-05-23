@@ -85,7 +85,7 @@ static value minimum( VM *c, value *argv, int argc )
       int_t t = CsIntegerValue(arg);       
       if( t < r ) r = t;
     }
-    return gotone? CsMakeInteger(c,r): c->undefinedValue; 
+    return gotone? CsMakeInteger(r): c->undefinedValue; 
 }
 
 static value maximum( VM *c, value *argv, int argc )
@@ -106,7 +106,7 @@ static value maximum( VM *c, value *argv, int argc )
       int_t t = CsIntegerValue(arg);       
       if( t > r ) r = t;
     }
-    return gotone? CsMakeInteger(c,r): c->undefinedValue; 
+    return gotone? CsMakeInteger(r): c->undefinedValue; 
 }
 
 

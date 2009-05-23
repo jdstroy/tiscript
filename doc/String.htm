@@ -4,6 +4,7 @@
     <META name="GENERATOR" content="BLOCKNOTE.NET">
     <META name="source">
     <META name="source">
+    <META name="source">
     <BASEFONT face="Verdana" size="2">
     <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
 P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
@@ -33,7 +34,7 @@ TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
     <TD colspan="2" valign="middle"><STRONG><FONT size="4">Methods</FONT></STRONG></TD>
   </TR>
   <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><EM>toInteger</EM></TD>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>toInteger</EM></STRONG></TD>
     <TD bgcolor=#fffff0 valign="middle">
 <P><STRONG>([defaultValue])</STRONG> → &nbsp;integer | defaultValue | (undefined)</P>
 <P>Tries to parse content of the string. If parsing failed then returns defaultValue if provided, or undefined value.<BR>toInteger expects string in the following format:</P>
@@ -194,6 +195,17 @@ TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
 <LI><P><STRONG>%v</STRONG> and <STRONG>%V</STRONG> - these format types accept any value as an argument and produce source code representation of the value suitable for later parsing by eval() method. Thus if value is an array of values it will be printed as &quot;[element1, element2, element3... elementN]&quot; and object (instance of Object class) will be printed as &quot;{key1:value1, key2:value2,..., keyN:valueN}&quot;. %v produces one line output and %V tries to produce human readable output with line feeds and tabulations.<BR>Use it if you need to serialize objects in AJAX/JSON fashion.</P></LI>
 <LI><P><STRONG>%S</STRONG> - this format type converts its argument into string and outputs it with <EM>HTML escapement</EM>. So characters like '&lt;' will be converted to &quot;&amp;lt;&quot; sequences in the output.</P></LI></UL>
 </TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>scanf</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<DIV><STRONG>( </STRONG><EM>format</EM>: string <STRONG>)</STRONG> : array</DIV>
+<P>Scans the string for values according to the rules of <A href="http://www.cplusplus.com/reference/clibrary/cstdio/scanf.html">scanf C/C++ function</A> with wildcard (like %[a-z] ) extensions. See definition of <A href="http://msdn.microsoft.com/en-us/library/xdb9w69d(VS.71).aspx">scanf in MSDN</A>.</P>
+<P>Additional format types:</P>
+<UL>
+<LI><P><STRONG>%N</STRONG> - scans for either float or integer number.</P></LI></UL>
+
+<P>Function returns array of successfully parsed values.</P></TD>
   </TR>
 </TABLE>
 </DIV>

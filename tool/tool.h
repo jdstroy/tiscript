@@ -40,6 +40,7 @@
 #include "tl_handle_pool.h"
 #include "tl_ternary_tree.h"
 #include "tl_tokenizer.h"
+#include "tl_markup.h"
 //#include "tl_file_monitor.h" // OS dependent
 #include "tl_slice.h"
 #include "tl_filesystem.h" // OS dependent
@@ -47,6 +48,7 @@
 #include "tl_generator.h" 
 
 #include "snprintf.h"
+#include "snscanf.h"
 
 //using namespace tool;
 

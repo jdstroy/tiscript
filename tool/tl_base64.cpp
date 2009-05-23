@@ -37,7 +37,7 @@ namespace tool
   * @param data the array of bytes to encode
   * @return base64-coded character string.
   */
-void  base64_encode(bytes data, stream_o<char>& out)
+/*void  base64_encode(bytes data, stream_o<char>& out)
 {
     char        buf[4];
     bool quad = false;
@@ -75,7 +75,53 @@ void  base64_encode(bytes data, stream_o<char>& out)
     }
     if(!quad && !trip) 
       out.put("=",1); 
+}*/
+
+void  base64_encode(bytes data, stream_o<char>& out)
+{
+    int cols = 0, bits = 0, c, char_count = 0;
+    for(int i = 0; i < data.length; ++i) 
+    {
+      c = data[i];
+	    bits += c;
+	    char_count++;
+	    if (char_count == 3) 
+      {
+	        out.put(alphabet[ bits >> 18] );
+	        out.put(alphabet[(bits >> 12) & 0x3f]);
+	        out.put(alphabet[(bits >> 6) & 0x3f]);
+	        out.put(alphabet[ bits & 0x3f]);
+	        cols += 4;
+	        if (cols == 72) 
+          {
+		        out.put('\n');
+		        cols = 0;
 }
+	        bits = 0;
+	        char_count = 0;
+}
+      else 
+      {
+	        bits <<= 8;
+	    }
+    }
+    if (char_count) 
+    {
+    	bits <<= 16 - (8 * char_count);
+	    out.put(alphabet[bits >> 18]);
+	    out.put(alphabet[(bits >> 12) & 0x3f]);
+	    if (char_count == 1) {
+	        out.put('=');
+	        out.put('=');
+	    } else {
+	        out.put(alphabet[(bits >> 6) & 0x3f]);
+	        out.put('=');
+	    }
+	    if (cols > 0)
+	      out.put('\n');
+    }
+}
+
 
   /**
   * Decodes a BASE-64 encoded stream to recover the original

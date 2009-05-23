@@ -66,6 +66,8 @@ struct xvm: public tis::VM
   }
 };
 
+void* TISAPI get_instance_data(tiscript_value obj);
+
 tiscript_VM* TISAPI create_vm(uint features, uint heap_size, uint stack_size)
 {
   xvm* pvm = new xvm(features,heap_size,stack_size);
@@ -92,6 +94,7 @@ void  TISAPI set_std_streams(tiscript_VM* pvm, tiscript_stream* input, tiscript_
 
 tiscript_VM* TISAPI get_current_vm()
 {
+  //return (xvm*)VM::get_current();
   return 0;
 }
 
@@ -239,6 +242,21 @@ tiscript_value TISAPI to_string(tiscript_VM* vm,tiscript_value v)
   return tis::CsToString((xvm*)vm,v);
 }
 
+tis::value NativeObjectCopy(tis::VM *c,tis::value obj)
+{
+    tis::dispatch* pd = tis::CsGetDispatch(obj);
+    if(pd && pd->destroyParam)
+    {
+      void* ptr = get_instance_data(obj);
+      tis::value newobj = tis::CsDefaultCopy(c,obj);
+      tiscript_on_gc_copy* gcing = (tiscript_on_gc_copy*)pd->destroyParam;
+      gcing(ptr,newobj);
+      return newobj;
+    }
+    assert(false); //shall not happen
+    return tis::VM::undefinedValue;
+}
+
 tiscript_value TISAPI define_class
       (
           tiscript_VM*        pvm, // in this VM
@@ -267,6 +285,7 @@ tiscript_value TISAPI define_class
     if(cls->set_item) pd->setItem = (tis::set_item_t)cls->set_item;
     if(cls->finalizer) pd->destroy = (tis::destructor_t)cls->finalizer;
     if(cls->iterator) pd->getNextElement = (tis::get_next_element_t)cls->iterator;
+    if(cls->on_gc_copy) { pd->destroyParam = cls->on_gc_copy; pd->copy = &NativeObjectCopy; }
 
     tiscript_const_def* pc = cls->consts;
     
@@ -278,7 +297,7 @@ tiscript_value TISAPI define_class
       {
       default:
       case TISCRIPT_CONST_INT:
-        tis::CsAddCObjectConstant((xvm*)pvm,cls,tis::CsSymbolOf(pc->name), tis::CsMakeInteger((xvm*)pvm,pc->val.i));
+        tis::CsAddCObjectConstant((xvm*)pvm,cls,tis::CsSymbolOf(pc->name), tis::CsMakeInteger(pc->val.i));
         break;
       case TISCRIPT_CONST_FLOAT:
         tis::CsAddCObjectConstant((xvm*)pvm,cls,tis::CsSymbolOf(pc->name), tis::CsMakeFloat((xvm*)pvm,pc->val.f));
@@ -425,7 +444,7 @@ bool TISAPI eval_string(tiscript_VM* pvm, tiscript_value ns, const wchar* script
   try 
   {
     tis::auto_scope as((xvm*)pvm, ns);
-    tis::value r = tis::CsEvalString(&as, script, script_length);
+    tis::value r = tis::CsEvalString(&as, ns,script, script_length);
     if( pretval )
       *pretval = r;
     return true;
@@ -527,6 +546,57 @@ void TISAPI unpin(tiscript_pvalue* pval)
   ((tis::pvalue*)pval)->unpin();
 }
 
+tiscript_value TISAPI native_function_value(tiscript_VM* pvm, tiscript_method_def* p_method_def)
+{
+  p_method_def->dispatch = &tis::CsCMethodDispatch;
+  return tis::ptr_value((tis::c_method*)p_method_def);
+}
+
+tiscript_value TISAPI native_property_value(tiscript_VM* pvm, tiscript_prop_def* p_prop_def)
+{
+  p_prop_def->dispatch = &tis::CsVPMethodDispatch;
+  return tis::ptr_value((tis::vp_method*)p_prop_def);
+}
+
+  struct cb_thunk: public tool::functor
+  {
+     tiscript_VM*       pvm;
+     tiscript_callback* pfunc;
+     void*              prm;
+     virtual void operator()()
+     {
+       pfunc(pvm,prm);
+     }
+  };
+
+
+bool TISAPI post(tiscript_VM* pvm, tiscript_callback* pfunc, void* prm)
+{
+  tool::handle<cb_thunk> pt = new cb_thunk();
+  pt->pvm   = pvm;
+  pt->pfunc = pfunc;
+  pt->prm   = prm;
+  return ((tis::VM*)pvm)->post(pt);
+}
+
+/*struct tiscript_method_def
+{
+  void*             dispatch; // a.k.a. VTBL
+  const char*       name;
+  tiscript_method*  handler;
+  void*             tag;
+};
+
+struct tiscript_prop_def
+{
+  void*                dispatch; // a.k.a. VTBL
+  const char*          name;
+  tiscript_get_prop*   getter;
+  tiscript_set_prop*   setter;
+  void*                tag;
+};*/
+
+
 tiscript_native_interface native_interface =
 {
   create_vm,
@@ -603,6 +673,12 @@ tiscript_native_interface native_interface =
 
   pin,
   unpin,
+
+  native_function_value,
+  native_property_value,
+
+  post
+
 };
 
 namespace tis 

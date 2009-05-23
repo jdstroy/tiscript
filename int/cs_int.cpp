@@ -13,10 +13,6 @@
 #include "cs_int.h"
 #include "cs_com.h"
 
-#ifdef SCITER
-#include "../api/sciter-x-value.h"
-#endif
-
 #pragma optimize( "t", on )
 
 namespace tis
@@ -95,7 +91,6 @@ inline size_t WordSize(size_t n)
 
 /* prototypes */
 static value ExecuteCall(CsScope *scope,value fun,int argc,va_list ap);
-bool Execute(VM *c);
 int  Send(VM *c,FrameDispatch *d,int argc);
 void UnaryOp(VM *c,int op);
 inline void BinaryOp(VM *c,int op)
@@ -107,8 +102,9 @@ inline void BinaryOp(VM *c,int op)
 
 
 static bool Call(VM *c,FrameDispatch *d,int argc);
-static void PushFrame(VM *c,int size);
+static void PushFrame(VM *c,int size, value names = UNDEFINED_VALUE);
 static value UnstackEnv(VM *c,value env);
+static value MakeGenerator(VM *c,value env);
 static void BadOpcode(VM *c,int opcode);
 static int CompareStrings(value str1,value str2);
 static value ConcatenateStrings(VM *c,value str1,value str2);
@@ -512,7 +508,7 @@ inline void StreamOut(VM *c)
 
 
 /* Execute - execute code */
-bool Execute(VM *c)
+bool Execute(VM *c,value gen)
 {
     value p1,p2,*p;
     unsigned int off = 0;
@@ -534,14 +530,13 @@ bool Execute(VM *c)
               return true;
             break;
         case BC_FRAME:
-            PushFrame(c,*c->pc++);
-            break;
-        case BC_CFRAME:
             i = *c->pc++;
+            off = *c->pc++;
+            off |= *c->pc++ << 8;
             CsCheck(c,i);
             for (n = i; --n >= 0; )
                 CsPush(c,UNDEFINED_VALUE);
-            PushFrame(c,i);
+            PushFrame(c,i,CsCompiledCodeLiteral(c->code,off));
             break;
         case BC_AFRAME:       /* handled by BC_CALL */
         case BC_AFRAMER:
@@ -560,8 +555,23 @@ bool Execute(VM *c)
                 CsMakeMethod(c,c->val,c->env,c->currentScope.globals, c->getCurrentNS());
             }
             break;
-        /*case BC_YIELD:
-            break; */
+        case BC_PRE_YIELD:
+            if(CsStackEnvironmentP(c->env))
+              c->env_yield = UnstackEnv(c,c->env);
+            else
+              c->env_yield = c->env;
+            break;
+        case BC_YIELD:
+            if(!gen)
+              gen = c->val = MakeGenerator(c,c->env_yield);
+            c->env_yield = VM::undefinedValue;
+
+            //else
+            //  c->val = MakeGenerator(c);
+            ptr<generator>(gen)->pcoffset = c->pc - c->cbase;
+            if((*c->fp->pdispatch->restore)(c))
+              return true;
+            break;
         case BC_RETURN:
             if((*c->fp->pdispatch->restore)(c))
               return true;
@@ -571,14 +581,14 @@ bool Execute(VM *c)
             i = *c->pc++;
             for (p2 = c->env; --i >= 0; )
                 p2 = CsEnvNextFrame(p2);
-            i = CsEnvSize(p2) - *c->pc++;
-            c->val = CsEnvElement(p2,i);
 #ifdef _DEBUG
             {
-              dispatch *pd = CsGetDispatch(c->val);
+              dispatch *pd = CsGetDispatch(p2);
               pd = pd;
             }
 #endif
+            i = CsEnvSize(p2) - *c->pc++;
+            c->val = CsEnvElement(p2,i);
             break;
         case BC_ESET:
             i = *c->pc++;
@@ -879,8 +889,8 @@ bool Execute(VM *c)
             switch( n )
             {
               case 0:
-                c->standardOutput->put_str("\ndebug namespace:\n");
-            CsDumpScopes(c);
+                c->standardOutput->put_str("\ndebug namespaces:\n");
+                CsDumpScopes(c);
                 break;
               case 1:
                 c->standardOutput->put_str("\ndebug stacktrace:\n");
@@ -1106,7 +1116,7 @@ void UnaryOp(VM *c,int op)
             ival = 0; /* never reached */
             break;
         }
-        c->val = CsMakeInteger(c,ival);
+        c->val = CsMakeInteger(ival);
     }
 
 
@@ -1190,7 +1200,7 @@ value CsBinaryOp(VM *c,int op, value p1, value p2)
             assert(false);
             break;
         }
-        return CsMakeInteger(c,ival);
+        return CsMakeInteger(ival);
     }
     else {
         float_t f1,f2,fval;
@@ -1370,7 +1380,7 @@ value CsInternalCall(VM *c,int argc)
     return c->val;
 }
 
-static void check_thrown_error( VM *c)
+void check_thrown_error( VM *c)
 {
   if( c->nativeThrowValue.length() )
   {
@@ -1501,6 +1511,80 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     return false;
 }
 
+/* Continue - setup next step of generator */
+static bool Continue(VM *c, generator* gen )
+{
+    byte *cbase,*pc;
+    int oldArgC = c->argc;
+    value code;
+
+  /* setup the argument list */
+    c->argv = &c->sp[0];
+    c->argc = 0;
+
+    /* get the code obj */
+    code = gen->code;
+    cbase = pc = CsByteVectorAddress(CsCompiledCodeBytecodes(code));
+
+    pc += gen->pcoffset;
+
+    /* reserve space for the call frame */
+    CsCheck(c,WordSize(sizeof(CallFrame)) + CsFirstEnvElement);
+
+    /* complete the environment frame */
+    CsPush(c,UNDEFINED_VALUE);  /* names */
+    CsPush(c,c->env);         /* nextFrame */
+
+    /* initialize the frame */
+    CallFrame *frame = (CallFrame *)(c->sp - WordSize(sizeof(CallFrame)));
+    frame->pdispatch = &CsTopCDispatch;
+    frame->next = c->fp;
+    frame->globals = c->currentScope.globals;
+    frame->ns = c->getCurrentNS();
+    frame->env = c->env;
+    frame->code = c->code;
+    frame->pcOffset = c->pc - c->cbase;
+    frame->argc = oldArgC;
+    CsSetDispatch(ptr_value(&frame->stackEnv),&CsStackEnvironmentDispatch);
+    CsSetEnvSize(ptr_value(&frame->stackEnv),CsFirstEnvElement + 0);
+
+    /* establish the new frame */
+    c->env = gen->env;//ptr_value(&frame->stackEnv);
+    c->fp = (CsFrame *)frame;
+    c->sp = (value *)frame;
+
+    /* setup the new method */
+    c->currentScope.globals = gen->globals;
+    c->currentNS = gen->ns;
+    c->code = code;
+    c->cbase = cbase;
+    c->pc = pc;
+
+    /* didn't complete the call */
+    return false;
+}
+
+value CsExecuteNext(VM* c, value gen)
+{
+    //int n;
+    /* save the interpreter state */
+    //CsSavedState state(c);
+    //TRY
+    {
+      /* setup the continue call */
+      Continue(c, ptr<generator>(gen));
+      /* execute it */
+      Execute(c,gen);
+    }
+    //CATCH_ERROR(e)
+    //{
+    //   state.restore();
+    //   RETHROW(e);
+    //}
+    return c->val;
+}
+
+
 /* TopRestore - restore a top continuation */
 static bool TopRestore(VM *c)
 {
@@ -1561,7 +1645,7 @@ static value *CallCopy(VM *c,CsFrame *frame)
 }
 
 /* PushFrame - push a frame on the stack */
-static void PushFrame(VM *c,int size)
+static void PushFrame(VM *c,int size, value names)
 {
     BlockFrame *frame;
 
@@ -1569,10 +1653,10 @@ static void PushFrame(VM *c,int size)
     CsCheck(c,WordSize(sizeof(BlockFrame)) + CsFirstEnvElement);
 
     /* complete the environment frame */
-    CsPush(c,UNDEFINED_VALUE);     /* names */
+    CsPush(c,UNDEFINED_VALUE); /* names */
     CsPush(c,c->env);          /* nextFrame */
 
-    /* initialized the frame */
+    /* initialize the frame */
     frame = (BlockFrame *)(c->sp - WordSize(sizeof(BlockFrame)));
     frame->pdispatch = &CsBlockCDispatch;
     frame->next = c->fp;
@@ -1582,7 +1666,7 @@ static void PushFrame(VM *c,int size)
 
     /* establish the new frame */
     c->env = ptr_value(&frame->stackEnv);
-    dispatch* pd = CsGetDispatch(c->env);
+    //dispatch* pd = CsGetDispatch(c->env);
     c->fp = (CsFrame *)frame;
     c->sp = (value *)frame;
 }
@@ -1681,6 +1765,35 @@ static value UnstackEnv(VM *c,value env)
     /* return the newo environment */
     return CsPop(c);
 }
+
+static value MakeGenerator(VM *c, value env)
+{
+#ifdef _DEBUG
+  int i = CsEnvSize(env);
+  value t = CsEnvElement(env,2);
+#endif
+
+  //c->env = UnstackEnv(c, c->env);
+
+  value newo;
+  newo = CsAllocate(c,sizeof(generator));
+  CsSetDispatch(newo,&CsGeneratorDispatch);
+  generator* pg = ptr<generator>(newo);
+  pg->val = c->val;
+  pg->env = env;
+  pg->globals = c->currentScope.globals;
+  pg->ns = c->getCurrentNS();
+  pg->code = c->code;
+
+#ifdef _DEBUG
+  i = CsEnvSize(env);
+  t = CsEnvElement(env,2);
+#endif
+
+  return newo;
+}
+
+
 
 /* CsTypeError - signal a 'type' error */
 void CsTypeError(VM *c,value v)
@@ -1981,7 +2094,7 @@ inline value FindFirstMember(VM *c, value& index, value collection)
   {
     if(CsVectorSize(collection))
     {
-      index = CsMakeInteger(c,0);
+      index = CsMakeInteger(0);
       return CsVectorElement(collection,0);
     }
   }
@@ -1999,7 +2112,7 @@ inline value FindNextMember(VM *c, value& index, value collection)
     if(CsIntegerP(index))
     {
       int_t i = CsIntegerValue(index) + 1;
-      index = CsMakeInteger(c,i);
+      index = CsMakeInteger(i);
       if(i < CsVectorSize(collection))
       {
         return CsVectorElement(collection,i);

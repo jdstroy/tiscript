@@ -1,0 +1,144 @@
+<HTML>
+<HEAD>
+<TITLE>Fast memory allocator for multithreaded applications</TITLE>
+<UL>
+<LI><A HREF = "#about">Overview</A>
+<LI><A HREF = "#description">description</A>
+<LI><A HREF = "#howto">How to use</A>
+<LI><A HREF = "#performance">Comparison with standard allocator</A>
+<LI><A HREF = "#distribution">Distribution terms</A>
+</UL>
+
+<BODY>
+<HR>
+<H2><A NAME = "about">Overview</A></H2>
+
+If you have multithreaded application which allocates a large number of objects (using standard 
+<code>new</code> and <code>delete</code> operators) then most likely you were faced with performance
+degradation problem at multiprocessor systems. You program is running fine at computer with single CPU.
+Then you try to run it at the system with 2 or more processors and instead of expected
+increase of performance 2 or more times, you find out that you application runs ten or more times slower!
+What is happening? Why adding more CPU significantly decrease speed of your application?
+One of the possible answers is <B>memory allocator</B>. Standard system memory allocator use 
+mutexes to prevent concurrent access to allocator structures and preserve their consistency.
+Locking mutex is not a problem when there are no lock conflicts - it is just few atomic assembler instructions.
+But at multiprocessor platform, different threads concurrently invokes memory allocator and as a result
+we have a large number of lock conflicts. So most of the time is now spent is locking/unlocking mutexes.
+Even if threads in your application are working autonomously (thread is accessing objects created only by 
+itself) and so require no synchronization, there will be still a lot of conflicts between threads
+caused by memory allocator. As a result instead of expected linear increase of performance with adding new 
+CPUs, you will have exponential degradation of performance.<P>
+
+How to solve the problem? The obvious solution is to avoid creation of objects in dynamic memory at all
+and allocate objects on stack instead. It is almost the ideal solution fro performance point of view.
+Unfortunately it is not always possible or convenient (for example thread stack has also limited
+size so we can not create large number of objects in the stack). Another solution is to
+have separate memory allocator for each thread, so that each allocator can allocate memory without
+interaction with other allocators. The product contains implementation of such allocator.<P>
+
+<H2><A NAME = "description">Description</A></H2>
+
+This allocator is optimized for allocation of small objects. It maintains chains of blocks with the same size.
+Number of chains and maximal size of allocated object can be customized. By default, allocator
+uses 5 chains with block size 16, 32, 48, 64 and 128 bytes. Objects with size greater than 128 are allocated 
+using standard <code>malloc</code>. When allocator is requested to allocate memory, it rounds requested size
+to nearest block size. If chain of block with this size is not empty, object is allocated by just unlinking 
+block from the chain. If the chain is empty, then allocator allocates new page (default size is 4Kb), 
+split it into blocks of requested size and add all these blocks to the correspondent chain.
+Page is also allocated using standard <code>malloc</code>. When object is deallocated, it is linked in
+the correspondent chain.<P>
+
+So you can see, that most frequently allocate and free operation requires no synchronization at all - 
+them are just implemented as L1 list link/unlink. So in case when thread works locally 
+(objects are deallocated from the same thread which allocates them), performance is very high. And adding
+extra processors can only speedup you application. But sometimes data exchange between threads is needed
+(so objects created in one thread are sent to another thread where them are deallocated). In this case
+it is not possible to avoid synchronization at all. But it is possible to reduce it overhead.
+Instead of using one centralized mutex, this algorithm creates one mutex per thread. When free method
+find out that object was allocated by some other thread, it lock the mutex of this thread and add
+this block to the <I>pending requests list</I>. Each thread checks this list at each allocate
+operation. When number of pending requests exceeds some specified threshold, thread lock the mutex, 
+store head of the list, reset the list, unlocks the mutex and then deallocate all these elements.
+So time of holding mutex is minimal, number of locks is significantly reduces and locking can block only 
+one thread (instead of centralized lock which can block all running threads).<P>
+
+When thread is terminated, algorithm checks counters of live objects at each page and deallocate pages with
+zero counter of used objects. Other pages will be deallocated later by other threads which will deallocate
+these living objects.<P>
+
+
+<H2><A NAME = "howto">How to use</A></H2>
+
+This package provides three C functions:
+<PRE>
+    void* thread_alloc(size_t size);
+    void* thread_realloc(void* addr, size_t size);
+    void  thread_free(void* addr);
+</PRE>
+
+You can use them instead of standard <code>malloc, free</code> and <code>realloc</code> in your C application.
+Just include <code>"threadalloc.h"</code> header file and <code>"threadalloc.obj"</code> file
+in the linker list for your project.<P>
+ 
+In C++ application you can redefine default <code>new</code> and <code>delete</code> operators if you
+compile your application with included everywhere <code>"threadalloc.h"</code> header file
+and defined <code>REDEFINE_DEFAULT_NEW_OPERATOR</code> macro.<P>
+
+This allocator can be build using make utility. Makefile for Microsoft Visual C++ (<code>makefile.mvc</code>)
+and GCC (<code>makefile</code>) are provided. Command file <code>make.bat</code> can be used
+to invoke Microsoft <code>nmake</code> utility for code>makefile.mvc</code>.<P>
+
+Make will build allocator object file and four tests: <code>stdalloc_test1, stdalloc_test2, 
+threadalloc_test1, threadalloc_test2</code>. Test 1 implements model where thread works in isolation from 
+each other (allocates and deallocates objects locally). In this case performance benefit 
+comparing with standard allocator are most meaningful. Test 2 implements model of communication
+between two threads: object are created in one thread (producer) and deleted in another thread (consumer).
+The table below summarize results for single and multiprocess systems (time of test execution in seconds).
+The tests were performed under Scientific Linux 2.6.15.5 for x86_64.
+<P>
+
+<TABLE BORDER>
+<TR><TH>Test</TH><TH>Description of test</TH>
+    <TH>Intel(R) Pentium(R) 4 CPU 3.00GHz [Hyperthreading=On]</TH>
+    <TH>Intel(R) Pentium(R) 4 CPU 3.00GHz [Hyperthreading=Off]</TH>
+    <TH>Dual Intel(R) Xeon(TM) CPU 3.00GHz [Hyperthreading=On]</TH>
+    <TH>Dual Intel(R) Xeon(TM) CPU 3.00GHz [Hyperthreading=Off]</TH></TR>
+<TR><TD>stdalloc_test1</TD><TD>standard allocator with 4 threads working in isolation</TD><TD>6.596</TD><TD>7.948</TD><TD>4.797</TD><TD>5.014</TD></TR>
+<TR><TD>stdalloc_test2</TD><TD>standard allocator with producer and consumer threads</TD><TD>10.853</TD><TD>9.986</TD><TD>11.200</TD><TD>9.613</TD></TR>
+<TR><TD>threadalloc_test1</TD><TD>this allocator with 4 threads working in isolation</TD><TD>2.711</TD><TD>1.690</TD><TD>1.079</TD><TD>0.837</TD></TR>
+<TR><TD>threadalloc_test2</TD><TD>this allocator with producer and consumer threads</TD><TD>8.719</TD><TD>7.848</TD><TD>7.804</TD><TD>6.966</TD></TR>
+</TABLE><P>
+
+As you can see from these result, proposed allocator is 2-3 times faster than standard allocator
+at single processor system and almost 100 times faster at dual processor platform! Certainly there are many
+other factors which are limiting scalability of real application except memory allocator, but I hope
+that using this allocator can really help you in improving performance of your application.<P>
+
+
+<H2><A NAME = "distribution">Distribution terms</A></H2>
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the <A HREF="#Software">Software</A>), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:<P>
+
+<A NAME="Software">
+<B>
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHOR OF THIS SOFTWARE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+</B>
+</A><P>
+
+I will provide e-mail support of this product.<P>
+<HR>
+<P ALIGN="CENTER"><A HREF="http://www.garret.ru/~knizhnik">
+<B>Look for new version at my homepage</B></A><B> | </B>
+<A HREF="mailto:knizhnik@garret.ru">
+<B>E-Mail me about bugs and problems</B></A></P>
+</BODY>
+</HTML>

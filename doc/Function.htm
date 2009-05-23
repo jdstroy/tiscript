@@ -1,0 +1,53 @@
+<HTML>
+  <HEAD>
+    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <META name="GENERATOR" content="BLOCKNOTE.NET">
+    <BASEFONT face="Verdana" size="2">
+    <TITLE>TIScript - Date object</TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
+</STYLE>
+  </HEAD>
+<BODY>
+<H1>Function object</H1>
+<P>Script Function object.</P><DIV align="left">
+<TABLE border="0" cellpadding="2" cellspacing="2" width="100%">
+  <TR>
+    <TD colspan="2"></FONT><STRONG>Properties</TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG>name</STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">readonly, string. name of the function. For anonymous (lambda) functions it is undefined.</TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG>fullName</STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">readonly, string. Fully qualified name of the function, includes name of class or namespace. For anonymous (lambda) functions it is undefined.</TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG>length</STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">readonly, integer. Returns total number of declared parameters.</TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG>optionals</STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">readonly, integer. Returns number of optional parameters.</TD>
+  </TR>
+  <TR>
+    <TD colspan="2" valign="top"></FONT><STRONG>Methods</TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>call</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<P>( thisObj: object [, p0:value, ... pN:value] ) : value</P>
+<P>Invokes the function in context of <EM>this</EM> set to thisObj</P></TD>
+  </TR>
+  <TR>
+    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>apply</EM></STRONG></TD>
+    <TD bgcolor=#fffff0 valign="middle">
+<P>( thisObj: object [, argv:array] ) : value</P>
+<P>Invokes the function in context of <EM>this</EM> set to thisObj. Parameters of the function are taken from <EM>argv</EM> array.</P></TD>
+  </TR>
+</TABLE>
+</DIV>
+</BODY>
+</HTML>

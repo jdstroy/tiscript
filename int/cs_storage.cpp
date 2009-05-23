@@ -862,7 +862,7 @@ value FetchValue( VM *c, value vs, dybase_handle_t h )
     return CsMakeBoolean(c, *((bool*)value_ptr) );
 
   case dybase_int_type:
-    return CsMakeInteger(c,*((int_t*)value_ptr));
+    return CsMakeInteger(*((int_t*)value_ptr));
 
   // long here is a date
   case dybase_date_type:

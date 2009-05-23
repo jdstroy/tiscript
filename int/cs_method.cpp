@@ -214,7 +214,8 @@ static value MethodNextElement(VM *c,value* index, value obj)
   if(!CsMethodP(obj))
     return c->nothingValue;
   value r = CsCallFunction( CsCurrentScope(c), obj, 0 );
-  return (r == c->undefinedValue)? c->nothingValue: r;
+  return r;
+  //return (r == c->undefinedValue)? c->nothingValue: r;
 }
 
 /* METHOD */
@@ -423,7 +424,7 @@ static value CSF_argc(VM *c, value obj)
     byte *pc = CsByteVectorAddress(CsCompiledCodeBytecodes(code));
     //cptr[1] = rcnt;
     //cptr[2] = ocnt;
-    return CsMakeInteger(c, pc[1] + pc[2] - 2);
+    return CsMakeInteger(pc[1] + pc[2] - 2);
   }
   return c->undefinedValue;
 }
@@ -436,7 +437,7 @@ static value CSF_argcOptional(VM *c, value obj)
     byte *pc = CsByteVectorAddress(CsCompiledCodeBytecodes(code));
     //cptr[1] = rcnt;
     //cptr[2] = ocnt;
-    return CsMakeInteger(c, pc[2] );
+    return CsMakeInteger(pc[2] );
   }
   return c->undefinedValue;
 }
@@ -623,7 +624,6 @@ value CsMakeCompiledCode(VM *c,long size,value bytecodes, value linenumbers, val
     return code;
 }
 
-#if 0
 
 static bool GeneratorPrint(VM *c,value val,stream *s, bool toLocale);
 static long GeneratorSize(value obj)
@@ -634,12 +634,15 @@ static void GeneratorScan(VM *c,value obj)
 {
   generator* pg = ptr<generator>(obj);
   pg->env = CsCopyValue(c, pg->env);
-  pg->val = CsCopyValue(c, pg->val);
   pg->globals = CsCopyValue(c, pg->globals);
+  pg->ns = CsCopyValue(c, pg->ns);
   pg->code = CsCopyValue(c, pg->code);
-  if( pg->localFrames )
-    pg->localFrames = CsCopyValue(c, pg->localFrames);
+  if(pg->val)
+    pg->val = CsCopyValue(c, pg->val);
+  //if( pg->localFrames )
+  //  pg->localFrames = CsCopyValue(c, pg->localFrames);
 }
+
 
 extern value GeneratorNextElement(VM *c, value* index, value gen);
 
@@ -660,13 +663,6 @@ dispatch CsGeneratorDispatch = {
     GeneratorNextElement
 };
 
-value      CsMakeGenerator(VM *c)
-{
-  value g = CsAllocate(c,sizeof(generator));
-  //generator *pg = ptr<generator>(g);
-  CsSetDispatch(g,&CsGeneratorDispatch);
-  return g;
-}
 
 
 /* GeneratorPrint - Method print handler */
@@ -699,7 +695,22 @@ static value CSF_generator_get_function(VM *c, value obj)
   return c->nothingValue;
 }
 
-#endif
+static value GeneratorNextElement(VM *c,value* index, value obj)
+{
+  assert(CsGeneratorP(obj));
+  if(!CsGeneratorP(obj))
+    return c->nothingValue;
+
+  if( ptr<generator>(obj)->val )
+  {
+    value r = ptr<generator>(obj)->val;
+    ptr<generator>(obj)->val = 0;
+    return r;  
+  }
+  value r = CsExecuteNext( c, obj);
+  return r;
+}
+
 
 
 }

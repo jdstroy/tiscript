@@ -12,6 +12,7 @@
 #define __tl_sync_h__
 
 #include "tl_basic.h"
+#include "threadalloc.h"
 
 #ifdef WINDOWS
   #define WIN32_LEAN_AND_MEAN

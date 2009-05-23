@@ -75,7 +75,7 @@ static value CSF_toInteger(VM *c)
 {
     value obj;
     CsParseArguments(c,"V=*",&obj,&CsFloatDispatch);
-    return CsMakeInteger(c,(int_t)CsFloatValue(obj));
+    return CsMakeInteger((int_t)CsFloatValue(obj));
 }
 
 /* CSF_toString - built-in method 'toString' */

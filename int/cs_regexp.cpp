@@ -147,8 +147,8 @@ static value CSF_length(VM *c,value obj)
   {
     tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
-      CsMakeInteger(c,0);
-    return CsMakeInteger(c,pre->get_number_of_matches());
+      return CsMakeInteger(0);
+    return CsMakeInteger(pre->get_number_of_matches());
   }
   return c->undefinedValue;
 }
@@ -159,8 +159,8 @@ static value CSF_index(VM *c,value obj)
   {
     tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
-      CsMakeInteger(c,0);
-    return CsMakeInteger(c,pre->get_match_start());
+      return CsMakeInteger(0);
+    return CsMakeInteger(pre->get_match_start());
   }
   return c->undefinedValue;
 }
@@ -170,8 +170,8 @@ static value CSF_lastIndex(VM *c,value obj)
   {
     tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
-      CsMakeInteger(c,0);
-    return CsMakeInteger(c,pre->get_match_end());
+      return CsMakeInteger(0);
+    return CsMakeInteger(pre->get_match_end());
   }
   return c->undefinedValue;
 }
@@ -320,9 +320,9 @@ value CSF_string_search(VM *c)
         CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
       pre->m_nextIndex = 0;
       if(pre->exec(test))
-        return CsMakeInteger(c,pre->get_match_start());
+        return CsMakeInteger(pre->get_match_start());
       else
-        return CsMakeInteger(c,-1);
+        return CsMakeInteger(-1);
     }
     else if(CsStringP(pat))
     {
@@ -332,9 +332,9 @@ value CSF_string_search(VM *c)
         CsThrowKnownError(c,CsErrRegexpError,"bad expression");
       }
       if(pre->exec(test))
-        return CsMakeInteger(c,pre->get_match_start());
+        return CsMakeInteger(pre->get_match_start());
       else
-        return CsMakeInteger(c,-1);
+        return CsMakeInteger(-1);
     }
     else
       CsTypeError(c,pat);

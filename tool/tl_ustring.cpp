@@ -318,7 +318,7 @@ ustring::cut(int index, int len)
     data *data = new_data(length() - len);
     if (index > 0)
         umemcpy(data->chars, head(), index);
-    ::wcscpy(&data->chars[index], &head()[index+len]);
+    umemcpy(&data->chars[index], &head()[index+len], length() - (index + len));
     replace_data(data);
 
     return *this;

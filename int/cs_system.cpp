@@ -142,7 +142,7 @@ static value CSF_scanFiles(VM *c)
       for(int n = 0; n < entries.size(); ++n)
       {
         const folder_entry& fe = entries[n]; 
-        value r = CsCallFunction(CsCurrentScope(c),fun,2,CsMakeCString(c,fe.name), CsMakeInteger(c, fe.flags));
+        value r = CsCallFunction(CsCurrentScope(c),fun,2,CsMakeCString(c,fe.name), CsMakeInteger(fe.flags));
         if(CsToBoolean(c,r) != c->trueValue)
           break;
       }
@@ -152,7 +152,7 @@ static value CSF_scanFiles(VM *c)
       tool::filesystem::scan_callback_w dummy;
       counter = tool::filesystem::scan(path, &dummy);
     }
-    return CsMakeInteger(c,counter);
+    return CsMakeInteger(counter);
 }
 
   static value CSF_home(VM *c)

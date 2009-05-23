@@ -102,6 +102,14 @@ SOURCE=..\tool\snprintf.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\tool\snscanf.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=..\tool\threadalloc.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\tool\tl_base64.cpp
 # End Source File
 # Begin Source File

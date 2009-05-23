@@ -34,6 +34,8 @@ static const char* well_known_symbols[] =
   "object",
   "symbol",
   "function",
+  "color",
+  "length",
   // more here
   "storage",
   "index",

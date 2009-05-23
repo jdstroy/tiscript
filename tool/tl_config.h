@@ -22,6 +22,12 @@
 #if defined(WINDOWS)
 
   #pragma warning(disable:4996) //'strcpy' was declared deprecated
+
+  #ifdef PLATFORM_DESKTOP
+    #define WINVER 0x0501
+    #define _WIN32_WINNT 0x0501
+  #endif
+
   #define WIN32_LEAN_AND_MEAN
   #include <windows.h>
   #include <assert.h>
@@ -66,6 +72,7 @@
   #endif
 
   #define muldiv MulDiv
+
 
 #elif defined(PLATFORM_WINCE)
 
@@ -115,19 +122,23 @@ template<> struct COMPILE_TIME_ERROR<true> {};
   typedef long long           int64;
   typedef unsigned long long  uint64;
 
+  #define LL( ln ) (ln##LL)
+
 #else
 
-  typedef unsigned short      word;
-  typedef unsigned int        dword;
+  typedef unsigned __int16    word;
+  typedef unsigned __int32    dword;
   typedef unsigned __int64    qword;
   typedef wchar_t             wchar;
   typedef __int64             int64;
   typedef unsigned __int64    uint64;
 
+  #define LL( ln ) (ln##i64)
+
 #endif
 
-typedef long                  int32;
-typedef unsigned long         uint32;
+typedef int                   int32;
+typedef unsigned int          uint32;
 typedef float                 float32;
 typedef signed char           int8;
 typedef short                 int16;
@@ -137,6 +148,8 @@ typedef double                float64;
 typedef unsigned char         byte;
 typedef unsigned int          uint;
 typedef unsigned short        ushort;
+
+typedef uint32                unicode; // unicode code point
 
 #if defined(X64BITS)
   typedef uint64              uint_ptr;
@@ -148,8 +161,12 @@ typedef unsigned short        ushort;
 
 #if defined(UNDER_CE)
   typedef float               real;
+# define REAL_MIN             FLT_MIN
+# define REAL_MAX             FLT_MAX
 #else
   typedef double              real;
+# define REAL_MIN             DBL_MIN
+# define REAL_MAX             DBL_MAX
 #endif
 
 #define assert_static(e) (1/int(e))
@@ -188,6 +205,13 @@ namespace locked
   inline long set(counter& v, long nv)      {    long t = v; v = nv;  return t;  }
 
 #endif
+
+  struct auto_lock
+  {
+    counter& cnt;
+    auto_lock( counter& c ): cnt(c) { inc(cnt); }
+    ~auto_lock() { dec(cnt); }
+  };
 
 }
 

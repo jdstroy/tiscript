@@ -373,4 +373,58 @@ stream *OpenSocketStream(VM *c, const wchar *domainAndPort, int timeout, bool bi
 }
 
 
+value   stream::scanf(VM* c, const wchar* fmt)
+{
+  struct proxy: public scanf_input_stream 
+  {
+    stream* self;
+    virtual bool get(int& c)
+    {
+      int t = self->get();
+      if( t == stream::EOS ) return false;
+      c = t;
+      return true;
+    }
+  };
+
+  struct out_vector: public scanf_output_stream 
+  {
+    pvalue outv;
+    out_vector(VM *c): outv(c) 
+    {
+      outv.val = CsMakeVector(outv.pvm,0);
+    }
+    virtual bool out(long i) 
+    { 
+      int sz = CsVectorSize(outv.pvm,outv.val);
+      outv.val = CsResizeVector(outv.pvm, outv.val, sz + 1);
+      value v = CsMakeInteger(i);
+      CsSetVectorElement(outv.pvm, outv.val,sz,v);
+      return true;
+    }
+    virtual bool out(double f)
+    {
+      int sz = CsVectorSize(outv.pvm,outv.val);
+      outv.val = CsResizeVector(outv.pvm, outv.val, sz + 1);
+      value v = CsMakeFloat(outv.pvm,f);
+      CsSetVectorElement(outv.pvm, outv.val,sz,v);
+      return true;
+    }
+    virtual bool out(const char* str, unsigned str_len){ return false; }
+    virtual bool out(const wchar_t* str, unsigned str_len)
+    {
+      int sz = CsVectorSize(outv.pvm,outv.val);
+      outv.val = CsResizeVector(outv.pvm, outv.val, sz + 1);
+      value v = CsMakeString(outv.pvm,tool::wchars(str,str_len));
+      CsSetVectorElement(outv.pvm, outv.val,sz,v);
+      return true;
+    }
+  };
+
+  proxy pr;  pr.self = this;
+  out_vector ov(c);
+  size_t r = do_w_scanf(&pr, &ov, fmt);
+  return ov.outv;
+}
+
 }

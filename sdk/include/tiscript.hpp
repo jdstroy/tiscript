@@ -198,6 +198,13 @@ namespace tiscript
   inline bool     loadbc( VM* vm, stream* input_bytecodes )
     { return ni()->loadbc(vm,input_bytecodes); }
   
+  // Schedule execution of the pfunc(prm) in the thread owning this VM.
+  // Used when you need to call scripting methods from threads other than main (GUI) thread
+  // It is safe to call tiscript functions inside the pfunc. 
+  // returns 'true' if scheduling of the call was accepted, 'false' when failure (VM has no dispatcher attached). 
+  inline bool      post( VM* pvm, tiscript_callback* pfunc, void* prm)
+    { return ni()->post(pvm,pfunc,prm); }
+  
   // pinned value, a.k.a. gc root variable.
   class pinned: protected tiscript_pvalue
   {
@@ -205,12 +212,15 @@ namespace tiscript
   private:
     pinned(const pinned& p) {}  
     pinned operator = (const pinned& p) {}  
-    void attach(VM* c){ detach(); ni()->pin(c,this); }
-    void detach()     { if(vm) ni()->unpin(this); }
   public:
     pinned()          { val = 0, vm = 0, d1 = d2 = 0; }
     pinned(VM* c)     { val = 0, vm = 0, d1 = d2 = 0;  ni()->pin(c,this); }
     virtual ~pinned() { detach(); }
+
+    void attach(VM* c){ detach(); ni()->pin(c,this); }
+    void detach()     { if(vm) ni()->unpin(this); }
+    VM*  get_vm()     { return vm; }
+
     operator value()  { return val; } 
     pinned& operator = (value v) { val = v; assert(vm); return *this; } 
   };
@@ -289,7 +299,7 @@ namespace tiscript
   struct prop_def: public tiscript_prop_def
   {
     prop_def() { dispatch = 0; name = 0; getter = 0; setter = 0; tag = 0; }
-    prop_def(const char *n, getter_impl gh, setter_impl sh) { dispatch = 0; name = n; getter = gh; setter = sh; tag = 0; }
+    prop_def(const char *n, getter_impl* gh, setter_impl* sh) { dispatch = 0; name = n; getter = gh; setter = sh; tag = 0; }
   };
   struct const_def: public tiscript_const_def
   {

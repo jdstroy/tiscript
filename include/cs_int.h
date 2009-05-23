@@ -56,7 +56,7 @@
 #define BC_DUP        0x2c    /* duplicate the top entry on the stack */
 #define BC_OVER       0x2d    /* duplicate the second entry on the stack */
 #define BC_NEWOBJECT  0x2e    /* create a new obj */
-#define BC_CFRAME     0x2f    /* create an environment frame */
+//#define BC_CFRAME   0x2f    /* create an environment frame */
 #define BC_NEWVECTOR  0x30    /* create a new vector */
 #define BC_AFRAME     0x31    /* create an argument frame */
 #define BC_AFRAMER    0x32    /* create an argument frame with rest argument */
@@ -105,5 +105,7 @@
 #define BC_GSETNS     0x61    /* set the value of a variable in current namespace */
 #define BC_ROTATE     0x62    /* rotate N elements of the stack so s[n-1] = s[0], s[0] = s[1], ... */
 #define BC_INCLUDE_LIBRARY 0x63 /* load native libaray */
+
+#define BC_PRE_YIELD  0x64    /* unstack current frame and store it in c->env_yield  */
 
 #endif

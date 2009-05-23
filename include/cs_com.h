@@ -108,6 +108,7 @@ struct atable {
     struct atable *at_next;     /* next argument table */
 };
 
+
 /* break/continue stack entry structure */
 typedef struct sentry SENTRY;
 struct sentry {
@@ -115,6 +116,8 @@ struct sentry {
     int               label;                  // label 
     const char*       name;                   // name of the loop  
 };
+
+
 
 /* case entry structure */
 typedef struct centry CENTRY;
@@ -194,6 +197,7 @@ struct CsCompiler {
     int  functionLevel;                 /* scanner - function level */
     const char* qualifiedName;          /* scanner - full name of object being parsed: class and function */
     bool  JSONonly;                     /* parse only data declarations - JSON data literals */
+    bool is_generator;                  /* 'yield' is seen in function body - compile_code() */
 
     struct TryCatchDef
     {
