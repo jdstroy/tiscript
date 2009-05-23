@@ -36,6 +36,7 @@ int to_char(wchar wc, char* pc10)
 
 struct console_stream: public tis::stream
 {
+  virtual bool is_output_stream() const { return true; }
   virtual int  get() { int c = getchar(); return c != EOF? to_wchar(c) : int(EOS); }
   virtual bool put(int ch)
   {
@@ -108,7 +109,7 @@ int main(int argc,char **argv)
           {
                 switch (argv[i][1])
                 {
-                case '?':
+                case 'h':
                     Usage();
                     break;
                 case 'c':   /* compile source file */
@@ -118,8 +119,8 @@ int main(int argc,char **argv)
                         inputName = argv[i];
                     else
                         Usage();
-                    CompileFile(&vm,inputName,outputName, forceType);
                     interactiveP = false;
+                    CompileFile(&vm,inputName,outputName, forceType);
                     outputName = NULL;
                     break;
                 case 'g':   /* emit debugging information when compiling */
@@ -152,8 +153,9 @@ int main(int argc,char **argv)
                 }
             }
             else {
-                LoadFile(&vm,argv[i],forceType);
                 interactiveP = false;
+                LoadFile(&vm,argv[i],forceType);
+                
             }
         }
     }
@@ -297,7 +299,7 @@ static void ReadEvalPrint(tis::VM *c)
         if (fgets(lineBuffer,sizeof(lineBuffer),stdin))
         {
             tool::ustring line(lineBuffer);
-            val = tis::CsEvalString(tis::CsCurrentScope(c),UNDEFINED_VALUE, line, line.length());
+            val = tis::CsEvalString(tis::CsCurrentScope(c),NULL_VALUE, line, line.length());
             if (val) {
                 printf("Value: ");
                 tis::CsPrint(c,val,c->standardOutput);
@@ -332,13 +334,13 @@ usage: tiscript.exe \n\
                      s[erver] - server script - interprets <% %>\n\
                                 script inclusions, \n\
                      b[ytecode] - load as compiled bytecode file.\n\
-       [-?]          display (this) help information\n\
+       [-h]          display (this) help information\n\
        [file]        load a source or bytecode file, \n\
                      supported file extensions: \n\
                        js - client script (ECMAScript),\n\
                        jsp - server script (ECMAScript),\n\
                        jsb - compiled script (bytecodes).\n\n\
-See: http://terrainformatica.com/tiscript for more details."
+See: http://terrainformatica.com/tiscript for more details.\n\n"
        );
 
     exit(1);

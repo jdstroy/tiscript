@@ -248,13 +248,21 @@ static value CSF_toString(VM *c)
     unsigned clr = color_value(obj);
 
     wchar buf[100]; buf[0] = 0;
-
+#ifdef WINDOWS
     if( !sym || sym == CsSymbolOf("RGB"))
       swprintf(buf,L"#%02x%02x%02x", r(clr), g(clr), b(clr) );
     else if( sym == CsSymbolOf("rgb"))
       swprintf(buf,L"rgb(%d,%d,%d)", r(clr), g(clr), b(clr) );
     else if( sym == CsSymbolOf("rgba"))
       swprintf(buf,L"rgb(%d,%d,%d,%f)", r(clr), g(clr), b(clr), double(255-a(clr))/255.0);
+#else
+    if( !sym || sym == CsSymbolOf("RGB"))
+      swprintf(buf,100,L"#%02x%02x%02x", r(clr), g(clr), b(clr) );
+    else if( sym == CsSymbolOf("rgb"))
+      swprintf(buf,100,L"rgb(%d,%d,%d)", r(clr), g(clr), b(clr) );
+    else if( sym == CsSymbolOf("rgba"))
+      swprintf(buf,100,L"rgb(%d,%d,%d,%f)", r(clr), g(clr), b(clr), double(255-a(clr))/255.0);
+#endif
     
     return CsMakeCString(c,buf);
 }

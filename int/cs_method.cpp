@@ -695,7 +695,7 @@ static value CSF_generator_get_function(VM *c, value obj)
   return c->nothingValue;
 }
 
-static value GeneratorNextElement(VM *c,value* index, value obj)
+value GeneratorNextElement(VM *c,value* index, value obj)
 {
   assert(CsGeneratorP(obj));
   if(!CsGeneratorP(obj))

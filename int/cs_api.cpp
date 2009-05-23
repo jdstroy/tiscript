@@ -285,7 +285,7 @@ tiscript_value TISAPI define_class
     if(cls->set_item) pd->setItem = (tis::set_item_t)cls->set_item;
     if(cls->finalizer) pd->destroy = (tis::destructor_t)cls->finalizer;
     if(cls->iterator) pd->getNextElement = (tis::get_next_element_t)cls->iterator;
-    if(cls->on_gc_copy) { pd->destroyParam = cls->on_gc_copy; pd->copy = &NativeObjectCopy; }
+    if(cls->on_gc_copy) { pd->destroyParam = (void*)cls->on_gc_copy; pd->copy = &NativeObjectCopy; }
 
     tiscript_const_def* pc = cls->consts;
     
@@ -703,9 +703,29 @@ namespace tis
       return true;
     }
     else
+    {
+      FreeLibrary(hmod);
       return false;
+    }
 #else
-#error "Implement dl_load!"
+    if(!filename.like(L"*.so") )
+    {
+      fullpath = tool::ustring::format(L"%s.so",filename.start);
+      filename = fullpath;
+    };
+    void* hmod = dlopen(tool::string(filename.start), RTLD_LAZY);
+    if(!hmod) return false;
+    TIScriptLibraryInitFunc* pentry = (TIScriptLibraryInitFunc*)dlsym(hmod,"TIScriptLibraryInit");
+    if(pentry)
+    {
+      pentry((tiscript_VM *)c,&native_interface);
+      return true;
+    }
+    else
+    {
+    	dlclose(hmod);
+      return false;
+    };
 #endif
   }
 }

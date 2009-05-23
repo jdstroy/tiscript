@@ -92,8 +92,9 @@ inline int muldiv(IN int nNumber, IN int nNumerator, IN int nDenominator)
   #include <stdio.h>
   #include <stdlib.h>
   #include <unistd.h>
-  #include <X11/keysym.h>
-  #include "vk_codes.h"
+  #include <wchar.h>
+  //#include <X11/keysym.h>
+  //#include "vk_codes.h"
 
   #define stricmp strcasecmp
 

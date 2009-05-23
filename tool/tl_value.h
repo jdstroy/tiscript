@@ -650,7 +650,7 @@ namespace tool
       int uni_length = us.c_str() + us.length() - uniptr;
       if(uni_length <= 0)
       {
-        return value(i);
+        return value((int)i);
       }
       if( *uniptr == 'e' )
       {
