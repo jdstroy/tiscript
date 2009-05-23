@@ -180,17 +180,17 @@ namespace tool
 
     slice chop( const slice& delimeter, slice& head ) const
     {
-      int d = index_of( s );
+      int d = index_of( delimeter );
       if( d < 0 ) { head = *this; return slice(); }
       head = slice(start,d);
-      return slice(start + d + s.length, length - d - s.length);
+      return slice(start + d + delimeter.length, length - d - delimeter.length);
     }
     bool split( const slice& delimeter, slice& head, slice& tail ) const
     {
-      int d = index_of( s );
+      int d = index_of( delimeter );
       if( d < 0 ) return false;
       head = slice(start,d);
-      tail = slice(start + d + s.length, length - d - s.length);
+      tail = slice(start + d + delimeter.length, length - d - delimeter.length);
       return true;
     }
 
@@ -398,14 +398,13 @@ inline bool icmp(const chars& s1, const char* s2)
 template <typename CT, CT sep = '-', CT end = ']' >
   struct charset
   {
-    enum { SET_SIZE = (1 << (sizeof(CT) * 8)) };
-
+    enum { SET_SIZE = ( 1 << ((sizeof(CT) > 2 ? 2 : sizeof(CT))  * 8) ) };
     unsigned char codes[ SET_SIZE >> 3 ];
 
-      unsigned charcode(CT c)
+    unsigned charcode(CT c)
     {
-        return ( SET_SIZE - 1 ) & unsigned(c);
-      }
+      return ( SET_SIZE - 1 ) & unsigned(c);
+    }
 
     private:  
       void set ( CT from, CT to, bool v )    
