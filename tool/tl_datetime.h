@@ -228,7 +228,9 @@ namespace tool
   inline bool
     date_time::set_frac_time ( int millis, int micros, int nanos )
   {
-    return set ( 1601, 1, 1, 0, 0, 0, millis, micros, nanos );
+    datetime_s d;
+    cvt(d,_time);
+    return set ( d.year, d.month, d.day, d.hour, d.minute, d.second, millis, micros, nanos );
   }
 
   inline bool
