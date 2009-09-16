@@ -903,11 +903,10 @@ wchar getc_utf8(const bytes& buf, int& pos)
     }
 }
 
-
-string ustring::utf8() const
+string ustring::utf8(wchars wc)
 {
   array<unsigned char> bf;
-  to_utf8(head(),length(),bf);
+  to_utf8(wc.start,wc.length,bf);
   string s(' ',bf.size());
   memcpy(s.buffer(),bf.head(),bf.size());
   return s;
@@ -925,11 +924,44 @@ ustring ustring::xml_escape() const
       case '&': buf.push(L"&amp;",5); break;
       case '"': buf.push(L"&quot;",6); break;
       case '\'': buf.push(L"&apos;",6); break;
+        case '\t':
+        case '\r': 
+        case '\n': buf.push(*pc); break;
       default:
-        buf.push(*pc); break;
+          if(*pc < ' ')
+          {
+            ustring es = ustring::format(L"&#%d;",*pc);
+            buf.push(es.c_str(), es.length());
+          }
+          else
+            buf.push(*pc); 
+          break;
   }
   return ustring(buf.head(),buf.size());
 }
+
+/****************************************************************************/
+bool
+  ustring::starts_with ( const wchar *s ) const
+{
+  int slen = s? int(::wcslen(s)): 0;
+  if( slen == 0 ) return false;
+  if( slen > length()) return false;
+
+  return wcsncmp(head(), s, slen) == 0;
+}
+
+/****************************************************************************/
+bool
+  ustring::ends_with ( const wchar *s ) const
+{
+  int slen = s? int(::wcslen(s)): 0;
+  if( slen ) return false;
+  if( slen > length()) return false;
+
+  return wcsncmp(head() - slen, s, slen) == 0;
+}
+
 
 
  #include "html_entities_ph.h"
@@ -1037,6 +1069,67 @@ ustring ustring::xml_escape() const
     }
     return r;
   }
+
+  namespace utf16
+  {
+    // restore UCP (unicode code point) from utf16
+    uint getc(wchars& buf)
+    {
+      if( buf.length == 0 )
+        return 0;
+      wchar c = *buf.start; ++buf.start; --buf.length;
+      if( c < 0xD800 || c > 0xDBFF )
+        return c; // not a surrogate pair
+      if( buf.length == 0 )
+      {
+        assert(false); // surrogate pair is not complete 
+        return 0;
+      }
+      wchar nc = *buf.start; ++buf.start; --buf.length;
+      return ( c - 0xD800 ) * 0x400 + ( nc - 0xDC00 ) + 0x10000;
+    }
+    // encode UCP to two UTF16 code units
+    uint putc(uint U, wchar* W2 /*W[2]*/)
+    {
+      if( U >= 0x10FFFF ) //200000 ?
+        return 0; // wrong value of UCP.          
+      if( U < 0x10000 )
+      {
+        W2[0] = wchar(U);
+        return 1;
+      }
+      W2[0] = 0xD800 + (U >> 10);
+      W2[1] = 0xDC00 | (U & 0x3FF);
+      //W[0] = (U – 0x10000) / 0x400 + 0xD800;
+      //W[1] = (U – 0x10000) % 0x400 + 0xDC00;
+      return 2;
+    }
+    
+    bool  advance(const wchars& buf, int n, int& pos)
+    {
+      if( n >= 0 )
+         for(; n > 0; --n ) 
+      {
+           if(pos >= buf.length) { pos = buf.length; break; }
+           if( is_suro_head(buf[pos]) ) 
+             pos += 2;
+           else
+             ++pos;
+      } 
+      else // n < 0 - backward 
+         for(n = -n; n > 0; --n )  
+      {
+           if( --pos < 0) { pos = 0; break; }
+           if( is_suro_tail(buf[pos])) 
+           {
+             if(--pos < 0) { pos = 0; break; }
+         }
+      }
+      return n == 0;
+    }
+  
+  }
+
 
 
 };

@@ -63,7 +63,10 @@ typedef bool  TISAPI tiscript_object_enum(tiscript_VM *c,tiscript_value key, tis
 // destructor of native objects
 typedef void  TISAPI tiscript_finalizer(tiscript_VM *c,tiscript_value obj);
 
-// GC notifier for native objects
+// GC notifier for native objects,
+//   instance_data - value of instance data found in the object before move
+//   new_self - new value of 'self' (a.k.a. 'this') reference. 
+// Define tiscript_on_gc_copy for your native classes when you need to have weak reference to 'self' (e.g. for callbacks from native side) 
 typedef void  TISAPI tiscript_on_gc_copy(void* instance_data, tiscript_value new_self);
 
 // callback used for 
@@ -167,7 +170,7 @@ struct tiscript_native_interface
   tiscript_value (TISAPI *float_value)(double v);
   tiscript_value (TISAPI *string_value)(tiscript_VM*, const wchar* text, unsigned text_length);
   tiscript_value (TISAPI *symbol_value)(const char* zstr);
-  tiscript_value (TISAPI *bytes_value)(tiscript_VM*, const byte* data, uint data_length);
+  tiscript_value (TISAPI *bytes_value)(tiscript_VM*, const byte* data_or_null, uint data_length);
 
   tiscript_value (TISAPI *to_string)(tiscript_VM*,tiscript_value v);
 
@@ -230,6 +233,16 @@ struct tiscript_native_interface
    // It is safe to call tiscript functions inside the pfunc. 
    // returns 'true' if scheduling of the call was accepted, 'false' when failure (VM has no dispatcher attached). 
    bool           (TISAPI *post)(tiscript_VM* pvm, tiscript_callback* pfunc, void* prm);
+
+   // Introduce alien VM to the host VM:
+   // Calls method found on "host_method_path" (if there is any) on the pvm_host
+   // notifying the host about other VM (alien) creation. Return value of script function "host_method_path" running in pvm_host is passed
+   // as a parametr of a call to function at "alien_method_path".
+   // One of possible uses of this function:
+   // Function at "host_method_path" creates async streams that will serve a role of stdin, stdout and stderr for the alien vm.
+   // This way two VMs can communicate with each other.
+   //unsigned   (TISAPI *introduce_vm)(tiscript_VM* pvm_host, const char* host_method_path,  tiscript_VM* pvm_alien, const char* alien_method_path);
+   bool  (TISAPI *set_remote_std_streams)(tiscript_VM* pvm, tiscript_pvalue* input, tiscript_pvalue* output, tiscript_pvalue* error);
 };
 
 #ifdef TISCRIPT_EXT_MODULE

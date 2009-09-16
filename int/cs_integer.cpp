@@ -85,7 +85,7 @@ static value minimum( VM *c, value *argv, int argc )
       int_t t = CsIntegerValue(arg);       
       if( t < r ) r = t;
     }
-    return gotone? CsMakeInteger(r): c->undefinedValue; 
+    return gotone? CsMakeInteger(r): UNDEFINED_VALUE; 
 }
 
 static value maximum( VM *c, value *argv, int argc )
@@ -106,7 +106,7 @@ static value maximum( VM *c, value *argv, int argc )
       int_t t = CsIntegerValue(arg);       
       if( t > r ) r = t;
     }
-    return gotone? CsMakeInteger(r): c->undefinedValue; 
+    return gotone? CsMakeInteger(r): UNDEFINED_VALUE; 
 }
 
 
@@ -143,7 +143,7 @@ static value CSF_toString(VM *c)
         fmt = "%lx";
         break;
     default:
-        return c->undefinedValue;
+        return UNDEFINED_VALUE;
     }
     sprintf(buf,fmt,(int)CsIntegerValue(obj));
     return CsMakeCString(c,buf);

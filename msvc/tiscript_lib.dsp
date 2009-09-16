@@ -162,6 +162,10 @@ SOURCE=..\int\cs_integer.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\int\cs_json.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\int\cs_length.cpp
 # End Source File
 # Begin Source File

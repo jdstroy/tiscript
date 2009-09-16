@@ -71,7 +71,7 @@ static value CSF_toInteger(VM *c)
     //value obj;
     //CsParseArguments(c,"V=*",&obj,&CsByteVectorDispatch);
     //return CsMakeInteger(c,CsByteVectorSize(obj));
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 /* CSF_toString - built-in method 'toString' */
@@ -92,7 +92,7 @@ static value CSF_toString(VM *c)
       while( ps < pse ) *pd++ = *ps++;
       return s;
     }
-    return VM::nullValue;
+    return NULL_VALUE;
 }
 
 /* CSF_save - saves bytes to file */
@@ -102,23 +102,23 @@ static value CSF_save(VM *c)
     if((c->features & FEATURE_FILE_IO) == 0)
     {
        CsThrowKnownError(c,CsErrNotAllowed, "FILE IO");
-       return VM::falseValue;
+       return FALSE_VALUE;
     }
     tool::wchars filename;
     value obj;
     CsParseArguments(c,"V=*S#",&obj,&CsByteVectorDispatch, &filename.start, &filename.length);
     tool::bytes data(CsByteVectorAddress(obj),CsByteVectorSize(obj));
     if(filename.length == 0) 
-      return VM::falseValue;
+      return FALSE_VALUE;
     if( filename.like(L"file://*") )
       filename.prune( 7 );
 
     FILE* f = fopen(tool::string(filename),"w+b");
     if(!f)
-      return VM::falseValue;
+      return FALSE_VALUE;
     size_t r = fwrite(data.start,1, data.length, f);
     fclose(f);
-    return r == data.length? VM::trueValue : VM::falseValue;
+    return r == data.length? TRUE_VALUE : FALSE_VALUE;
 }
 
 /* CSF_load - loads bytes from file */
@@ -128,17 +128,17 @@ static value CSF_load(VM *c)
     if((c->features & FEATURE_FILE_IO) == 0)
     {
        CsThrowKnownError(c,CsErrNotAllowed, "FILE IO");
-       return VM::falseValue;
+       return FALSE_VALUE;
     }
     tool::wchars filename;
     CsParseArguments(c,"**S#",&filename.start, &filename.length);
     if(filename.length == 0) 
-      return VM::nullValue;
+      return NULL_VALUE;
     if( filename.like(L"file://*") )
       filename.prune( 7 );
 
     tool::mm_file mf;
-    mf.open( tool::string(filename));
+    mf.open( filename.start );
     if( !mf.data() )
       CsThrowKnownError(c,CsErrFileNotFound,filename.start);
     
@@ -149,7 +149,7 @@ static value CSF_load(VM *c)
       memcpy(dst,mf.data(),mf.size());
       return obj;
     }
-    return VM::nullValue;
+    return NULL_VALUE;
 }
 
 
@@ -163,7 +163,7 @@ static value CSF_length(VM *c,value obj)
 static value CSF_get_type(VM *c,value obj)
 {
   return CsByteVectorType(obj);
-  //return c->undefinedValue;
+  //return UNDEFINED_VALUE;
 }
 static void  CSF_set_type(VM *c,value obj,value typ)
 {
@@ -210,7 +210,7 @@ static value CsByteVectorGetItem(VM *c,value obj,value tag)
             CsThrowKnownError(c,CsErrIndexOutOfBounds,tag);
         return CsMakeInteger(CsByteVectorByte(obj,i));
     }
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 static void  CsByteVectorSetItem(VM *c,value obj,value tag,value value)
 {
@@ -290,7 +290,7 @@ value CsMakeByteVector(VM *c,const byte *data,int_t size)
         memcpy(p,data,size);
     else
         memset(p,0,size);
-    CsSetByteVectorType(newo,c->undefinedValue);
+    CsSetByteVectorType(newo,UNDEFINED_VALUE);
     return newo;
 }
 
@@ -304,7 +304,7 @@ value CsMakeFilledByteVector(VM *c, byte fill, int_t size)
     CsSetDispatch(newo,&CsByteVectorDispatch);
     CsSetByteVectorSize(newo,size);
     memset(p,fill,size);
-    CsSetByteVectorType(newo,c->undefinedValue);
+    CsSetByteVectorType(newo,UNDEFINED_VALUE);
     return newo;
 }
 

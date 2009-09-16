@@ -1,4 +1,5 @@
 #include "cs_json.h"
+#include "cs_async_stream.h"
 
 namespace tis 
 {
@@ -8,7 +9,7 @@ namespace tis
 
   tool::value CsSendMessageByNameJSON(VM *c, value obj, const char *sname,int argc, const tool::value* argv, bool optional)
   {
-      if(obj == c->undefinedValue)
+      if(obj == UNDEFINED_VALUE)
         return tool::value();
 
       int n;
@@ -16,14 +17,15 @@ namespace tis
       tool::ustring funcname(sname);
 
       value tag = CsInternCString(c,sname);
-      value method = c->undefinedValue;
+      value method = UNDEFINED_VALUE;
       if(!CsGetProperty(c,obj,tag,&method))
       {
         if( optional ) return tool::value();
       }
       //auto_scope as( c,obj );
 
-      c->val = c->undefinedValue;
+      c->val[0] = UNDEFINED_VALUE;
+      c->vals = 1;
 
       TRY
       {
@@ -32,7 +34,7 @@ namespace tis
         if( !CsMethodP(method) && !CsCMethodP(method))
         {
           //tag = method;
-          if( optional && method == c->undefinedValue) 
+          if( optional && method == UNDEFINED_VALUE) 
             return tool::value();
           else
             CsThrowKnownError(c, CsErrUnexpectedTypeError, method, sname );
@@ -43,7 +45,7 @@ namespace tis
 
         /* push the obj, selector and _next argument */
         CsPush(c,obj);
-        CsPush(c,c->undefinedValue); /* filled in below */
+        CsPush(c,UNDEFINED_VALUE); /* filled in below */
         CsPush(c,obj); /* _next */
 
         /* push the arguments */
@@ -56,7 +58,7 @@ namespace tis
         /* setup the call */
         if (Send(c,&tis::CsTopCDispatch,argc + 2))
         {
-            return value_to_value(c,c->val);
+            return value_to_value(c,c->val[0]);
         }
 
         /* execute the method */
@@ -65,9 +67,9 @@ namespace tis
       catch(tis::error_event&)
       {
          //e;
-         CsDisplay(c,c->val,c->standardError);
+         CsDisplay(c,c->val[0],c->standardError);
       }
-      return value_to_value(c,c->val);
+      return value_to_value(c,c->val[0]);
   }
 
   tool::value call_by_tool(tis::pvalue& method, const tool::value& self, uint argc, const tool::value* argv)
@@ -78,7 +80,8 @@ namespace tis
                                            value_to_value(c,self) );
 
       CsSavedState state(c);
-      c->val = c->undefinedValue;
+      c->val[0] = UNDEFINED_VALUE;
+      c->vals = 1;
       TRY
       {
         if( !CsMethodP(method.val) && !CsCMethodP(method.val))
@@ -108,7 +111,7 @@ namespace tis
         /* setup the call */
         if (Send(c,&tis::CsTopCDispatch,argc + 2))
         {
-            return value_to_value(c,c->val);
+            return value_to_value(c,c->val[0]);
         }
 
         /* execute the method */
@@ -117,10 +120,10 @@ namespace tis
       catch(tis::error_event&)
       {
          //e;
-         CsDisplay(c,c->val,c->standardError);
+         CsDisplay(c,c->val[0],c->standardError);
          state.restore();
       }
-      return value_to_value(c,c->val);
+      return value_to_value(c,c->val[0]);
   }
 
   struct object_proxy: public tool::object_proxy
@@ -152,7 +155,7 @@ namespace tis
       if( !pin.pvm || !pin.val ) return tool::value();
       if( CsVectorP(pin.val) )
       {
-        if( n < CsVectorSize(pin.pvm,pin.val) )
+        if( n < uint(CsVectorSize(pin.pvm,pin.val)) )
           return value_to_value(pin.pvm,CsVectorElement(pin.pvm,pin.val,n));
       }
       /*else if( CsObjectP(pin.val))
@@ -166,7 +169,7 @@ namespace tis
       if( !pin.pvm || !pin.val ) return false;
       if( CsVectorP(pin.val) )
       {
-        if( n >= CsVectorSize(pin.pvm,pin.val) )
+        if( n >= uint(CsVectorSize(pin.pvm,pin.val)) )
           pin.val = CsResizeVector(pin.pvm,pin.val,n);
         tis::value tv = value_to_value(pin.pvm,v);
         CsSetVectorElement(pin.pvm,pin.val,n,tv);
@@ -302,6 +305,14 @@ namespace tis
         }
         return true;
       }
+      else if( CsErrorP(v) )
+      {
+        string_stream s;
+        CsDisplay(c,v,&s);
+        vout = tool::value(s.to_ustring());
+        return true;
+      }
+
       vout = tool::value::null();
       return true;
     }
@@ -312,8 +323,9 @@ namespace tis
   {
     switch(v.type())
     {
-      case tool::value::t_undefined:  return c->undefinedValue;
-      case tool::value::t_bool:       return v.get(false)? c->trueValue:c->falseValue;
+      case tool::value::t_undefined:  return UNDEFINED_VALUE;
+      case tool::value::t_null:       return NULL_VALUE;
+      case tool::value::t_bool:       return v.get(false)? TRUE_VALUE:FALSE_VALUE;
       case tool::value::t_int:        
         if( v.units() == tool::value::clr )
           return unit_value(v._int(),tool::value::clr);
@@ -360,7 +372,7 @@ namespace tis
           if(data.length)
             return CsMakeByteVector(c,data.start, data.length);
           else
-            return VM::nullValue;
+            return NULL_VALUE;
         }
       case tool::value::t_date:
         {
@@ -373,11 +385,23 @@ namespace tis
           if(op)
             return op->pin.val;
           else
-            return VM::nullValue;
+            return NULL_VALUE;
         }
         break;
       case tool::value::t_length:
         return unit_value(v._int(),v.units());
+      case tool::value::t_resource:
+        {
+          tool::handle<tool::resource> pt = v.get_resource();
+          if( pt->type_id() == async_stream::class_id())
+          {
+            async_stream* s = (async_stream*)pt.ptr();
+            s->add_ref();
+            return CsMakeFile(c,s);
+          }
+        }
+        break;
+
     }
     assert(false);
     return UNDEFINED_VALUE;
@@ -447,13 +471,13 @@ namespace tis
   {
     if( CsStringP(v) )
       return tool::value( tool::wchars(CsStringAddress(v), CsStringSize(v)) );
-    if( v == c->undefinedValue)
+    if( v == UNDEFINED_VALUE)
       return tool::value();
-    if( v == c->nullValue )
+    if( v == NULL_VALUE )
       return tool::value::null();
-    if( v == c->trueValue )
+    if( v == TRUE_VALUE )
       return tool::value( true );
-    if( v == c->falseValue )
+    if( v == FALSE_VALUE )
       return tool::value( false );
     if( CsSymbolP(v) )
       return tool::value( tool::ustring(CsSymbolName(v)), 0xFFFF );
@@ -471,6 +495,12 @@ namespace tis
          va[i] = value_to_value(c, CsVectorElement(c,v,i));
       return va;
       */
+    }
+    if( CsFileP(c,v) )
+    {
+      stream* st = CsFileStream(v);
+      if( st->is_async_stream() )
+        return tool::value::wrap_resource( static_cast<async_stream*>(st));
     }
     if( CsObjectP( v ) )
     {
@@ -506,9 +536,8 @@ namespace tis
       /*tool::value map;
       each_property gen(c, v);
       for( value key,val; gen(key,val);)
-        map[value_to_string(key)] = value_to_value(c,val);
-      return map;
-      */
+        map[value_to_value(c,key)] = value_to_value(c,val);
+      return map;*/
     }
     if( CsByteVectorP(v) )
       return tool::value::make_bytes( tool::bytes(CsByteVectorAddress(v),CsByteVectorSize(v)) );

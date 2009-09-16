@@ -35,6 +35,7 @@ namespace tiscript
     */
 
   inline void  set_std_streams(VM* vm, stream* input, stream* output, stream* error) {  ni()->set_std_streams(vm, input, output, error); }
+  inline void  set_remote_std_streams(VM* vm, tiscript_pvalue& input, tiscript_pvalue& output, tiscript_pvalue& error) {  ni()->set_remote_std_streams(vm, &input, &output, &error); }
 
   inline VM*   get_current_vm()         { return ni()->get_current_vm(); }
   inline value get_global_ns(VM* vm)    { return ni()->get_global_ns(vm); }
@@ -313,6 +314,19 @@ namespace tiscript
   inline value  define_class( VM* vm, class_def* cd, value zns = 0) // in this namespace object (or 0 if global)
   {
     return ni()->define_class(vm,cd,zns);
+  }
+
+  // defines native function that can be accessed globally  
+  inline void define_global_function( VM* vm, method_def* md, value zns = 0) // in this namespace object (or 0 if global)
+  {
+    if( !zns ) zns = get_global_ns(vm);
+    set_prop(vm,zns,md->name, ni()->native_function_value(vm,md));
+  }
+
+  // defines native controlled property (variable if you wish) that can be accessed in namespace.  
+  inline void define_global_property( VM* vm, prop_def* pd, value zns) // in this namespace object
+  {
+    set_prop(vm,zns,pd->name, ni()->native_property_value(vm,pd));
   }
 
 }

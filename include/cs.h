@@ -13,7 +13,26 @@
 #include <stdarg.h>
 //#include "config.h"
 #include "tool.h"
-#include "tl_slice.h"
+
+#pragma pack(push, 8)
+
+namespace tis
+{
+  struct VM;
+
+/* basic types */
+  typedef uint64 value;
+
+/* float or integer */
+  typedef uint64 uint_float_t;
+
+  typedef int              int_t;
+  typedef unsigned int     symbol_t;
+  typedef double           float_t;
+  typedef tool::datetime_t datetime_t;
+}
+
+#include "cs_streams.h"
 
 //struct regexp;
 #define snprintf _snprintf
@@ -21,7 +40,6 @@
 namespace tis
 {
 
-#pragma pack(push, 8)
 
 // events
 struct  return_event
@@ -50,9 +68,20 @@ struct  error_event
   #define EXPAND_SIZE (800 * 1024)
   #define STACK_SIZE  (64 * 1024)
 #else
-  #define HEAP_SIZE   (1024 * 1024)
-  #define EXPAND_SIZE (2 * 1024 * 1024)
-  #define STACK_SIZE  (64 * 1024)
+  #ifdef X64BITS
+    #define HEAP_SIZE   (4*1024 * 1024)
+    #define EXPAND_SIZE (8 * 1024 * 1024)
+    #define STACK_SIZE  (128 * 1024)
+    #ifdef __GNUC__
+      #define PTR64_MASK    0xFFFFFFFFFFFFLL // 48bits on x64
+    #else
+      #define PTR64_MASK    0xFFFFFFFFFFFFi64 // 48bits on x64
+    #endif 
+  #else
+    #define HEAP_SIZE   (1024 * 1024)
+    #define EXPAND_SIZE (2 * 1024 * 1024)
+    #define STACK_SIZE  (64 * 1024)
+  #endif
 #endif
 
 #define FEATURE_FILE_IO   0x00000001
@@ -103,23 +132,14 @@ struct  error_event
 #define CsFaslTagBytes     8
 #define CsFaslTagDate      9
 
-struct VM;
-
-/* basic types */
-typedef uint64 value;
-
-/* float or integer */
-typedef uint64 uint_float_t;
-
-typedef int              int_t;
-typedef unsigned int     symbol_t;
-typedef double           float_t;
-typedef tool::datetime_t datetime_t;
-
 template<typename T>
   inline T* ptr( const value& v )
   {
-    return (T*)(void*)(uint32)(v);
+#if defined(X64BITS)
+    return (T*)(void*)(v & PTR64_MASK);
+#else
+    return (T*)(void*)(uint_ptr)(v);
+#endif
   }
 
 // pinned value
@@ -137,6 +157,8 @@ public:
   
   explicit pvalue(VM* c): val(0), pvm(0), next(0) ,prev(0)  { pin(c,0); }
   explicit pvalue(VM* c, value v): val(0), pvm(0), next(0) ,prev(0) { pin(c,v); }
+
+  void prune() { val = 0; pvm = 0; next = 0; prev = 0; }
 
   ~pvalue() {
     unpin();
@@ -157,6 +179,7 @@ public:
   }
 
   bool is_set() const { return val != 0; }
+  bool is_alive() const { return pvm && (val != 0); }
 
 };
 
@@ -184,7 +207,7 @@ inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
     inline value ptr_value( header* ph )    { return (value)(uint_ptr)ph; } // This is clearly bug in all GCC versions  (uint64)ptr != (uint64)(uint32)ptr
     inline value symbol_value( symbol_t i ) { return 0x2000000000000000LL | i; }
            value symbol_value( const char* str );
-    inline value int_value( int_t i )       { return 0x4000000000000000LL | (i & 0x00000000FFFFFFFFLL); }
+    inline value int_value( int_t i )           { return 0x4000000000000000LL | (i & 0x00000000FFFFFFFFLL); }
     inline value unit_value( int_t i, int_t u ) { return 0x4000000000000000LL | (i & 0x00000000FFFFFFFFLL) | (uint64(u & 0xFF) << 32); }
 
     inline value float_value( float_t f )   { value t; t = *(value*)&f; return ((t >> 1)&0x7FFFFFFFFFFFFFFFLL ) | 0x8000000000000000LL; }
@@ -197,27 +220,27 @@ inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
     #define NULL_VALUE      0x2000000000000003LL
     #define TRUE_VALUE      0x2000000000000004LL
     #define FALSE_VALUE     0x2000000000000005LL
-
+    #define PROTOTYPE_VALUE 0x2000000000000006LL
 #else
     inline value ptr_value( header* ph )    { return (value)ph; }
     inline value symbol_value( symbol_t i ) { return ((unsigned int)i)       | 0x2000000000000000i64; }
            value symbol_value( const char* str );
-    inline value int_value( int_t i )       { return ((unsigned int)i)       | 0x4000000000000000i64; }
+    inline value int_value( int_t i )           { return ((unsigned int)i) | 0x4000000000000000i64; }
     inline value unit_value( int_t i, int_t u ) { return ((unsigned int)i) | 0x4000000000000000i64 | (uint64(u & 0xFF) << 32); }
     inline value float_value( float_t f )   { value t; t = *(value*)&f; return (t >> 1 ) | 0x8000000000000000i64; }
 
-    inline value iface_value( header* ph, int n )    { return (uint64)ph | 0x1000000000000000i64 | (uint64(n) << 32); }
-    inline value iface_value( value base, int n )    { return base | 0x1000000000000000i64 | (uint64(n) << 32); }
-    inline value iface_base ( value v )  { return v & 0xFFFFFFFFi64; }
+    inline value iface_value( header* ph, int n )    { return (uint64)ph | 0x1000000000000000i64 | (uint64(n) << 48); }
+    inline value iface_value( value base, int n )    { return base | 0x1000000000000000i64 | (uint64(n) << 48); }
+    inline value iface_base ( value v )  { return v & 0xFFFFFFFFFFFFi64; }
 
     #define NOTHING_VALUE   0x2000000000000001i64
     #define UNDEFINED_VALUE 0x2000000000000002i64
     #define NULL_VALUE      0x2000000000000003i64
     #define TRUE_VALUE      0x2000000000000004i64
     #define FALSE_VALUE     0x2000000000000005i64
+    #define PROTOTYPE_VALUE 0x2000000000000006i64
 
 #endif
-
 
 //#define ptr_value(h) ( (value)(h) )
 
@@ -226,9 +249,7 @@ inline bool is_int( const value& v)       { return hidword(v) == 0x40000000; }
 inline bool is_float( const value& v)     { return (hidword(v) & 0x80000000) == 0x80000000; }
 inline bool is_unit( const value& v)      { return (hidword(v) & 0xF0000000) == 0x40000000 && hidword(v) != 0x40000000; }
 inline bool is_ptr( const value& v) {
-  dword dw;
-  dw = hidword(v);
-  dw = dw & 0xFFFF0000L;
+  dword dw = hidword(v) & 0xFFFF0000L;
   return (dw == 0);
 }
 inline bool is_iface_ptr( const value& v) { return (hidword(v) & 0xF0000000) == 0x10000000; }
@@ -240,7 +261,7 @@ inline float_t  to_float( const value& v )  { float_t t; *((value*)(&t)) = v << 
 inline int_t    to_unit( const value& v, int_t& u )  { u = hidword(v) & 0xFF; return (int_t)lodword(v); }
 inline int_t    get_unit( const value& v )  { return hidword(v) & 0xFF; }
 
-inline int      iface_no( const value& v)       { return int(v >> 32) & 0xF; } // only 16 ifaces so far
+inline int      iface_no( const value& v)       { return uint(v >> 48) & 0xF; } // only 16 ifaces so far
 inline int      symbol_idx( const value& v)     { assert(is_symbol(v)); return lodword(v); }
 
 inline void dprint_value(value v) { dword d1 = hidword(v); dword d2 = lodword(v); printf("value=%x %x\n", d1,d2); }
@@ -353,6 +374,9 @@ void CsBadValue(VM *c, value v);
 void CsAlreadyDefined(VM *c, value tag);
 
 class storage;
+
+#define V_REGISTERS 256
+
 struct _VM
 {
     unsigned int valid; /* must be first memner */
@@ -373,11 +397,16 @@ struct _VM
     value code;                  /* code obj */
     byte *cbase;                 /* code base */
     byte *pc;                    /* program counter */
-    value val;                   /* value register */
+    value val[V_REGISTERS];      /* value register */
+    uint  vals;                  /* count of cells used in val[] array, changed by BC_PUSH_RVAL, BC_POP_RVAL.
+                                    shall be >= 1 */
     value env;                   /* environment register */
-    value env_yield;             /* environment register used in BC_PRE_YIELD, BC_YIELD */
     value currentNS;             /* current namespace register */
 
+    stream *standardInput;         /* standard input stream */
+    stream *standardOutput;        /* standard output stream */
+    stream *standardError;         /* standard error stream */
+    
     value objectObject;          /* base of obj inheritance tree */
     value classObject;           /* rack for Class methods and properties */
     value methodObject;          /* obj for the Method type */
@@ -393,28 +422,16 @@ struct _VM
     value errorObject;           /* obj for the Error type */
     value regexpObject;          /* obj for the Regexp type */
     value byteVectorObject;      /* obj for the Bytes type */
+
+
     // suggest to declare it as storage* storage_list; - this needs l2elem enabled in storage class.
     tool::array<value> storages; /* obj for opened storages */
 
-
-    //value symbols;               /* symbol table */
-    //CsSymbolBlock *symbolSpace;    /* current symbol block */
-
-    value prototypeSym;          /* "prototype" */
-
-                                   /* error handler for uncaught errors*/
-    //CsProtectedPtrs *protectedPtrs;/* protected pointers */
-
     CsMemorySpace *oldSpace;       /* old memory space */
-    //CsMemorySpace **pNextOld;    /* place to link the next old space */
     CsMemorySpace *newSpace;       /* new memory space */
-    //CsMemorySpace **pNextNew;    /* place to link the next new space */
     long expandSize;               /* size of each expansion */
     unsigned long totalMemory;     /* total memory allocated */
     unsigned long allocCount;      /* number of calls to CsAlloc */
-    stream *standardInput;       /* standard input stream */
-    stream *standardOutput;      /* standard output stream */
-    stream *standardError;       /* standard error stream */
 
     dispatch *fileDispatch;
     dispatch *storageDispatch;
@@ -431,6 +448,8 @@ struct _VM
 
     pvalue pins;
 
+    bool      collecting_garbage; /* true if in GC */
+
     unsigned int features; /* must be very last */
 };
 
@@ -442,17 +461,19 @@ struct loader
 
 
 /* interpreter context structure */
-struct VM: _VM, loader
+struct VM: _VM, loader, tool::resource
 {
-    loader* ploader;
+    loader*     ploader;
     debug_peer* pdebug;
     tool::mutex guard;
-
+    
     VM( unsigned int features = 0xFFFFFFFF,
       long size = HEAP_SIZE, long expandSize = EXPAND_SIZE,long stackSize = STACK_SIZE );
 
     // reset current VM
     void reset();
+
+    void set_loader( loader* pl = 0) { ploader = pl? pl:this; }
 
     virtual void GC_started() {}
     virtual void GC_ended() {}
@@ -461,20 +482,20 @@ struct VM: _VM, loader
     virtual stream* open( const tool::ustring& url );
 
     value   getCurrentNS() const { 
-      return currentNS == undefinedValue? currentScope.globals: currentNS; 
+      return currentNS == UNDEFINED_VALUE? currentScope.globals: currentNS; 
     }
     
     virtual ~VM();
 
     tool::ustring nativeThrowValue;
 
-    const static value nothingValue;          /* internal 'nothing' value */
-    const static value undefinedValue;        /* undefined value */
+    //const static value nothingValue;          /* internal 'nothing' value */
+    //const static value undefinedValue;        /* undefined value */
 
-    const static value nullValue;             /* null value */
-    const static value trueValue;             /* true value */
-    const static value falseValue;            /* false value */
-    
+    //const static value nullValue;             /* null value */
+    //const static value trueValue;             /* true value */
+    //const static value falseValue;            /* false value */
+
     static VM* get_current();
 
     virtual bool post( tool::functor* pc )
@@ -489,6 +510,16 @@ struct VM: _VM, loader
     }
 };
 
+/*enum CONNECT_RESULT
+{
+  INVALID_PARAMETERS = -1,
+  CONNECTED_OK = 0,
+  REJECTED_BY_HOST,
+  REJECTED_BY_ALIEN,
+};
+CONNECT_RESULT CsConnect(VM* host, const char* host_method_path, VM* alien, const char* alien_method_path);*/
+
+bool CsConnect(VM* c, pvalue& input, pvalue& output, pvalue& error);
 
 
 /* pop a saved state off the stack */
@@ -499,14 +530,14 @@ struct VM: _VM, loader
 
 
 /*  boolean macros */
-//inline value    CsToBooleanB(VM* c, bool b)     { return b? c->trueValue : c->falseValue; }
-inline bool     CsTrueP(VM* c, const value& v)  { return v != c->falseValue; }
-inline bool     CsFalseP(VM* c, const value& v) { return v == c->falseValue; }
+//inline value    CsToBooleanB(VM* c, bool b)     { return b? TRUE_VALUE : FALSE_VALUE; }
+inline bool     CsTrueP(VM* c, const value& v)  { return v != FALSE_VALUE; }
+inline bool     CsFalseP(VM* c, const value& v) { return v == FALSE_VALUE; }
 
        value    CsToBoolean(VM* c, value v);
 
-inline bool     CsBooleanP(VM* c, value v)      { return v == c->trueValue || v == c->falseValue; }
-inline value    CsMakeBoolean(VM* c, bool b)    { return b? c->trueValue : c->falseValue; }
+inline bool     CsBooleanP(VM* c, value v)      { return v == TRUE_VALUE || v == FALSE_VALUE; }
+inline value    CsMakeBoolean(VM* c, bool b)    { return b? TRUE_VALUE : FALSE_VALUE; }
 
 
 /* get the global scope */
@@ -544,19 +575,22 @@ inline void CsCheckArgMin(VM* c, int m)   { if ( c->argc < m) CsTooFewArguments(
                                             CsTypeError(c,CsGetArg(c,n)); \
                                     } while (0)
 
+inline void   CsSetRVal(VM* c, int n, value v) { c->vals = 1 + n; c->val[n] = v; }
+
 
 inline int    CsArgCnt(VM* c)           { return c->argc; }
 inline value* CsArgPtr(VM* c)           { return c->argv; }
 inline value& CsGetArg(VM* c, int n)    { return c->argv[-n]; }
 
 inline value& CsCtorRes(VM* c)          { return c->argv[1]; }
-inline value  CsGetArgSafe(VM* c,int n) { return n<=c->argc? c->argv[-(n)]: c->nothingValue; }
+inline value  CsGetArgSafe(VM* c,int n) { return n<=c->argc? c->argv[-(n)]: NOTHING_VALUE; }
 
 /* stack manipulation macros */
 inline void   CsCheck(VM* c,int n)      { if (c->sp - n < &c->stack[0]) CsStackOverflow(c); }
 inline void   CsPush(VM* c,const value& v)  { *--(c)->sp = v; }
 inline void   CsCPush(VM* c,const value& v) { if (c->sp > &c->stack[0]) CsPush(c,v); else CsStackOverflow(c); }
-inline value& CsTop(VM* c)              { return *c->sp; }
+inline value& CsTop(VM* c)              { return c->sp[0]; }
+inline value& CsTop(VM* c, int n)       { return c->sp[n]; }
 inline void   CsSetTop(VM* c,const value& v) { *c->sp = v; }
 inline value& CsPop(VM* c)              { return *c->sp++; }
 inline void   CsDrop(VM* c, int n)      { c->sp += n; }
@@ -574,7 +608,7 @@ typedef value (*get_item_t)(VM *c,value obj,value key);
 typedef void  (*set_item_t)(VM *c,value obj,value key, value value);
 typedef void  (*scan_t)(VM *c,value obj);
 
-typedef value (*get_next_element_t)(VM *c,value* index, value obj);
+typedef value (*get_next_element_t)(VM *c,value* index, value obj, int nr);
 typedef long  (*thing_size_t)(value obj);
 typedef value (*thing_copy_t)(VM *c,value obj);
 typedef int_t (*thing_hash_t)(value obj);
@@ -640,8 +674,9 @@ inline  bool        CsPointerP(value o)                 { return is_ptr(o); }
 
 inline  dispatch*   CsQuickGetDispatch(value o)         
 { 
-   assert(ptr<header>(o)->pdispatch); 
-   return ptr<header>(o)->pdispatch; 
+   dispatch* pd = ptr<header>(o)->pdispatch;
+   assert(pd); 
+   return pd; 
 }
 inline  dispatch*   CsGetDispatch(value o) {
                       if( is_ptr(o) )
@@ -661,7 +696,7 @@ inline  dispatch*   CsGetDispatch(value o) {
                       }
                       else if( is_iface_ptr(o) )
                       {
-                        dispatch* pd = CsQuickGetDispatch(o);
+                        dispatch* pd = CsQuickGetDispatch(iface_base(o));
                         if( pd->interfaces )
                         {
                           int ifno = iface_no(o);
@@ -882,6 +917,7 @@ enum WELL_KNOWN_SYMBOLS // this enum must match well_known_symbols table
   S_NULL,
   S_TRUE_,
   S_FALSE_,
+  S_PROTOTYPE,
   S_BOOLEAN,
   S_INTEGER,
   S_FLOAT,
@@ -889,6 +925,7 @@ enum WELL_KNOWN_SYMBOLS // this enum must match well_known_symbols table
   S_DATE,
   S_ARRAY,
   S_OBJECT,
+  S_CLASS,
   S_SYMBOL,
   S_FUNCTION,
   S_COLOR,
@@ -1242,20 +1279,8 @@ struct CsMethod: public object/* CsMethod is an Object! */
     value        ns; // namespace
 };
 
-struct generator: public header
-{
-    value        code;
-    value        env;
-    value        globals;
-    value        ns;  // namespace
-    value        val; // first value
-    //value localFrames;   // environments of local frames.
-    int   pcoffset;      // program counter offset
-};
-
 extern dispatch CsMethodDispatch;
 extern dispatch CsPropertyMethodDispatch;
-extern dispatch CsGeneratorDispatch;
 
 inline bool   CsMethodP(value o)         { return CsIsBaseType(o,&CsMethodDispatch); }
 inline value  CsMethodCode(value o)      { return ptr<CsMethod>(o)->code; }
@@ -1273,25 +1298,8 @@ inline bool   CsObjectOrMethodP(value o) {
   return CsIsBaseType(o,&CsObjectDispatch) || CsIsBaseType(o,&CsMethodDispatch) || CsIsBaseType(o,&CsCObjectDispatch);
 }
 
-inline bool   CsGeneratorP(value o)                   { return CsIsBaseType(o,&CsGeneratorDispatch); }
-
-/*inline value  CsGeneratorCode(value o)                { return CsBasicVectorElement(o,0); }
-inline value  CsGeneratorEnv(value o)                 { return CsBasicVectorElement(o,1); }
-inline value  CsGeneratorGlobals(value o)             { return CsBasicVectorElement(o,2); }
-inline int    CsGeneratorPC(value o)                  { return to_int(CsBasicVectorElement(o,3)); }
-//inline value  CsGeneratorValue(value o)               { return CsBasicVectorElement(o,4); }
-
-inline void   CsSetGeneratorCode(value o,value v)   { CsSetBasicVectorElement(o,0,v); }
-inline void   CsSetGeneratorEnv(value o,value v)      { CsSetBasicVectorElement(o,1,v); }
-inline void   CsSetGeneratorGlobals(value o,value v)  { CsSetBasicVectorElement(o,2,v); }
-inline void   CsSetGeneratorPC(value o,int v)         { CsSetBasicVectorElement(o,3,int_value(v)); }
-//inline void   CsSetGeneratorValue(value o,value v)    { CsSetBasicVectorElement(o,4,v); }*/
-
-//#define CsMethodSize                   3
-
 value      CsMakeMethod(VM *c,value code,value env,value globals, value ns);
 value      CsMakePropertyMethod(VM *c,value code,value env,value globals, value ns);
-value      CsMakeGenerator(VM *c);
 
 /* COMPILED CODE */
 
@@ -1373,188 +1381,7 @@ value CSF_std_valueOf(VM *c);
 //value CSF_call(VM *c);
 //value CSF_apply(VM *c);
 
-/* end of file indicator for StreamGetC */
 
-/* stream */
-struct stream
-{
-    enum constants {
-      EOS = -1,
-      TIMEOUT = -2,
-    };
-    virtual int  get() { return EOS; }
-    virtual bool put(int ch) { return false; }
-    virtual ~stream() { finalize(); }
-
-    virtual bool is_file_stream() const { return false; }
-    virtual bool is_string_stream() const { return false; }
-    virtual bool is_output_stream() const { return false; }
-    virtual bool is_input_stream() const { return false; }
-    virtual const wchar* stream_name() const { return 0; }
-    virtual void         stream_name(const wchar* name) { }
-
-    bool close()
-    {
-      bool r = finalize();
-      if(delete_on_close())
-        delete this;
-      return r;
-    }
-
-    bool put_str(const char* str);
-    bool put_str(const wchar* str);
-    bool put_str(const wchar* start, const wchar* end);
-    bool put_int(int_t n);
-    bool put_long(uint64 n);
-    bool printf(const wchar *fmt,...);
-    void printf_args(VM *c, int argi = 3); // printf VM args
-
-    bool get_str(char* buf, size_t buf_size);
-
-    bool get_int(int_t& n);
-    bool get_long(uint64& n);
-
-    virtual bool finalize() { return false; }
-    virtual bool delete_on_close() { return false; }
-
-    void get_content( tool::array<wchar>& buf )
-    {
-      int c;
-      while( (c = get()) != EOS )
-        buf.push( (wchar) c );
-    }
-    value   scanf(VM* c, const wchar* fmt);
-
-};
-
-
-/* string stream structure */
-struct string_stream : public stream
-{
-    tool::array<byte> buf;
-    int  pos;
-    tool::ustring     name;
-
-    string_stream(const wchar *str, size_t sz);
-    string_stream(tool::bytes utf);
-    string_stream(size_t initial_len = 10);
-
-    virtual bool is_string_stream() const { return true; }
-    virtual bool is_input_stream() const { return true; }
-    virtual bool is_output_stream() const { return true; }
-
-    tool::ustring to_ustring() const;
-
-    virtual bool finalize();
-
-    virtual int  get();
-    virtual bool put(int ch);
-
-    value   string_o(VM* c);
-
-    virtual const wchar* stream_name() const { return name; }
-    virtual void         stream_name(const wchar* nn) { name = nn; }
-
-};
-
-struct string_i_stream : public stream
-{
-    tool::wchars  str;
-    uint          pos;
-
-    string_i_stream(tool::wchars s): str(s) , pos(0) {}
-    string_i_stream(const wchar* s, int l): str(s,l) , pos(0) {}
-
-    virtual bool is_string_stream() const { return true; }
-    virtual bool is_input_stream() const { return true; }
-
-    virtual int  get() { if( pos < str.length ) return str[pos++]; return 0; }
-
-};
-
-
-struct string_stream_sd: string_stream
-{
-   string_stream_sd(size_t initial_len = 10): string_stream(initial_len) {}
-   string_stream_sd(const wchar* str, size_t sz): string_stream(str, sz) {}
-   string_stream_sd(tool::bytes utf): string_stream(utf) {}
-   virtual bool delete_on_close() { return true; }
-};
-
-
-/* indirect stream structure */
-struct indirect_stream : public stream
-{
-    stream **pp_stream;
-
-    indirect_stream(stream **pps): pp_stream(pps) {}
-    virtual bool  finalize() { return true; }
-
-    virtual int   get() { if(pp_stream) return (*pp_stream)->get();  return EOS; }
-    virtual bool  put(int ch) { if(pp_stream) return (*pp_stream)->put(ch); return false;  }
-
-    virtual bool is_file_stream() const { if(pp_stream) return (*pp_stream)->is_file_stream(); return false; }
-    virtual bool is_output_stream() const { if(pp_stream) return (*pp_stream)->is_output_stream(); return false; }
-    virtual bool is_input_stream() const { if(pp_stream) return (*pp_stream)->is_input_stream(); return false; }
-
-    /* ATTN: don't create indirect_streams on stack! */
-    virtual bool  delete_on_close() { return true; }
-
-    virtual const wchar* stream_name() const { return (*pp_stream)->stream_name(); }
-    virtual void         stream_name(const wchar* nn) { (*pp_stream)->stream_name(nn); }
-
-
-};
-
-
-/* binary file stream structure */
-struct file_stream: public stream
-{
-    FILE *fp;
-    tool::ustring fn;
-    bool writeable;
-
-    file_stream(FILE *f, const wchar* name, bool w): fp(f),fn(name), writeable(w) { }
-
-    virtual bool is_input_stream() const { return !writeable; }
-    virtual bool is_output_stream() const { return writeable; }
-
-    virtual bool finalize();
-    virtual int  get();
-    virtual bool put(int ch);
-
-    virtual const wchar* stream_name() const { return fn; }
-    virtual void         stream_name(const wchar* nn) { }
-
-    virtual bool is_file_stream() const { return true; }
-
-    virtual void rewind() { if( fp )  fseek( fp, 0L, SEEK_SET ); /*rewind(fp);*/ }
-
-    int  get_utf8();
-    bool put_utf8(int ch);
-
-    /* ATTN: don't create file_streams on stack! */
-    virtual bool delete_on_close() { return true; }
-};
-
-
-
-/* text file stream structure */
-struct file_utf8_stream: public file_stream
-{
-    file_utf8_stream(FILE *f, const wchar* name, bool w ): file_stream(f, name, w)
-    {
-      int t = (unsigned int)get_utf8();
-      if( t != 0xFEFF )
-        rewind();
-    }
-    virtual int  get() { return get_utf8(); }
-    virtual bool put(int ch) { return put_utf8(ch); }
-};
-
-
-/* globals */
-extern stream null_stream;
 
 /* error codes */
 enum CsErrorCodes
@@ -1594,6 +1421,8 @@ enum CsErrorCodes
    CsErrGenericErrorW         ,
    CsErrPersistError          ,
    CsErrArguments             ,
+   CsErrAssertion             ,
+   CsErrAssertion2            ,
 
 /* compiler error codes */
    CsErrSyntaxError           = 0x1000,
@@ -1611,7 +1440,7 @@ enum CsErrorCodes
 void CsInitScanner(CsCompiler *c,stream *s);
 CsCompiler *CsMakeCompiler(VM *ic,long csize,long lsize);
 void CsFreeCompiler(CsCompiler *c);
-value CsCompileExpr(CsScope *scope, bool add_this);
+value CsCompileExpr(CsScope *scope, bool add_this, tool::slice< tool::ustring > argnames = tool::slice< tool::ustring >());
 /* compile sequence of expressions */
 value CsCompileExpressions(CsScope *scope, bool serverScript, int line_no = 0);
 
@@ -1624,7 +1453,6 @@ value CsCompileDataExpr(CsScope *scope);
 
 /* cs_int.c prototypes */
 
-value CsCallFunction(CsScope *scope,value fun,int argc,...);
 //value CsCallFunctionByName(CsScope *scope,char *fname,int argc,...);
 
 struct vargs
@@ -1634,14 +1462,14 @@ struct vargs
   virtual ~vargs() {}
 };
 
+value CsCallFunction(CsScope *scope,value fun,int argc,...);
 value CsCallFunction(CsScope *scope,value fun, vargs& args);
 value CsCallMethod(VM *c,value obj, value method, value ofClass, int argc,...);
-value CsExecuteNext(VM* c, value gen);
 bool  Execute(VM *c, value gen = 0);
 
 value       CsSendMessage(CsScope *scope, value obj, value selectorOrMethod,int argc,...);
 value       CsSendMessage(VM *c,value obj, value selectorOrMethod,int argc,...);
-value       CsSendMessage(VM *c,value obj, value selectorOrMethod, const value* argv, int argc);
+value       CsSendMessage(VM *c,value obj, value selectorOrMethod,const value* argv = 0, int argc = 0);
 value       CsSendMessageByName(VM *c,value obj,char *sname,int argc,...);
 
 
@@ -1730,7 +1558,7 @@ void  CsDefaultSetItem(VM *c,value obj,value tag,value value);
 
 value CsObjectGetItem(VM *c,value obj,value tag);
 void  CsObjectSetItem(VM *c,value obj,value tag,value value);
-value CsObjectNextElement(VM *c, value* index, value obj);
+value CsObjectNextElement(VM *c, value* index, value obj, int nr);
 
 /* cs_hash.c prototypes */
 int_t CsHashString(const wchar *str,int length);
@@ -1826,7 +1654,7 @@ value CsEvalDataStream(CsScope *scope,stream *s);
 
 // these two return result of last return statement seen
 value CsLoadFile(CsScope *scope,const wchar *fname, stream *os);
-value CsLoadStream(CsScope *scope,stream *is, stream *os, int line_no = 0);
+value CsLoadStream(CsScope *scope,stream *is, stream *os = 0, int line_no = 0);
 
 value CsInclude(CsScope *scope, const tool::ustring& name);
 value CsIncludeLibrary(CsScope *scope, const tool::ustring& name);
@@ -1871,6 +1699,7 @@ void CsInitErrorType(VM *c);
 /* construct error obj, automaticly builds stack trace */
 value CsError(VM *c, int n, value message);
 
+void CsWarning( VM* c, const char* msg );
 
 /* cs_instanceof.c prototypes */
 bool    CsInstanceOf(VM *c, value obj, value cls);
@@ -2077,68 +1906,69 @@ bool CsDbIndexP(VM* c, value obj);
 value CsMakeDbIndex(VM *c, value storage, oid_t oid);
 value CsDbIndexSlice(VM* c, value obj, value start, value end, bool ascent, bool startInclusive, bool endInclusive );
 
-/* check for persistent type */
-inline bool CsPersistentP(VM *c, value obj) { return ( CsObjectP(obj) || CsVectorP(obj) || CsDbIndexP(c, obj)); }
-// true if object has assosiated storage/oid with it
-inline bool CsIsPersistent( VM *c, value v)
-{
-  return CsPersistentP(c,v) && ptr<persistent_header>(v)->vstorage != 0;
+  // check for persistent type 
+  inline bool CsPersistentP(VM *c, value obj) { return ( CsObjectP(obj) || CsVectorP(obj) || CsDbIndexP(c, obj)); }
+  // true if object has assosiated storage/oid with it
+  inline bool CsIsPersistent( VM *c, value v)
+  {
+    return CsPersistentP(c,v) && ptr<persistent_header>(v)->vstorage != 0;
+  }
+
+  value CsBinaryOp(VM *c,int op, value p1, value p2);
+
+  //each_property generator
+
+  $generator(each_property)
+  {
+     int    i,cnt;
+     pvalue props;
+     pvalue prop;
+
+     each_property(VM *c, value obj, bool fetch = true)
+     { 
+        props.pin(c);
+        prop.pin(c);  
+        if(fetch) obj = CsFetchObject(c,obj);
+        props = CsObjectProperties( obj ); 
+     }
+     ~each_property() 
+     {
+       props.unpin();
+       prop.unpin();
+     }
+
+  //#pragma optimize( "g", off )
+     $emit2(value,value) // will emit key/value pair
+
+       if (CsHashTableP(props.val)) 
+       {
+            cnt = CsHashTableSize(props.val);
+            for (i = 0; i < cnt; ++i) 
+            {
+                prop.val = CsHashTableElement(props.val,i);
+                for (; prop.val != UNDEFINED_VALUE; prop.val = CsPropertyNext(prop.val))
+                {
+                  $yield2 ( CsPropertyTag(prop.val),CsPropertyValue(prop.val) );
+                }
+            }
+        }
+        else
+            for (prop.val = props.val; prop.val != UNDEFINED_VALUE; prop.val = CsPropertyNext(prop.val) )
+            {
+               $yield2 ( CsPropertyTag(prop.val),CsPropertyValue(prop.val) );
+            }
+     $stop; // stop, end of sequence. End of body of the generator.
+  //#pragma optimize( "g", on )
+  };
+
+  void finalize();
+
+  tool::value call_by_tool(tis::pvalue& method, const tool::value& self, uint argc, const tool::value* argv);
+
 }
 
-value CsBinaryOp(VM *c,int op, value p1, value p2);
-
-//each_property generator
-
-$generator(each_property)
-{
-   int    i,cnt;
-   pvalue props;
-   pvalue prop;
-
-   each_property(VM *c, value obj, bool fetch = true)
-   { 
-      props.pin(c);
-      prop.pin(c);  
-      if(fetch) obj = CsFetchObject(c,obj);
-      props = CsObjectProperties( obj ); 
-   }
-   ~each_property() 
-   {
-     props.unpin();
-     prop.unpin();
-   }
-
-//#pragma optimize( "g", off )
-   $emit2(value,value) // will emit key/value pair
-
-     if (CsHashTableP(props.val)) 
-     {
-          cnt = CsHashTableSize(props.val);
-          for (i = 0; i < cnt; ++i) 
-          {
-              prop.val = CsHashTableElement(props.val,i);
-              for (; prop.val != VM::undefinedValue; prop.val = CsPropertyNext(prop.val))
-              {
-                $yield2 ( CsPropertyTag(prop.val),CsPropertyValue(prop.val) );
-              }
-          }
-      }
-      else
-          for (prop.val = props.val; prop.val != VM::undefinedValue; prop.val = CsPropertyNext(prop.val) )
-          {
-             $yield2 ( CsPropertyTag(prop.val),CsPropertyValue(prop.val) );
-          }
-   $stop; // stop, end of sequence. End of body of the generator.
-//#pragma optimize( "g", on )
-};
-
-void finalize();
-
-tool::value call_by_tool(tis::pvalue& method, const tool::value& self, uint argc, const tool::value* argv);
+#include "../int/cs_async_stream.h"
 
 #pragma pack(pop)
-
-}
-
 
 #endif

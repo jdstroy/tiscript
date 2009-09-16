@@ -150,7 +150,7 @@ static bool ReadMethod(CsScope *scope,value *pMethod,stream *s)
     || !ReadCodeValue(scope,&code,s))
         return false;
 #pragma TODO("restore method properly (namespace!)")
-    *pMethod = CsMakeMethod(c,code,c->undefinedValue,scope->globals, c->undefinedValue);
+    *pMethod = CsMakeMethod(c,code,UNDEFINED_VALUE,scope->globals, UNDEFINED_VALUE);
     return true;
 }
 
@@ -160,7 +160,7 @@ static bool ReadValue(CsScope *scope,value *pv,stream *s)
     VM *c = scope->c;
     switch (s->get()) {
     case CsFaslTagNil:
-        *pv = c->undefinedValue;
+        *pv = UNDEFINED_VALUE;
         return true;
     case CsFaslTagCode:
         return ReadCodeValue(scope,pv,s);
@@ -239,7 +239,7 @@ static bool ReadObjectValue(CsScope *scope,value *pv,stream *s)
             return false;
     }
     else
-        klass = c->undefinedValue;
+        klass = UNDEFINED_VALUE;
     CsCheck(c,2);
     CsPush(c,CsMakeObject(c,klass));
     while (--size >= 0) {

@@ -4,7 +4,7 @@
 #if defined(_WIN32_WCE) || defined(UNDER_CE)
   #define PLATFORM_WINCE
   #define WINDOWS
-#elif defined(WIN64) || defined(_WIN64)
+#elif defined(WIN64) || defined(_WIN64) || defined(_M_X64)
   #define PLATFORM_DESKTOP
   #define WINDOWS
   #define X64BITS
@@ -150,7 +150,7 @@ typedef unsigned char         byte;
 typedef unsigned int          uint;
 typedef unsigned short        ushort;
 
-typedef uint32                unicode; // unicode code point
+typedef uint32                ucode;   // unicode code point
 
 #if defined(X64BITS)
   typedef uint64              uint_ptr;

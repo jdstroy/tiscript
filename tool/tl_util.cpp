@@ -19,8 +19,10 @@ static char THIS_FILE[] = __FILE__;
 #include <shlobj.h>
 #endif
 
-namespace tool {
+#include <limits.h>
 
+namespace tool 
+{
 
 void split_path(const char *path, string& drive, string& dir, string& name, string& ext)
 {
@@ -198,5 +200,5 @@ tstring  get_standard_dir(STANDARD_DIR sd)
   #define HINSTANCE_THISCOMPONENT ((HINSTANCE)&__ImageBase)
 #endif
 
-
 }
+

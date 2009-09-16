@@ -1,64 +1,53 @@
-<HTML>
-  <HEAD>
-    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <META name="GENERATOR" content="BLOCKNOTE.NET">
-    <META name="source">
-    <META name="source">
-    <BASEFONT face="Verdana" size="2">
-    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-</STYLE>
-  </HEAD>
-<BODY>
-<H1>Bytes object</H1>
-<P>Bytes is an array of bytes.</P><DIV align="left">
-<TABLE border="0" cellpadding="2" cellspacing="4" width="100%">
-  <TR>
-    <TD colspan="2"><STRONG><FONT size="4">Constants</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD width="147" valign="top" align="right">&nbsp;</TD>
-    <TD bgcolor=#fffff0 valign="top">N/A</TD>
-  </TR>
-  <TR>
-    <TD colspan="2"><STRONG><FONT size="4">Properties</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD width="117" bgcolor=#ffffff valign="top" align="right"><STRONG><EM>[index]</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle"><STRONG>- </STRONG><EM>integer</EM>, element of the array at the <EM>index</EM> position, read-write index accessor. Zero-based integer index.</TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>length</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">- <EM>integer</EM>, read-only, number of bytes in the byte vector.</TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>type</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">- <EM>any</EM>, could be used for any purposes but sciter uses it to report mime-type (string) of the data received by request() method</TD>
-  </TR>
-  <TR>
-    <TD colspan="2" valign="top"><STRONG><FONT size="4">Methods</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>toString</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<P><STRONG>( </STRONG>&nbsp;<STRONG>)</STRONG> returns: <EM>string</EM></P>
-<P>Returns <EM>base64</EM> representation of the byte vector.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>save</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>( </STRONG><EM>filename</EM>:string <STRONG>)</STRONG> returns: <EM>true|false</EM></DIV>
-<P>Saves content of the byte vector into the file. If file exists then it will be overwritten.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>load</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>( </STRONG><EM>filename</EM>:string <STRONG>)</STRONG> returns: <EM>Bytes</EM></DIV>
-<P>Static method. Creates new Bytes object, loads file into it and returns that object.</P></TD>
-  </TR>
-</TABLE>
-</DIV>
-</BODY>
-</HTML>
+<html>
+  <head>
+    <meta name="GENERATOR" content="BLOCKNOTE.NET"/>
+    <meta name="source"/>
+    <meta name="source"/>
+    <basefont face="Verdana" size="2"/>
+    <meta name="generator" content="h-smile:richtext"/>
+  </head>
+<body>
+  <h1>Bytes object</h1>
+  <p>Bytes is an array of bytes.</p>
+  <div align="left">
+    <table border="0" cellpadding="2" cellspacing="4" width="100%">
+      <tr>
+        <td colspan="2"><strong><font size="4">Constants</font></strong></td></tr>
+      <tr>
+        <td width="147" valign="top" align="right"></td>
+        <td bgcolor="#fffff0" valign="top">N/A</td></tr>
+      <tr>
+        <td colspan="2"><strong><font size="4">Properties</font></strong></td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>[index]</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle"><strong>- </strong><em>integer</em>, element of the array at the <em>index</em> position, read-write index accessor. Zero-based integer index.</td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>length</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- <em>integer</em>, read-only, number of bytes in the byte vector.</td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>type</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- <em>any</em>, could be used for any purposes but sciter uses it to report mime-type (string) of the data received by request() method</td></tr>
+      <tr>
+        <td colspan="2" valign="top"><strong><font size="4">Methods</font></strong></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right">[new Bytes]</td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p>( <em>numBytes</em>: integer )</p>
+          <p>Constructs object of type Bytes - sequence of bytes of <em>numBytes</em> length.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>toString</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>( </strong>&nbsp;<strong>)</strong> returns: <em>string</em></p>
+          <p>Returns <em>base64</em> representation of the byte vector.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>save</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>filename</em>:string <strong>)</strong> returns: <em>true|false</em></div>
+          <p>Saves content of the byte vector into the file. If file exists then it will be overwritten.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>load</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>filename</em>:string <strong>)</strong> returns: <em>Bytes</em></div>
+          <p>Static method. Creates new Bytes object, loads file into it and returns that object.</p></td></tr></table></div>
+</body>
+</html>

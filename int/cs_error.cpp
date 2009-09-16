@@ -29,7 +29,7 @@ static ErrString errStrings[] = {
 {       CsErrInsufficientMemory,   "Insufficient memory"  },
 {       CsErrStackOverflow,        "Stack overflow"       },
 {       CsErrTooManyArguments,     "Too many arguments - %V"        },
-{       CsErrTooFewArguments,      "Too few arguments - %V"       },
+//{       CsErrTooFewArguments,      "Too few arguments - %V"       },
 {       CsErrTypeError,            "Wrong type - (%V)"            },
 {       CsErrUnexpectedTypeError,  "Wrong type - (%V), expected %s"   },
 {       CsErrUnboundVariable,      "Variable not found - %V"            },
@@ -46,7 +46,7 @@ static ErrString errStrings[] = {
 {       CsErrStoreIntoConstant,    "Attempt to store into a constant"   },
 {       CsErrIsNotLValue,          "Expresion is not an l-value"    },
 //{       CsErrSyntaxError,          "%M(%L) : syntax error : %E"     },
-{       CsErrSyntaxError,          "%M(%L) : syntax error : %s\n\nline:%S\nhere:%s\n"   },
+{       CsErrSyntaxError,          "bad syntax : %s\nline:%S\nhere:%s\nfile:(%M(%L))"   },
 //cs_scn.cpp(752) : error C2143: syntax error : missing ';' before '.'
 {       CsErrReadOnlyProperty,    "Attempt to set a read-only property %V"  },
 {       CsErrWriteOnlyProperty,   "Attempt to get a write-only property %V" },
@@ -66,6 +66,8 @@ static ErrString errStrings[] = {
 {       CsErrGenericError,         "%s"                                 },
 {       CsErrGenericErrorW,        "%S"                                 },
 {       CsErrTooFewArguments,      "Wrong number of arguments - %V"     },
+{       CsErrAssertion,            "Assertion failed on %V"             },
+{       CsErrAssertion2,           "Assertion failed on %V:%V"          },
 {       0,                          0                                       }
 };
 
@@ -97,12 +99,12 @@ void CsThrowKnownError(VM *c,int code,...)
       s.close();
     
       err = CsError(c, code, message);
-      c->val = err;
+      c->val[0] = err;
     }
     else
     {
       c->standardError->printf(L"Stack overflow!\n");
-      c->val = VM::nullValue;
+      c->val[0] = NULL_VALUE;
     }
     
     THROW_ERROR(code);
@@ -123,7 +125,7 @@ void CsThrowErrorV(VM *c,const char* msg,va_list ap)
     
     err = CsError(c, 256, message);
 
-    c->val = err;
+    c->val[0] = err;
     
     THROW_ERROR(256);
         
@@ -331,8 +333,6 @@ dispatch CsErrorDispatch = {
     CsDefaultSetItem
 };
 
-
-
 /* CsInitErrorType - initialize the 'File' obj */
 void CsInitErrorType(VM *c)
 {
@@ -340,7 +340,6 @@ void CsInitErrorType(VM *c)
     CsEnterMethods(c,c->errorObject,methods);
     CsEnterVPMethods(c,c->errorObject,properties);
 }
-
 
 value CsError(VM *c, int n, value message)
 {
@@ -356,7 +355,13 @@ value CsError(VM *c, int n, value message)
     s.close();
 
     return CsMakeFixedVector(c,&CsErrorDispatch,NumErrorFields,v);
-  
+}
+
+void CsWarning( VM* c, const char* msg )
+{
+  c->standardError->printf(L"WARNING:%S\n",msg);
+  CsStreamStackTrace(c,c->standardError);
+  c->standardError->printf(L"\n");
 }
 
 static value CSF_ctor(VM *c)

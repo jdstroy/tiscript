@@ -72,7 +72,7 @@
 #define BC_EH_POP     0x3c    /* pop error handler */
 //#define BC_EH_RETURN  0x3d    /* return in try block */
 #define BC_IN         0x3e    /* val <- true/false */
-#define BC_NEXT       0x3f    /* val <- next(top,val) */
+#define BC_NEXT       0x3f    /* val <- next(top,val, num_of_returns) */
 #define BC_NOTHING    0x40    /* load val with inernal 'nothing' value*/
 #define BC_BRDEF      0x41    /* branch on c->val != nothingValue */
 #define BC_OUTPUT     0x42    /* output value */
@@ -91,21 +91,26 @@
 #define BC_DEBUG      0x55
 #define BC_S_CALL     0x56    /* push current PC of next instruction on top of the stack and jump to instruction given by arg.  */
 #define BC_S_RETURN   0x57    /* pop value of PC from top of the stack. */
-#define BC_YIELD      0x58    /* N/A. */
-#define BC_NEWCLASS   0x59    /* pop value of PC from top of the stack. */
-#define BC_USHL       0x5a    /* shift left top two stack entries, signed int */
-#define BC_USHR       0x5b    /* shift right top two stack entries, signed int */
-#define BC_NS         0x5c    /* c->val = c->currentNS */
+#define BC_NEWCLASS   0x58    /* pop value of PC from top of the stack. */
+#define BC_USHL       0x59    /* shift left top two stack entries, signed int */
+#define BC_USHR       0x5a    /* shift right top two stack entries, signed int */
+#define BC_NS         0x5b    /* c->val = c->currentNS */
+#define BC_CAR        0x5c    /* s ~/ d */
+#define BC_CDR        0x5d    /* s ~% d */
+#define BC_RCAR       0x5e    /* s /~ d */
+#define BC_RCDR       0x5f    /* s %~ d */
+#define BC_GSETNS     0x60    /* set the value of a variable in current namespace */
+#define BC_ROTATE     0x61    /* rotate N elements of the stack so s[n-1] = s[0], s[0] = s[1], ... */
+#define BC_INCLUDE_LIBRARY    0x62 /* load native libaray */
+#define BC_ASSERT     0x63 
+#define BC_PUSH_RVAL  0x64    /* push c-val[0] -> c-val[1] -> c-val[2] ... */
+#define BC_POP_RVAL   0x65    /* pop  c-val[0] <- c-val[1] <- c-val[2] ... */
+#define BC_RESET_RVAL 0x66    /* c-vals = 1 */
 
-#define BC_CAR        0x5d    /* s ~/ d */
-#define BC_CDR        0x5e    /* s ~% d */
-#define BC_RCAR       0x5f    /* s /~ d */
-#define BC_RCDR       0x60    /* s %~ d */
-
-#define BC_GSETNS     0x61    /* set the value of a variable in current namespace */
-#define BC_ROTATE     0x62    /* rotate N elements of the stack so s[n-1] = s[0], s[0] = s[1], ... */
-#define BC_INCLUDE_LIBRARY 0x63 /* load native libaray */
-
-#define BC_PRE_YIELD  0x64    /* unstack current frame and store it in c->env_yield  */
+#define BC_EQ_M         0x67  /* equal multiple */
+#define BC_NE_M         0x68  /* not equal multiple */
+#define BC_EQ_STRONG_M  0x69  /* identical multiple */
+#define BC_NE_STRONG_M  0x6a  /* not identical multiple */
+#define BC_STACK_RVAL   0x6b  /* all c-vals -> push to stack multiple */
 
 #endif

@@ -7,7 +7,7 @@
 
 #include "cs.h"
 
-namespace tis
+namespace tis 
 {
 
 /*
@@ -47,13 +47,13 @@ int CsParseArguments(VM *c,char *fmt,...)
 
             /* check for another argument */
             if (--argc < 0)
-				        break;
+                break;
 
             /* get the argument */
             arg = *--argv;
 
             /* pdispatch on the specifier */
-            switch (spec)
+            switch (spec) 
             {
             case '*':   /* skip */
                 break;
@@ -111,14 +111,14 @@ int CsParseArguments(VM *c,char *fmt,...)
                 }
                 break;
             case 'S':   /* string */
-                {
+                {   
                     wchar **p = va_arg(ap,wchar **);
                     bool nilAllowedP = false;
                     if (*fmt == '?') {
                         nilAllowedP = true;
                         ++fmt;
                     }
-                    if (nilAllowedP && arg == c->undefinedValue)
+                    if (nilAllowedP && arg == UNDEFINED_VALUE)
                         *p = NULL;
                     else if (CsStringP(arg))
                         *p = CsStringAddress(arg);
@@ -132,14 +132,14 @@ int CsParseArguments(VM *c,char *fmt,...)
                 }
                 break;
             case 'V':   /* value */
-                {
+                {   
                     value *p = va_arg(ap,value *);
                     bool nilAllowedP = false;
                     if (*fmt == '?') {
                         nilAllowedP = true;
                         ++fmt;
                     }
-                    if (nilAllowedP && arg == c->undefinedValue)
+                    if (nilAllowedP && arg == UNDEFINED_VALUE)
                         *p = 0;
                     else {
                         if (*fmt == '=') {
@@ -164,7 +164,7 @@ int CsParseArguments(VM *c,char *fmt,...)
                         nilAllowedP = true;
                         ++fmt;
                     }
-                    if (nilAllowedP && arg == c->undefinedValue)
+                    if (nilAllowedP && arg == UNDEFINED_VALUE)
                         *p = NULL;
                     else {
                         if (*fmt == '=') {
@@ -186,7 +186,7 @@ int CsParseArguments(VM *c,char *fmt,...)
             case 'B':   /* boolean */
                 {   
                   bool *p = va_arg(ap,bool *);
-                    *p = CsTrueP(c,arg);
+                  *p = CsTrueP(c,arg);
                 }
                 break;
             case 'L':  /* symbol */
@@ -223,9 +223,9 @@ int CsParseArguments(VM *c,char *fmt,...)
 
     //if (argc > 0)
     //    CsTooManyArguments(c);
-    //else
+    //else 
     if (argc < 0 && !optionalP)
-	      CsTooFewArguments(c);
+        CsTooFewArguments(c);
 
     return argc;
 

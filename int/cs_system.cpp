@@ -23,7 +23,7 @@ static value CSF_userLang(VM *c,value obj)
   tool::string country;
   if(tool::get_lang_country(lang,country,true))
     return CsInternCString(c,lang);
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 static value CSF_userCountry(VM *c,value obj)
@@ -32,7 +32,7 @@ static value CSF_userCountry(VM *c,value obj)
   tool::string country;
   if(tool::get_lang_country(lang,country,true))
     return CsInternCString(c,country);
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 /* file methods */
@@ -77,7 +77,7 @@ void CsInitSystem(VM *c)
   bool entry( const wchar* name, uint flags  )
   { 
     value r = CsCallFunction(CsCurrentScope(c),fun,2,CsMakeCString(c,name), CsMakeInteger(c, flags));
-    return CsToBoolean(c,r) == c->trueValue;
+    return CsToBoolean(c,r) == TRUE_VALUE;
   }
 };*/
 
@@ -117,7 +117,7 @@ static value CSF_scanFiles(VM *c)
     if((c->features & FEATURE_FILE_IO) == 0)
     {
       CsThrowKnownError(c,CsErrNotAllowed, "FILE IO");
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
     }
 
     wchar *path = 0;
@@ -143,7 +143,7 @@ static value CSF_scanFiles(VM *c)
       {
         const folder_entry& fe = entries[n]; 
         value r = CsCallFunction(CsCurrentScope(c),fun,2,CsMakeCString(c,fe.name), CsMakeInteger(fe.flags));
-        if(CsToBoolean(c,r) != c->trueValue)
+        if(CsToBoolean(c,r) != TRUE_VALUE)
           break;
       }
     }
@@ -160,7 +160,7 @@ static value CSF_scanFiles(VM *c)
     if((c->features & FEATURE_SYSINFO) == 0)
     {
       CsThrowKnownError(c,CsErrNotAllowed, "SYS INFO");
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
     }
 
     wchar* path = 0;
@@ -184,7 +184,7 @@ static value CSF_scanFiles(VM *c)
     if((c->features & FEATURE_SYSINFO) == 0)
     {
       CsThrowKnownError(c,CsErrNotAllowed, "SYS INFO");
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
     }
 
     symbol_t sym = 0;
@@ -226,7 +226,6 @@ static value CSF_scanFiles(VM *c)
 
     return CsMakeCString(c,p);
   }
-
 
 
 

@@ -70,14 +70,14 @@ value CsCObjectGetItem(VM *c,value obj,value tag)
         //*pValue = CsPropertyValue(p);
         return CsPropertyValue(p);
     }
-    return VM::undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 void CsCObjectSetItem(VM *c,value obj,value tag,value val)
 {
   int_t hashValue = 0,i;
   value p;
-  if( CsSymbolP(tag) && tag == c->prototypeSym )
+  if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
   {
     CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
   }
@@ -96,7 +96,7 @@ bool CsGetCObjectProperty(VM *c,value& obj,value tag,value *pValue)
     value self = obj;
     value p;
     dispatch *d = CsGetDispatch(obj);
-    if( CsSymbolP(tag) && tag == c->prototypeSym )
+    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
     {
       *pValue = d->obj;
       return true;
@@ -116,7 +116,7 @@ bool CsGetCObjectProperty(VM *c,value& obj,value tag,value *pValue)
             CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
         }
         else if(CsPropertyMethodP(propValue)) 
-          *pValue = CsSendMessage(c,obj,propValue,1, c->nothingValue);
+          *pValue = CsSendMessage(c,obj,propValue,1, NOTHING_VALUE);
         else
           *pValue = propValue;
 
@@ -141,7 +141,7 @@ bool CsGetCObjectProperty(VM *c,value& obj,value tag,value *pValue)
                   CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
               }
               else if(CsPropertyMethodP(propValue)) 
-                *pValue = CsSendMessage(c,self,propValue,1, c->nothingValue);
+                *pValue = CsSendMessage(c,self,propValue,1, NOTHING_VALUE);
               else 
                 *pValue = propValue;
               
@@ -254,7 +254,7 @@ static value CObjectNewInstance(VM *c,value proto)
 {
    //value val;
    //if(!GetObjectProperty(c,obj,tag,&val))
-   //  return c->undefinedValue;
+   //  return UNDEFINED_VALUE;
    dispatch *d = (dispatch *)CsCObjectValue(obj);
    if(d->getItem != CsDefaultGetItem)
      return d->getItem(c,obj,tag);
@@ -318,8 +318,8 @@ dispatch *CsMakeCObjectType(
     d->proto = proto;
     d->dataSize = size;
 
-    d->getItem = CsDefaultGetItem;
-    d->setItem = CsDefaultSetItem;
+    //???? d->getItem = CsDefaultGetItem;
+    //???? d->setItem = CsDefaultSetItem;
     d->addConstant = CsAddCObjectConstant;
 
     /* make the type obj */
@@ -364,10 +364,10 @@ value CsMakeCObject(VM *c,dispatch *d)
     CsSetDispatch(newo,d);
     SetCObjectNext(newo,c->newSpace->cObjects);
     c->newSpace->cObjects = newo;
-    CsSetObjectClass(newo,c->undefinedValue);
-    CsSetObjectProperties(newo,c->undefinedValue);
+    CsSetObjectClass(newo,UNDEFINED_VALUE);
+    CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
-    //CsSetCObjectPrototype(newo,c->undefinedValue);
+    //CsSetCObjectPrototype(newo,UNDEFINED_VALUE);
     return newo;
 }
 
@@ -499,7 +499,7 @@ bool CsGetVirtualProperty(VM *c,value& obj,value proto,value tag,value *pValue)
           CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
       }
       else if(CsPropertyMethodP(propValue)) 
-        *pValue = CsSendMessage(c,self,propValue,1, VM::nothingValue);
+        *pValue = CsSendMessage(c,self,propValue,1, NOTHING_VALUE);
       else 
         *pValue = propValue;
       return true;

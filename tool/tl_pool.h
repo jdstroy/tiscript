@@ -10,7 +10,7 @@
 #ifndef __tl_pool_h
 #define __tl_pool_h
 
-//#include "tl_pool.h"
+#include "tl_sync.h"
 
 namespace tool
 {
@@ -72,6 +72,7 @@ namespace tool
 
     inline const c_element& intern( const c_element &elem )
     {
+      critical_section cs(_guard);
       return _array[ int(get_index( elem,true)) ];
     }
 
@@ -99,6 +100,7 @@ namespace tool
     array<hash_item> *  _table;
 
     array<c_element>    _array;
+    mutex               _guard;  
     //size_t              _get ( const c_element& the_key, bool create );
 
     /*

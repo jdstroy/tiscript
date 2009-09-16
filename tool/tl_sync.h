@@ -12,11 +12,16 @@
 #define __tl_sync_h__
 
 #include "tl_basic.h"
+#ifdef SCITER
 #include "threadalloc.h"
+#endif
 
 #ifdef WINDOWS
   #define WIN32_LEAN_AND_MEAN
   #include <windows.h>
+  #ifndef UNDER_CE
+  #include <process.h>
+  #endif
 #else
   #include <pthread.h>
 #endif
@@ -75,6 +80,16 @@ struct event
 inline void yield()
 {
   ::Sleep(1); // 1 is a MUST here, seems like ::Sleep(0); is not enough on Vista
+}
+
+inline bool run_thread(void (*start_routine)(void*), void* arg)
+{
+#ifdef UNDER_CE
+  assert(false); 
+  return false;
+#else
+  return (unsigned long)(-1) != _beginthread( start_routine,0,arg);
+#endif
 }
 
 #else
@@ -140,6 +155,11 @@ inline void yield()
   sched_yield();
 }
 
+inline bool run_thread(void *(*start_routine)(void*), void* arg)
+{
+  pthread_t thread = 0;
+  return 0 == pthread_create(&thread, 0, start_routine, arg);
+}
 
 #endif
 

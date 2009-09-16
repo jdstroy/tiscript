@@ -1,0 +1,44 @@
+<html>
+<head>
+  <style></style>  
+  <script type="text/tiscript">
+    /*var z = 1;
+    var x = {one:1, two:2};
+    function foo(bar, baz)
+    {
+      stdout << bar << "\n";  
+      stdout << baz << "\n"; 
+    }
+    foo(z = x.two, true);
+    */
+    
+    function t()
+    {
+      var (x, y, z) = (1, 2, 3);
+      assert (x, y, z) == (1, 2, 3)   : "multivalue eq";
+      assert (x, y, z) != (1, 2, 4)   : "multivalue ne";
+      assert (x, y, z) === (1, 2, 3)  : "multivalue strong eq";
+      assert (x, y, z) !== (3, 2, 3)  : "multivalue strong ne";
+      
+      assert !((x, y, z) == (1, 2))   : "2 multivalue eq";
+      assert (x, y, z) != (1, 2)      : "2 multivalue ne";
+      assert !((x, y, z) === (1, 2))  : "2 multivalue strong eq";
+      assert (x, y, z) !== (3, 2)     : "2 multivalue strong ne";
+    }
+    
+    try 
+    {
+      t();
+      self.$("pre#out").text = "Passed!";
+    }
+    catch(e)
+    {
+      self.$("pre#out").text = e;
+    }
+    
+  </script>  
+</head>
+<body>
+  <pre #out></pre>
+</body>
+</html>

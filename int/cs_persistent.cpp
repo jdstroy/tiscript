@@ -87,10 +87,10 @@ value CsDbIndexSlice(VM* c, value obj, value start, value end, bool ascent, bool
   assert( CsDbIndexP(c, obj) );
 
   if( !CsIsPersistent(c, obj) )
-  { CsThrowKnownError(c, CsErrPersistError, strErrIndexInit); }
+    { CsThrowKnownError(c, CsErrPersistError, strErrIndexInit); }
 
   value vs = ptr<persistent_header>(obj)->vstorage;
-	storage* s = (storage*)CsCObjectValue(vs);
+  storage* s = (storage*)CsCObjectValue(vs);
   oid_t oidIdx = ptr<persistent_header>(obj)->oid;
 
   // create new object (a.k.a. iterator)
@@ -104,7 +104,7 @@ value CsDbIndexSlice(VM* c, value obj, value start, value end, bool ascent, bool
   Transform(c, vs, start, data->start);
   Transform(c, vs, end, data->end);
   if(data->start.type != data->end.type)
-  { CsThrowKnownError(c, CsErrPersistError, "Min and max keys are of different types"); }
+    { CsThrowKnownError(c, CsErrPersistError, "Min and max keys are of different types"); }
 
 
   return retObj;
@@ -127,7 +127,7 @@ static void DestroyDbIndex(VM *c,value obj);
 static value DbIndexGetItem(VM *c,value obj,value tag);
 static void  DbIndexSetItem(VM *c,value obj,value tag,value val);
 static void _DbIndexSetItem(VM *c, value obj, value tag, value val, bool replace);
-static value DbIndexGetNextElement(VM *c, value* index, value obj);
+static value DbIndexGetNextElement(VM *c, value* index, value obj, int nr);
 
 
 /* Storage methods */
@@ -139,7 +139,7 @@ static c_method methods[] =
     C_METHOD_ENTRY( "add",          CSF_dbindexAdd        ),
     C_METHOD_ENTRY( "find",         CSF_dbindexFind       ), // search in the index
 
-    C_METHOD_ENTRY(	0,              0                     )
+    C_METHOD_ENTRY( 0,              0                     )
 };
 
 /* storage properties */
@@ -147,7 +147,7 @@ static vp_method properties[] =
 {
     VP_METHOD_ENTRY( "length",      CSF_get_length,   0           ),
     VP_METHOD_ENTRY( "asc",         0,                CSF_set_asc ),
-    VP_METHOD_ENTRY( 0,             0,					      0	          )
+    VP_METHOD_ENTRY( 0,             0,                0           )
 };
 
 
@@ -183,7 +183,7 @@ value CSF_dbindexRemove(VM *c)
   { CsThrowKnownError(c, CsErrPersistError, strErrIndexInit); }
 
   value vs = ptr<persistent_header>(obj)->vstorage;
-	storage* s = (storage*)CsCObjectValue(vs);
+  storage* s = (storage*)CsCObjectValue(vs);
   oid_t oidIdx = ptr<persistent_header>(obj)->oid;
 
   // transform 'key' into triplet
@@ -197,7 +197,7 @@ value CSF_dbindexRemove(VM *c)
         (db_key.type == dybase_string_type) ? (void*)db_key.data.s : &db_key.data, db_key.type, db_key.len, 
         oidVal);
 
-  return (ret ? c->trueValue : c->falseValue); 
+  return (ret ? TRUE_VALUE : FALSE_VALUE); 
 }
 
 // usage:
@@ -222,7 +222,7 @@ value CSF_dbindexSelect(VM *c)
 //    var iter = index.search(minVal, maxVal[, true|false]); 
 //    for( var obj in iter ) { ... }
 //  return nothingValue when the end is reached
-value DbIndexGetNextElement(VM *c, value* index, value obj)
+value DbIndexGetNextElement(VM *c, value* index, value obj, int nr)
 {
   if( !CsIsPersistent(c, obj) )
   { CsThrowKnownError(c, CsErrPersistError, strErrIndexInit); }
@@ -230,12 +230,12 @@ value DbIndexGetNextElement(VM *c, value* index, value obj)
   DbIndexData* data = NULL;
   value vs = ptr<persistent_header>(obj)->vstorage;
 
-  if( *index == c->nothingValue ) // first
+  if( *index == NOTHING_VALUE ) // first
   {
     DbIndexData* dataObj = (DbIndexData*)CsCObjectValue(obj);
     assert(dataObj);
 
-	  storage* s = (storage*)CsCObjectValue(vs);
+    storage* s = (storage*)CsCObjectValue(vs);
     oid_t oidIdx = ptr<persistent_header>(obj)->oid;
 
     *index = CsMakeDbIndex( c, vs, oidIdx );
@@ -262,7 +262,7 @@ value DbIndexGetNextElement(VM *c, value* index, value obj)
 
   oid_t oid = dybase_index_iterator_next(data->iterator);
   if(!oid) // end of the iterator
-  { return c->nothingValue; }
+  { return NOTHING_VALUE; }
   
   //AM: very week assumption that the obj in index is of type 'Object'
   //AM: It is not weak now - all adding/insertion methods enforce it to be an object.
@@ -284,7 +284,7 @@ value CSF_dbindexNext(VM *c)
   { CsThrowKnownError(c, CsErrPersistError, strErrIndexInit); }
 
   value vs = ptr<persistent_header>(obj)->vstorage;
-	storage* s = (storage*)CsCObjectValue(vs);
+  storage* s = (storage*)CsCObjectValue(vs);
   oid_t oidIdx = ptr<persistent_header>(obj)->oid;
 
   if( !data->iterator )
@@ -299,7 +299,7 @@ value CSF_dbindexNext(VM *c)
 
   oid_t oid = dybase_index_iterator_next(data->iterator);
   if(!oid) // end of the iterator
-  { return c->nothingValue; }
+  { return NOTHING_VALUE; }
 
   return CsFetchObject( c, vs, oid );
 }
@@ -322,7 +322,7 @@ value CSF_dbindexAdd(VM *c)
     CsThrowKnownError(c, CsErrUnexpectedTypeError, val, "Index can hold only Objects");
 
   _DbIndexSetItem(c, obj, tag, val, replace);
-  return c->trueValue;
+  return TRUE_VALUE;
 }
 
 
@@ -345,7 +345,7 @@ value CSF_dbindexFind(VM *c)
 #pragma TODO("CSF_dbindexFind is not implemented yet")
   CsThrowKnownError(c, CsErrPersistError, "Not implemented yet.");
 
-  return c->nullValue;
+  return NULL_VALUE;
 }
 
 
@@ -358,7 +358,7 @@ value CSF_get_length(VM *c, value obj)
   assert(data);
 
   value vs = ptr<persistent_header>(obj)->vstorage;
-	storage* s = (storage*)CsCObjectValue(vs);
+  storage* s = (storage*)CsCObjectValue(vs);
   assert(s);
   oid_t oidIdx = ptr<persistent_header>(obj)->oid;
   assert(oidIdx);
@@ -414,7 +414,7 @@ value DbIndexGetItem(VM *c, value obj, value tag)
   { CsThrowKnownError(c, CsErrPersistError, strErrIndexInit); }
 
   value vs = ptr<persistent_header>(obj)->vstorage;
-	storage* s = (storage*)CsCObjectValue(vs);
+  storage* s = (storage*)CsCObjectValue(vs);
   oid_t oidIdx = ptr<persistent_header>(obj)->oid;
 
   db_triplet db_key;
@@ -436,7 +436,7 @@ value DbIndexGetItem(VM *c, value obj, value tag)
   }
   else
   { 
-    return c->undefinedValue; 
+    return UNDEFINED_VALUE; 
   }
 }
 
@@ -451,7 +451,7 @@ void _DbIndexSetItem(VM *c, value obj, value tag, value val, bool replace)
   /* --- save 'obj' in storage --- */
 
   value vs = ptr<persistent_header>(obj)->vstorage;  
-	storage* s = (storage*)CsCObjectValue(vs);
+  storage* s = (storage*)CsCObjectValue(vs);
   //printf("_DbIndexSetItem st=%x %d",s, s->hashS.size());
 
   oid_t oidIdx = ptr<persistent_header>(obj)->oid;

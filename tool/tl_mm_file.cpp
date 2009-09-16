@@ -31,7 +31,7 @@ namespace tool
 
 #if defined(WINDOWS)
 
-void *mm_file::open(const char *path, bool to_write)
+void *mm_file::open(const wchar *path, bool to_write)
 {
     read_only = !to_write;
 
@@ -40,11 +40,11 @@ void *mm_file::open(const char *path, bool to_write)
     ptr = 0;
 
 #if defined(PLATFORM_WINCE)
-    hfile = CreateFileForMapping(ustring(path), GENERIC_READ | (read_only? 0: GENERIC_WRITE), FILE_SHARE_READ | (read_only? 0: FILE_SHARE_WRITE), NULL,
+    hfile = CreateFileForMapping(path, GENERIC_READ | (read_only? 0: GENERIC_WRITE), FILE_SHARE_READ | (read_only? 0: FILE_SHARE_WRITE), NULL,
       read_only?OPEN_EXISTING:CREATE_ALWAYS,
       FILE_ATTRIBUTE_NORMAL, NULL);
 #else
-    hfile = CreateFile(path, GENERIC_READ | (read_only? 0: GENERIC_WRITE), FILE_SHARE_READ | (read_only? 0: FILE_SHARE_WRITE), NULL,
+    hfile = CreateFileW(path, GENERIC_READ | (read_only? 0: GENERIC_WRITE), FILE_SHARE_READ | (read_only? 0: FILE_SHARE_WRITE), NULL,
       read_only?OPEN_EXISTING:CREATE_ALWAYS,
       FILE_ATTRIBUTE_NORMAL, NULL);
 #endif

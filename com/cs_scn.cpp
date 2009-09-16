@@ -42,11 +42,12 @@ static struct { char *kt_keyword; int kt_token; } ktab[] = {
 { "set",        T_SET           },
 { "include",    T_INCLUDE       }, 
 { "like",       T_LIKE          },
-{ "yield",      T_YIELD         },
 { "class",      T_CLASS         },
 { "namespace",  T_NAMESPACE     },
 
+{ "assert",     T_ASSERT        },
 { "debug",      T_DEBUG         },
+
 { NULL,         0               }};
 
 /* CsToken name table */
@@ -121,6 +122,7 @@ static char *t_names[] = {
 "%~",
 "class",
 "namespace",
+"assert",
 "debug",
 };
 
@@ -151,11 +153,28 @@ void CsInitScanner(CsCompiler *c,stream *s)
     c->line.push(0);
     c->linePtr = c->line.head();
     c->lineNumberChangedP = false;
-    c->lineNumber = 1;
+    c->lineNumber = 0;
 
     /* no lookahead yet */
     c->savedToken = T_NOTOKEN;
     c->savedChar = '\0';
+
+    int fc = s->get(); // UTF BOM stuff:
+    if(fc == 0xFEFF)
+      fc = s->get();
+    if(fc == '#') // shebang
+    {
+      int nc = s->get();
+      if(nc == '!') // yes, it is, skip first line,
+      {
+        c->lineNumber = 1;
+        for (;(nc = c->input->get()) != stream::EOS && nc != '\n'; );
+      }
+      else
+        c->savedChar = nc; // problem, this will eat first '#' silently, sigh.
+    }
+    else
+      c->savedChar = fc;
 
     /* not eof yet */
     c->atEOF = false;
@@ -598,6 +617,7 @@ static int literalch(CsCompiler *c,int ch)
         case 'x':   ch = CollectHexChar(c); break;
         case 'u':   ch = CollectUnicodeChar(c); break;
         case '"':   ch = '"';  break;
+        case '`':   ch = '`';  break;
         case '0':
         case '1':
         case '2':
@@ -822,6 +842,7 @@ void CsParseError(CsCompiler *c,char *msg)
     memset(buf.head(),'_', pos);
     buf[pos] = '^';
     buf[pos+1] = 0;
+
 
     CsThrowKnownError(c->ic,CsErrSyntaxError,msg,c->line.head(),buf.head());
     //c->linePtr

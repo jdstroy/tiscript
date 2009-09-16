@@ -22,7 +22,15 @@ typedef struct regmatch_w
 {
     regoffset begin;
     regoffset end;
+    bool      skip;  
 } regmatch_w;
+
+typedef struct regmatch_r
+{
+    regoffset begin;
+    regoffset end;
+} regmatch_r;
+
 
 struct tag_regexp_w;
 typedef struct tag_regexp_w regexp_w;
@@ -60,11 +68,13 @@ namespace tool
 
       regexp_w*     m_preCompiled;
       tool::array<regmatch_w> m_arMatches;
-      tool::array<regmatch_w> m_result;
+      tool::array<regmatch_r> m_result;
 
   public:
       ustring       m_pattern;
       ustring       m_test;
+      ustring       m_test_input; // if 'i' (m_ignorecase) then this is lowercase version of the m_test 
+                                  // otherwise m_test itself
 
       int           m_nextIndex;
       int           m_index;
@@ -78,11 +88,15 @@ namespace tool
 
       bool compile(const wchar* pattern, bool ignorecase, bool global);
       bool exec(const wchar* text);
+
+      bool exec_first(const wchar* text);
+      bool exec_next();
+      
       bool is_matched(int nSubExp = 0) const;
       int  get_match_start(int nSubExp = 0) const;
       int  get_match_end(int nSubExp = 0) const;
-      ustring get_match(int nSubExp = 0) const;
-      regmatch_w  get_n_match(int n = 0) const;
+      wchars get_match(int nSubExp = 0) const;
+      regmatch_r  get_n_match(int n = 0) const;
 
       wchars  text() { return tool::wchars(m_test,m_test.length()); }
 

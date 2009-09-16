@@ -39,7 +39,8 @@ namespace tool
     { "http",   80   },
     { "https",  443  },
     { "socks",  1080 },
-    { "svn",    3690 }
+    { "svn",    3690 },
+    { "data",   -1   },
   };
 
 
@@ -123,6 +124,7 @@ namespace tool
         goto L1;
       }
       protocol.to_lower();
+
       for ( uint i = 0; i < sizeof ( protoports ) / sizeof ( protoport ); i++ )
       if ( protocol == protoports [ i ].proto )
       {
@@ -130,6 +132,8 @@ namespace tool
         break;
       }
       s = ++t;
+      if(port == -1)
+        goto data_scheme;
     }
     /*
     * Check whether this is an 'Internet' URL i.e. the next bit begins
@@ -237,14 +241,11 @@ L1:
       *fragmark = '\0';
       anchor = fragmark + 1;
     }
-
-
     filename = s;  /* everything else goes here */
 fillport:
     hostname.to_lower();
     if ( port == 0 )
     {
-
       for ( uint i = 0; i < sizeof ( protoports ) / sizeof ( protoport ); i++ )
       if ( stricmp ( protoports [ i ].proto, protocol ) == 0 )
       {
@@ -252,6 +253,9 @@ fillport:
         break;
       }
     }
+    return true;
+data_scheme:
+    filename = s;
     return true;
   }
 
@@ -295,7 +299,7 @@ fillport:
     url::escape ( const char *src, bool space_to_plus )
   {
     const char *cp;
-    static char *hex = "0123456789ABCDEF";
+    static const char *hex = "0123456789ABCDEF";
 
     array<char> buffer;
 
@@ -321,18 +325,36 @@ fillport:
     return string ( &buffer [ 0 ] );
   }
 
+/* When a new URI scheme defines a component that represents textual
+   data consisting of characters from the Universal Character Set [UCS],
+   the data should first be encoded as octets according to the UTF-8
+   character encoding [STD63]; then only those octets that do not
+   correspond to characters in the unreserved set should be percent-
+   encoded.  For example, the character A would be represented as "A",
+   the character LATIN CAPITAL LETTER A WITH GRAVE would be represented
+   as "%C3%80", and the character KATAKANA LETTER A would be represented
+   as "%E3%82%A2". */
+
+  string
+    url::escape ( const wchar* src, bool space_to_plus )
+  {
+    string utf8 = ustring::utf8(chars_of(src));
+    return escape ( utf8, space_to_plus );
+  }
+
+
   /*
   * UnescapeURL
   *
-  * Converts the escape codes (%xx) into actual characters.  NOT complete.
-  * Could do everthing in place I guess.
+  * Converts the escape codes (%xx) into actual characters.  
+  * Does utf8 restoration.
   */
-  string url::unescape ( const char *src )
+  ustring url::unescape ( const char *src )
   {
     const char *cp;
     char hex [ 3 ];
 
-    array<char> buffer;
+    array<byte> buffer;
 
     for  ( cp = src; *cp; cp++ )
     {
@@ -353,9 +375,7 @@ fillport:
       else
         buffer.push ( *cp );
     }
-
-    buffer.push ( '\0' );
-    return ( &buffer [ 0 ] );
+    return ustring::utf8( buffer() );
   }
 
 
@@ -692,6 +712,7 @@ tool::wregexp re_canonic_url( L"^" RE_URL );
 tool::wregexp re_email( L"^([Mm][Aa][Ii][Ll][Tt][Oo]:)?(" RE_EMAIL_ADDR L")" );
 tool::wregexp re_www(   L"^" RE_WWW RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" RE_PARAMS RE_ANCHOR );
 tool::wregexp re_ftp(   L"^" RE_FTP RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" );
+tool::wregexp re_no_www(   L"^" RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" RE_PARAMS RE_ANCHOR );
 
 bool is_hyperlink_char(wchar uc) { return is_url_char(uc); }
 /*{
@@ -704,7 +725,7 @@ bool is_hyperlink_char(wchar uc) { return is_url_char(uc); }
   return false;
 }*/
 
-bool is_hyperlink(const tool::ustring& text, tool::ustring& out)
+bool is_hyperlink(const tool::ustring& text, tool::ustring& out, bool and_no_www)
   {
     if(re_canonic_url.exec(text))
     {
@@ -714,7 +735,7 @@ bool is_hyperlink(const tool::ustring& text, tool::ustring& out)
   
     if(re_email.exec(text))
     {
-      if(re_email.get_match(1).equals(L"mailto:"))
+      if( icmp(re_email.get_match(1), WCHARS("mailto:")) )
       {
         out = text;
         return true;
@@ -734,6 +755,11 @@ bool is_hyperlink(const tool::ustring& text, tool::ustring& out)
       out = L"ftp://" + text;
       return true;
     }
+    if(and_no_www && re_no_www.exec(text))
+    {
+      out = L"http://" + text;
+      return true;
+    }
     return false;
   }
 
@@ -741,7 +767,7 @@ bool is_hyperlink(const tool::ustring& text, tool::ustring& out)
   // might modify the text if successfully tested
   {
     tool::ustring in = text;
-    return is_hyperlink(in,text);
+    return is_hyperlink(in,text,false);
   }
 
 

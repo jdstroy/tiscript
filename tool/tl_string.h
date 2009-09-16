@@ -773,7 +773,7 @@ namespace tool
   inline bool stof(const char* s, double& d)
   {
     char* end = 0;
-    double n = strtod(s,&end);
+    double n = str_to_d(s,&end);
     if( end && end != s)
     {
       d = n;

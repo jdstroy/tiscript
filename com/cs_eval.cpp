@@ -17,6 +17,7 @@ value CSF_parseData(VM *c);
 static value CSF_emit(VM *c);
 static value CSF_store(VM *c);
 static value CSF_fetch(VM *c);
+static value CSF_inspect(VM *c);
 
 static value CSF_compile(VM *c);
 static value CSF_loadBytecodes(VM *c);
@@ -31,6 +32,7 @@ C_METHOD_ENTRY( "compile",          CSF_compile             ),
 C_METHOD_ENTRY( "loadbc",           CSF_loadBytecodes       ),
 C_METHOD_ENTRY( "store",            CSF_store               ),
 C_METHOD_ENTRY( "fetch",            CSF_fetch               ),
+C_METHOD_ENTRY( "inspectCode",      CSF_inspect             ),
 C_METHOD_ENTRY( 0,                  0                       )
 };
 
@@ -72,7 +74,7 @@ static value CSF_load(VM *c)
     else
     {
       CsTypeError(c, inp);
-      return c->falseValue;
+      return FALSE_VALUE;
     }
 }
 
@@ -88,18 +90,18 @@ static value CSF_fetch(VM *c)
     if( CsStringP(inp) )
     {
       if ((is = OpenFileStream(c,CsStringAddress(inp),L"rb")) == NULL)
-          return c->nullValue;
+          return NULL_VALUE;
     }
     else if( CsFileP(c,inp) )
       is = CsFileStream(inp);
     else
     {
       CsTypeError(c, inp);
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
     }
     value v;
     CsFetchValue(c,&v,is);
-    return v? v: c->nullValue;
+    return v? v: NULL_VALUE;
 }
 
 static value CSF_store(VM *c)
@@ -111,16 +113,16 @@ static value CSF_store(VM *c)
     if( CsStringP(inp) )
     {
       if ((os = OpenFileStream(c,CsStringAddress(inp),L"wb+")) == NULL)
-          return c->falseValue;
+          return FALSE_VALUE;
     }
     else if( CsFileP(c,inp) )
       os = CsFileStream(inp);
     else
     {
       CsTypeError(c, inp);
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
     }
-    return CsStoreValue(c,v,os)? c->trueValue: c->falseValue;
+    return CsStoreValue(c,v,os)? TRUE_VALUE: FALSE_VALUE;
 }
 
 
@@ -152,7 +154,7 @@ value CSF_eval(VM *c)
     }
     else
       CsTypeError(c,v_namespace);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 /* CSF_parseData - built-in function 'parseValue' */
@@ -167,7 +169,7 @@ value CSF_parseData(VM *c)
       return CsEvalDataStream(CsCurrentScope(c),CsFileStream(v));
     else
       CsTypeError(c,v);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 
@@ -187,7 +189,7 @@ static value CSF_emit(VM *c)
       else
       {
         CsTypeError(c, inp);
-        return c->undefinedValue;
+        return UNDEFINED_VALUE;
       }
     }
     else if(CsObjectP(v_namespace))
@@ -200,16 +202,14 @@ static value CSF_emit(VM *c)
       else
       {
         CsTypeError(c, inp);
-        return c->undefinedValue;
+        return UNDEFINED_VALUE;
       }
     }
     else
       CsThrowKnownError(c, CsErrUnexpectedTypeError, v_namespace, "'env' is not an object");
       //CsTypeError(c,v_namespace);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
-
-
 
 /* CSF_CompileFile - built-in function 'CompileFile' */
 static value CSF_compile(VM *c)
@@ -219,7 +219,91 @@ static value CSF_compile(VM *c)
     CsCheckType(c,4,CsStringP);
     tool::ustring iname = value_to_string(CsGetArg(c,3));
     tool::ustring oname = value_to_string(CsGetArg(c,4));
-    return CsCompileFile(CsCurrentScope(c),iname,oname, false) ? c->trueValue : c->falseValue;
+    return CsCompileFile(CsCurrentScope(c),iname,oname, false) ? TRUE_VALUE : FALSE_VALUE;
+}
+
+value CsInspectStream(VM *c, stream *s, bool isServerScript, CsCompilerCallback* cb);
+value CsInspectString(VM *c, tool::wchars s, bool isServerScript, CsCompilerCallback* cb);
+
+static value sym_cls_type(int token_type)
+{
+  static value sym_namespace = 0;
+  static value sym_class = 0;
+  static value sym_type = 0;
+  if( !sym_namespace )
+  {
+    sym_namespace = CsSymbolOf("namespace");
+    sym_class = CsSymbolOf("class");
+    sym_type = CsSymbolOf("type");
+  }
+  switch( token_type )
+  {
+    case T_NAMESPACE: return sym_namespace;
+    case T_CLASS: return sym_class;
+    case T_TYPE: return sym_type;
+  }
+  assert(false);
+  return NULL_VALUE;
+}
+static value sym_fun_type(int fun_type)
+{
+  static value sym_function = 0;
+  //static value sym_local_function = 0;
+  static value sym_property = 0;
+  static value sym_undefined_property = 0;
+  if( !sym_function )
+  {
+    sym_function            = CsSymbolOf("function");
+    //sym_local_function      = CsSymbolOf("local-function");
+    sym_property            = CsSymbolOf("property");
+    sym_undefined_property  = CsSymbolOf("property-undefined");
+  }
+  switch( fun_type )
+  {
+    case FUNCTION: return sym_function;
+    case PROPERTY: return sym_property;
+    case UNDEFINED_PROPERTY: return sym_undefined_property;
+  }
+  assert(false);
+  return NULL_VALUE;
+}
+
+struct CDOMCB : public CsCompilerCallback
+{
+  pvalue cb_fn;
+
+  CDOMCB(VM* c): cb_fn(c) { }
+  //void on_module_start(const char* name, const char* path_name) {}
+  //void on_module_end(const char* name, const char* path_name) {}
+  virtual void on_class( bool start, const char* name, int type /*T_CLASS, T_NAMESPACE, T_TYPE*/, int line_no) 
+  {
+    value v_name = CsMakeString(cb_fn.pvm,tool::chars_of(name));
+    CsCallFunction(CsCurrentScope(cb_fn.pvm), cb_fn, 4, sym_cls_type(type), v_name, int_value(line_no), start? TRUE_VALUE: FALSE_VALUE);
+  }
+  virtual void on_method( bool start, const char* name, int function_type /*see above*/ , int line_no) 
+  {
+    value v_name = CsMakeString(cb_fn.pvm,tool::chars_of(name));
+    CsCallFunction(CsCurrentScope(cb_fn.pvm),cb_fn,4, sym_fun_type(function_type), v_name, int_value(line_no), start? TRUE_VALUE: FALSE_VALUE);
+  }
+  virtual void on_include(const char* path_name, bool is_lib, int line_no)
+  {
+  }
+};
+
+/* CSF_inspect - built-in function 'inspect' */
+static value CSF_inspect(VM *c)
+{
+    value  inp;
+    bool   isServerScript = false;
+    CDOMCB cb(c);
+    CsParseArguments(c,"**VV=|B",&inp,&cb.cb_fn.val,&CsMethodDispatch,&isServerScript);
+    if( CsStringP(inp) )
+      return CsInspectString(c, CsStringChars(inp),isServerScript,&cb);
+    else if( CsFileP(c,inp) )
+      return CsInspectStream(c, CsFileStream(inp),isServerScript,&cb);
+    else
+      CsTypeError(c, inp);
+    return NULL_VALUE;
 }
 
 /* CsEvalString - evaluate a string */
@@ -232,7 +316,7 @@ value CsEvalString(CsScope *scope,value self, const wchar *str, size_t length)
       s.close();
       return v;
     }
-    return scope->c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 /* CsEvalDataString - evaluate JSON++ data literal in the string */
@@ -245,7 +329,7 @@ value CsEvalDataString(CsScope *scope,const wchar *str, size_t length)
       s.close();
       return v;
     }
-    return scope->c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 /* CsEvalStream - evaluate a stream */
@@ -254,7 +338,33 @@ value CsEvalStream(CsScope *scope,value self, stream *s)
     value val;
     CsInitScanner(scope->c->compiler,s);
     val = CsCompileExpr(scope, true);
-    return val ? CsSendMessage(scope, self, val,0) : VM::undefinedValue;
+    return val ? CsSendMessage(scope, self, val,0) : UNDEFINED_VALUE;
+}
+
+/* CsInspectStream - evaluate a stream */
+value CsInspectStream(VM *c, stream *s, bool isServerScript, CsCompilerCallback* cb)
+{
+    CsInitScanner(c->compiler,s);
+    tool::auto_state<CsCompilerCallback*> _1( c->compiler->cDOMcb, cb );
+
+    auto_scope as(c,CsMakeObject(c,UNDEFINED_VALUE));
+    
+    value expr = CsCompileExpressions(&as, isServerScript);
+    if (expr)
+      return expr;
+    return NULL_VALUE;
+}
+
+value CsInspectString(VM *c, tool::wchars  s, bool isServerScript, CsCompilerCallback* cb)
+{
+  if(s.length)
+    {
+      string_stream s(s.start,s.length);
+      value v = CsInspectStream(c, &s, isServerScript, cb);
+      s.close();
+      return v;
+    }
+    return NULL_VALUE;
 }
 
 /* CsEvalDataStream - evaluate a data stream, JSON++ like literal */
@@ -263,7 +373,7 @@ value CsEvalDataStream(CsScope *scope,stream *s)
     value val;
     CsInitScanner(scope->c->compiler,s);
     val = CsCompileDataExpr(scope);
-    return val ? CsCallFunction(scope,val,0) : scope->c->undefinedValue;
+    return val ? CsCallFunction(scope,val,0) : UNDEFINED_VALUE;
 }
 
 
@@ -288,7 +398,7 @@ value CsLoadFile(CsScope *scope,const wchar *fname, stream* os)
     VM *c = scope->c;
     stream *is = 0;
 
-    value r = c->nothingValue;
+    value r = NOTHING_VALUE;
 
     // open the source file
     is = c->ploader->open(fname);
@@ -319,11 +429,11 @@ value CsInclude(CsScope *scope, const tool::ustring& path)
 
   //if(CsGlobalValue( scope, sym, &val)) - appears to be wrong!
   if( CsGetProperty(scope->c, scope->globals, sym, &sym) )
-    return scope->c->falseValue;
+    return FALSE_VALUE;
   stream *s = scope->c->ploader->open(path);
   if( !s )
     CsThrowKnownError(scope->c,CsErrFileNotFound, path.c_str());
-  CsSetGlobalValue(scope, sym, scope->c->trueValue);
+  CsSetGlobalValue(scope, sym, TRUE_VALUE);
   val = CsLoadStream(scope, s, 0);
   s->close();
   return val;
@@ -334,12 +444,12 @@ value CsIncludeLibrary(CsScope *scope, const tool::ustring& name)
   value sym = CsMakeSymbol(scope->c, name, name.length());
 
   if( CsGetProperty(scope->c, scope->globals, sym, &sym) )
-    return VM::falseValue;
+    return FALSE_VALUE;
   tool::ustring fullpath = tool::get_home_dir(tool::tstring(name));
   if( !CsLoadExtLibrary(scope->c, fullpath) )
     CsThrowKnownError(scope->c,CsErrFileNotFound, fullpath.c_str());
-  CsSetGlobalValue(scope, sym, scope->c->trueValue);
-  return VM::trueValue;
+  CsSetGlobalValue(scope, sym, TRUE_VALUE);
+  return TRUE_VALUE;
 }
 
 /* CsLoadStream - read and evaluate a stream of expressions */
@@ -349,8 +459,8 @@ value CsLoadStream(CsScope *scope,stream *is, stream *os, int line_no)
 
     value expr;
     CsInitScanner(c->compiler,is);
-    //c->currentNS = VM::undefinedValue;
-    value r = c->nothingValue;
+    //c->currentNS = UNDEFINED_VALUE;
+    value r = NOTHING_VALUE;
 
     if(!os)
     {
@@ -358,10 +468,10 @@ value CsLoadStream(CsScope *scope,stream *is, stream *os, int line_no)
       {
         auto_scope as(c,scope->globals);
         if ((expr = CsCompileExpressions(scope, false, line_no)) != 0)
-      {
-          return CsCallFunction(scope,expr,0);
+        {
+            return CsCallFunction(scope,expr,0);
+        }
       }
-    }
       CATCH_ERROR(e)
       {
         RETHROW(e);
@@ -401,7 +511,7 @@ value CsLoadDataStream(CsScope *scope,stream *is)
     VM *c = scope->c;
     value expr;
     CsInitScanner(c->compiler,is);
-    value r = c->nothingValue;
+    value r = NOTHING_VALUE;
     if ((expr = CsCompileDataExpr(scope)) != 0)
         return CsCallFunction(scope,expr,0);
     return r;
@@ -415,16 +525,67 @@ static value CSF_loadBytecodes(VM *c)
     value inp;
     CsParseArguments(c,"**V",&inp);
     if( CsStringP(inp) )
-      return CsLoadObjectFile(CsCurrentScope(c),CsStringAddress(inp)) ? c->trueValue : c->falseValue;
+      return CsLoadObjectFile(CsCurrentScope(c),CsStringAddress(inp)) ? TRUE_VALUE : FALSE_VALUE;
     else if( CsFileP(c,inp) )
-      return CsLoadObjectStream(CsCurrentScope(c),CsFileStream(inp)) ? c->trueValue : c->falseValue;
+      return CsLoadObjectStream(CsCurrentScope(c),CsFileStream(inp)) ? TRUE_VALUE : FALSE_VALUE;
     else
     {
       CsTypeError(c, inp);
-      return c->falseValue;
+      return FALSE_VALUE;
     }
 }
 
+ struct thread_params
+ {
+   stream* src;
+   pvalue  std_in;
+   pvalue  std_out;
+   pvalue  std_err;
+ };
 
+#ifdef WINDOWS 
+  void thread_vm( void* prms )
+#else
+  void* thread_vm( void* prms )
+#endif
+  {
+    tool::auto_ptr<thread_params> tp((thread_params*)prms);
+    tool::handle<VM> vm = new VM(uint(-1),256*1024);
+    if(vm) 
+    {
+      TRY 
+      {
+        CsConnect(vm,tp->std_in,tp->std_out,tp->std_err);
+        /* load the source file */
+        CsLoadStream(CsGlobalScope(vm),tp->src);
+        /* return successfully */
+        tp->src->close();
+      }
+      CATCH_ERROR(e)
+      {
+        e;
+        CsDisplay(vm,
+                  vm->val[0],
+                  vm->standardError);
+        tp->src->close();
+      }
+    }
+#ifdef WINDOWS 
+    ;
+#else
+    return 0;
+#endif
+  }
+
+#pragma TODO("threading")
+static value CSF_thread(VM *c)
+{
+    // open the source file
+    //stream *is = c->ploader->open(fname);
+    //if (!is)
+    //   CsThrowKnownError(c,CsErrFileNotFound,fname);
+    //thread_params* tp = new 
+    return TRUE_VALUE;
+}
 
 }

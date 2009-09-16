@@ -159,7 +159,7 @@ void CsUseMath(VM *c)
     value mathObj;
 
     CsCheck(c,2);
-    CsPush(c, mathObj = CsMakeObject(c,c->undefinedValue));
+    CsPush(c, mathObj = CsMakeObject(c,UNDEFINED_VALUE));
     CsPush(c,CsInternCString(c,"Math"));
     CsSetGlobalValue(CsGlobalScope(c),CsTop(c),c->sp[1]);
     CsDrop(c,2);
@@ -254,7 +254,7 @@ static value CSF_atan(VM *c)
         break;
     default:
         CsTooManyArguments(c);
-        val = c->undefinedValue; /* never reached */
+        val = UNDEFINED_VALUE; /* never reached */
     }
     return val;
 }

@@ -19,6 +19,7 @@
 #include "tl_string.h"
 #include "tl_ustring.h"
 #include "tl_hash_table.h"
+#include "tl_value.h"
 
 namespace tool
 {

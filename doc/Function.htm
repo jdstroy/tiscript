@@ -1,53 +1,45 @@
-<HTML>
-  <HEAD>
-    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <META name="GENERATOR" content="BLOCKNOTE.NET">
-    <BASEFONT face="Verdana" size="2">
-    <TITLE>TIScript - Date object</TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-</STYLE>
-  </HEAD>
-<BODY>
-<H1>Function object</H1>
-<P>Script Function object.</P><DIV align="left">
-<TABLE border="0" cellpadding="2" cellspacing="2" width="100%">
-  <TR>
-    <TD colspan="2"></FONT><STRONG>Properties</TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG>name</STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">readonly, string. name of the function. For anonymous (lambda) functions it is undefined.</TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG>fullName</STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">readonly, string. Fully qualified name of the function, includes name of class or namespace. For anonymous (lambda) functions it is undefined.</TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG>length</STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">readonly, integer. Returns total number of declared parameters.</TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG>optionals</STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">readonly, integer. Returns number of optional parameters.</TD>
-  </TR>
-  <TR>
-    <TD colspan="2" valign="top"></FONT><STRONG>Methods</TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>call</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<P>( thisObj: object [, p0:value, ... pN:value] ) : value</P>
-<P>Invokes the function in context of <EM>this</EM> set to thisObj</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>apply</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<P>( thisObj: object [, argv:array] ) : value</P>
-<P>Invokes the function in context of <EM>this</EM> set to thisObj. Parameters of the function are taken from <EM>argv</EM> array.</P></TD>
-  </TR>
-</TABLE>
-</DIV>
-</BODY>
-</HTML>
+<html>
+  <head>
+    <meta name="generator" content="h-smile:richtext"/>
+    <title>TIScript - Date object</title>
+  </head>
+<body>
+  <h1>Function object</h1>
+  <p>Script Function object.</p>
+  <div align="left">
+    <table border="0" cellpadding="2" cellspacing="2" width="100%">
+      <tr>
+        <td colspan="2">
+          <h2><strong>Properties</strong></h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong>name</strong></td>
+        <td bgcolor="#fffff0" valign="middle">readonly, string. name of the function. For anonymous (lambda) functions it is undefined.</td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong>fullName</strong></td>
+        <td bgcolor="#fffff0" valign="middle">readonly, string. Fully qualified name of the function, includes name of class or namespace. For anonymous (lambda) functions it is undefined.</td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong>length</strong></td>
+        <td bgcolor="#fffff0" valign="middle">readonly, integer. Returns total number of declared parameters.</td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong>optionals</strong></td>
+        <td bgcolor="#fffff0" valign="middle">readonly, integer. Returns number of optional parameters.</td></tr>
+      <tr>
+        <td colspan="2" valign="top">
+          <h2><strong>Methods</strong></h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right">[new Function]</td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p>([<em>arg1</em>:string [, <em>arg2</em>:string [, ... <em>argN</em>:string]],] <em>functionBody</em>:string)</p>
+          <p>constructor, compiles the functionBody and creates function object of it. arg1... argN are names to be used by the function as formal argument names. Each must be a string that corresponds to a valid JavaScript identifier.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>call</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p>( thisObj: object [, p0:value, ... pN:value] ) : value</p>
+          <p>Invokes the function in context of <em>this</em> set to thisObj</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>apply</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p>( thisObj: object [,p0:value, ... pN:value] [, argv:array] ) : value</p>
+          <p>Invokes the function in context of <em>this</em> set to thisObj. Parameters of the function call are compsed from list of parameters p0 ... pN and appended by members of <em>argv</em> array. Thus actual call will have following parameters list: p0, ..., pN, argv[0], ... argv[N].</p></td></tr></table></div>
+</body>
+</html>

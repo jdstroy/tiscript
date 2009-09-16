@@ -185,7 +185,7 @@ static value CSF_pop(VM *c)
     //if (size <= 0)
     //    CsThrowKnownError(c,CsErrStackEmpty,obj);
     if (size <= 0)
-      return c->nothingValue;
+      return NOTHING_VALUE;
     val = CsVectorElement(c,vector,--size);
     CsSetVectorSize(vector,size);
     return val;
@@ -204,7 +204,7 @@ static value CSF_popFront(VM *c)
     int_t size;
     size = CsVectorSize(c,vector);
     if (size <= 0)
-      return c->nothingValue;
+      return NOTHING_VALUE;
     val = CsVectorElement(c,vector,0);
     CsSetVectorSize(vector,--size);
     for (p = CsVectorAddress(c,vector); --size >= 0; ++p)
@@ -226,11 +226,11 @@ static value CSF_remove(VM *c)
     int_t size = CsVectorSize(c,vector);
 
     if( pos < 0 || pos >= size)
-      return c->nothingValue;
+      return NOTHING_VALUE;
 
     val = CsVectorElement(c,vector,pos);
     CsSetVectorSize(vector,--size);
-    for (p = CsVectorAddress(c,vector); --size >= pos; ++p)
+    for (p = CsVectorAddress(c,vector) + pos; --size >= pos; ++p)
         *p = p[1];
     return val;
 }
@@ -260,9 +260,9 @@ static value CSF_removeByValue(VM *c)
       }
     }
     if( n >= size)
-      return c->nothingValue;
+      return NOTHING_VALUE;
     CsSetVectorSize(vector,--size);
-    for (; --size >= n; ++p)
+    for (p += n; --size >= n; ++p)
         *p = p[1];
     return element;
 }
@@ -292,7 +292,7 @@ static value CSF_first(VM *c,value obj)
     FETCH(c, obj);
     if( CsVectorSize(c,obj) )
       return CsVectorElement(c,obj,0);
-    return c->nothingValue;
+    return NOTHING_VALUE;
 }
 
 /* CSF_set_first - built-in property 'size' */
@@ -311,7 +311,7 @@ static value CSF_last(VM *c,value obj)
     FETCH(c, obj);
     if( CsVectorSize(c,obj) )
       return CsVectorElement(c,obj,CsVectorSize(c,obj) - 1);
-    return c->nothingValue;
+    return NOTHING_VALUE;
 }
 
 /* CSF_set_first - built-in property 'size' */
@@ -422,13 +422,13 @@ value CsVectorSlice(VM *c, value vector, int start, int end)
     /* handle indexing from the left */
     if (start > 0) {
         if (start > len)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle indexing from the right */
     else if (start < 0) {
         if ((start = len + start) < 0)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle the count */
@@ -465,13 +465,13 @@ static value CSF_slice(VM *c)
     /* handle indexing from the left */
     if (start > 0) {
         if (start > len)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle indexing from the right */
     else if (start < 0) {
         if ((start = len + start) < 0)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle the count */
@@ -507,13 +507,13 @@ static value CSF_splice(VM *c)
     /* handle indexing from the left */
     if (start > 0) {
         if (start > len)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle indexing from the right */
     else if (start < 0) {
         if ((start = len + start) < 0)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle the count */
@@ -523,7 +523,7 @@ static value CSF_splice(VM *c)
         cnt = len - start;
 
     if( cnt < 0 )
-        return c->undefinedValue;
+        return UNDEFINED_VALUE;
 
     int cnt_to_insert = 0;
     for( int n = 5; n <= CsArgCnt(c); ++n )
@@ -595,12 +595,11 @@ static value CSF_splice(VM *c)
 
   struct cmpValuesProxy
   {
-    VM *  vm;
-    value fun;
-    cmpValuesProxy( VM *pvm, value f ): vm(pvm), fun(f) {}
+    pvalue fun;
+    cmpValuesProxy( VM *pvm, value f ): fun(pvm,f) {}
     bool less( const value& v1, const value& v2)
     {
-      value r = CsCallFunction(CsCurrentScope(vm),fun,2,v1,v2);
+      value r = CsCallFunction(CsCurrentScope(fun.pvm),fun.val,2,v1,v2);
       if(CsIntegerP(r))
         return CsIntegerValue(r) < 0;
       return false;
@@ -628,7 +627,8 @@ static value CSF_sort(VM *c)
     }
     else if(CsMethodP(cmpf))
     {
-      tool::sorter<value,cmpValuesProxy>::sort(p, d,cmpValuesProxy(c,cmpf));
+      cmpValuesProxy comparator(c,cmpf);
+      tool::sorter<value,cmpValuesProxy>::sort(p, d, comparator);
     }
     else
       CsTypeError(c,cmpf);
@@ -731,16 +731,17 @@ inline value FindFirstMember(VM *c, value& index, value collection)
   //{
   //  return CsFindFirstSymbol(c,obj);
   //}
-  return c->nothingValue;
+  return NOTHING_VALUE;
 }
 
-value VectorNextElement(VM *c, value* index, value collection)
+value VectorNextElement(VM *c, value* index, value collection, int nr)
 {
-    if(*index == c->nothingValue) // first
+    if(*index == NOTHING_VALUE) // first
     {
       if(CsVectorSize(c,collection))
       {
         *index = CsMakeInteger(0);
+        CsSetRVal(c,1,*index);
         return CsVectorElement(c,collection,0);
       }
     }
@@ -750,13 +751,14 @@ value VectorNextElement(VM *c, value* index, value collection)
       *index = CsMakeInteger(i);
       if(i < CsVectorSize(c,collection))
       {
+        CsSetRVal(c,1,*index);
         return CsVectorElement(c,collection,i);
       }
     }
     else
       assert(false);
 
-    return c->nothingValue;
+    return NOTHING_VALUE;
 }
 
 
@@ -787,7 +789,7 @@ static value CsVectorGetItem(VM *c,value obj,value tag)
             CsThrowKnownError(c,CsErrIndexOutOfBounds,tag);
         return CsVectorElementI(obj,i);
     }
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 static void     CsVectorSetItem(VM *c,value obj,value tag,value value)
 {
@@ -928,7 +930,7 @@ value CsMakeFixedVectorValue(VM *c,dispatch *type,int size)
     value *p = CsFixedVectorAddress(newo);
     CsSetDispatch(newo,type);
     while (--size >= 0)
-        *p++ = c->undefinedValue;
+        *p++ = UNDEFINED_VALUE;
     return newo;
 }
 
@@ -1084,7 +1086,7 @@ value CsMakeBasicVector(VM *c,dispatch *type,int_t size)
     CsSetDispatch(newo,type);
     CsSetBasicVectorSize(newo,size);
     while (--size >= 0)
-        *p++ = c->undefinedValue;
+        *p++ = UNDEFINED_VALUE;
     return newo;
 }
 
@@ -1123,7 +1125,7 @@ value CsMakeVector(VM *c,int_t size)
     CsSetVectorMaxSize(newo,size);
     p = CsVectorAddress(c,newo);
     while (--size >= 0)
-        *p++ = c->undefinedValue;
+        *p++ = UNDEFINED_VALUE;
     _CsInitPersistent(newo);
     return newo;
 }
@@ -1131,6 +1133,7 @@ value CsMakeVector(VM *c,int_t size)
 /* CsCloneVector - clone an existing vector */
 value CsCloneVector(VM *c,value obj)
 {
+    FETCH(c, obj);
     int_t size = CsVectorSize(c,obj);
     long allocSize = sizeof(vector) + size * sizeof(value);
     value *src,*dst,newo = CsAllocate(c,allocSize);
@@ -1172,7 +1175,7 @@ value CsResizeVectorNoLoad(VM *c,value obj,int_t newSize)
             if (newSize > size) {
                 value *dst = CsVectorAddressI(resizeVector) + size;
                 while (++size <= newSize)
-                    *dst++ = c->undefinedValue;
+                    *dst++ = UNDEFINED_VALUE;
             }
 
             /* store the new vector size */
