@@ -92,14 +92,14 @@ bool CsIsPersistInit(VM *c, value obj)
 value CsRestoreObj( VM *c, value obj )
 {
   if( !CsIsPersistInit(c, obj) )
-  { return c->falseValue; }
+  { return FALSE_VALUE; }
 
   value vs = ptr<persistent_header>(obj)->vstorage;
   assert( vs );
   //return ReloadObj( c, vs, obj );
   CsThrowKnownError(c, CsErrPersistError, "'restore' method is not implemented yet");
 //#pragma TODO("do reload!")
-  return c->falseValue;
+  return FALSE_VALUE;
 }
 
 /* storage */
@@ -362,7 +362,7 @@ static value CSF_open(VM *c)
   if (!(s->dbS = dybase_open( wfname.start, 4*1024*1024, errHandler )))
   {
     delete s;
-    return c->nullValue;
+    return NULL_VALUE;
   }
 
   dybase_gc(s->dbS);
@@ -382,7 +382,7 @@ static value CSF_close(VM *c)
   value val;
   CsParseArguments(c, "V=*", &val, c->storageDispatch);
   storage* s = (storage*)CsCObjectValue(val);
-  if(!s || !s->dbS) { return c->falseValue; }
+  if(!s || !s->dbS) { return FALSE_VALUE; }
 
   if(s->autocommit)
     s->CommitHash(c);
@@ -396,10 +396,10 @@ static value CSF_close(VM *c)
   /* storage will be closed in destructor */
   delete s;
   s = NULL;
-trace( L"Storage closed\n" );
+  trace( L"Storage closed\n" );
 
   CsSetCObjectValue(val, 0);
-  return c->trueValue;
+  return TRUE_VALUE;
 }
 
 
@@ -422,7 +422,7 @@ void DestroyStorage(VM *c, value obj)
   s = NULL;
 
   CsSetCObjectValue(obj, 0);
-trace( L" Storage destroyed\n" );
+  trace( L" Storage destroyed\n" );
 }
 
 
@@ -435,15 +435,15 @@ static value CSF_commit(VM *c)
   storage* s;
   CsParseArguments(c, "V=*", &val, c->storageDispatch);
   s = (storage*)CsCObjectValue(val);
-  if(!s || !s->dbS) { return c->falseValue; }
+  if(!s || !s->dbS) { return FALSE_VALUE; }
 
   s->CommitHash(c);
 
   dybase_commit( s->dbS );
 
-trace( L"Storage commit\n" );
+  trace( L"Storage commit\n" );
 
-  return c->trueValue;
+  return TRUE_VALUE;
 }
 
 // clear all objects from storage cache
@@ -455,13 +455,13 @@ static value CSF_rollback(VM *c)
   storage* s;
   CsParseArguments(c, "V=*", &val, c->storageDispatch);
   s = (storage*)CsCObjectValue(val);
-  if(!s || !s->dbS) { return c->falseValue; }
+  if(!s || !s->dbS) { return FALSE_VALUE; }
 
   s->hashS.clear();
 
 //  dybase_rollback( s->dbS );
 trace( L"Storage rollback\n" );
-  return c->trueValue;
+  return TRUE_VALUE;
 }
 
 /* return 'autocommit' property */
@@ -471,7 +471,7 @@ static value CSF_get_autocommit(VM *c, value vs)
   if(!s || !s->dbS)
   {
     CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
-    return c->falseValue;
+    return FALSE_VALUE;
   }
 
   return CsMakeBoolean( c, s->autocommit);
@@ -494,10 +494,10 @@ static value CSF_removeObject(VM *c)
   storage* s;
   CsParseArguments(c, "V=*V", &obj, c->storageDispatch, &val);
   s = (storage*)CsCObjectValue(obj);
-  if(!s || !s->dbS) { return c->falseValue; }
+  if(!s || !s->dbS) { return FALSE_VALUE; }
 
   if( !CsIsPersistInit(c, val) )
-  { return c->falseValue; }
+  { return FALSE_VALUE; }
 
   value vsVal = ptr<persistent_header>(val)->vstorage;
   storage* sVal = (storage*)CsCObjectValue(vsVal);
@@ -507,10 +507,10 @@ static value CSF_removeObject(VM *c)
   {
     dybase_deallocate_object(s->dbS, oidVal);
     s->hashS.remove(oidVal);
-    return c->trueValue;
+    return TRUE_VALUE;
   }
 
-  return c->falseValue;
+  return FALSE_VALUE;
 }
 
 /*
@@ -526,7 +526,7 @@ static value CSF_createIndex(VM *c)
   bool unique = true;
   CsParseArguments(c, "V=*L|B", &val, c->storageDispatch, &typeSym, &unique);
   s = (storage*)CsCObjectValue(val);
-  if(!s || !s->dbS) { return c->nullValue; }
+  if(!s || !s->dbS) { return NULL_VALUE; }
 
   dybase_oid_t oidIdx = 0;
   switch(typeSym)
@@ -575,13 +575,13 @@ static value CSF_createIndex(VM *c)
   CsParseArguments(c, "V=*SV", &val, c->storageDispatch, &protoName, &proto);
 
   s = (storage*)CsCObjectValue(val);
-  if(!s || !s->dbS || !protoName) { return c->falseValue; }
+  if(!s || !s->dbS || !protoName) { return FALSE_VALUE; }
 
   // add proto name as the obj property
   CsSetObjectPropertyNoLoad( c, proto, symbol_value( _class ), CsMakeCString(c,protoName) );
   s->hashNameProto[protoName] = proto;
 
-  return c->trueValue;
+  return TRUE_VALUE;
 }*/
 
 static value CSF_get_root(VM* c, value vs)
@@ -590,16 +590,16 @@ static value CSF_get_root(VM* c, value vs)
   if(!s || !s->dbS)
   {
     CsThrowKnownError(c, CsErrPersistError, strErrCorruptPersistent);
-    return c->falseValue;
+    return FALSE_VALUE;
   }
 
   dybase_oid_t oid = dybase_get_root_object(s->dbS);
   if( !oid )
-        return c->nullValue;
+        return NULL_VALUE;
 
   return CsFetchObject(c,vs,oid);
 
-  //value obj = CsMakeObject(c,c->undefinedValue);
+  //value obj = CsMakeObject(c,UNDEFINED_VALUE);
   //ptr<persistent_header>(obj)->oid = oid;
   //ptr<persistent_header>(obj)->vstorage = vs;
   //ptr<persistent_header>(obj)->loaded(false); // clear loaded flag
@@ -668,14 +668,14 @@ value CsFetchVector( VM *c, value vs, dybase_oid_t oid )
     if( !className )
     {
       assert(false);
-      return c->falseValue;
+      return FALSE_VALUE;
     }
 
     char* fieldName = dybase_next_field(h);
     if( !fieldName )
     {
       assert(false);
-      return c->falseValue;
+      return FALSE_VALUE;
     }
 
     int_t type;
@@ -912,7 +912,7 @@ value FetchValue( VM *c, value vs, dybase_handle_t h )
     break;
   }
 
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 
@@ -958,15 +958,24 @@ dybase_oid_t CsSetPersistent( VM *c, value vs, value obj )
   if( ptr<persistent_header>(obj)->vstorage == vs )
   {
     oid = ptr<persistent_header>(obj)->oid;
-    if( !ptr<persistent_header>(obj)->modified() // if it is not modified
-     &&  ptr<persistent_header>(obj)->loaded())  // and if it is loaded
-    {
+    return oid;
+    //if( !ptr<persistent_header>(obj)->modified() // if it is not modified
+    // &&  ptr<persistent_header>(obj)->loaded())  // and if it is loaded
+    //{
       // as it is already stored, nothing to do
-      return oid;
-    }
+    //}
   }
-  else // it is detached or attached to another storage
-
+  else if(ptr<persistent_header>(obj)->vstorage)
+  {
+      // it is attached to another storage
+      if( CsObjectP( obj ))
+        obj = CsFetchObjectData(c, obj);
+      else if( CsVectorP( obj ) || CsMovedVectorP(obj) )
+        obj = CsFetchVectorData(c, obj);
+      else 
+        assert(false);
+  }
+  // it is detached
   oid = dybase_allocate_object( s->dbS );
 
   assert(oid);

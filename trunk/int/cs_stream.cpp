@@ -32,9 +32,18 @@ int CsPrint(VM *c,value val,stream *s)
 /* CsDisplay - display a value */
 int CsDisplay(VM *c,value val,stream *s)
 {
-    if (CsStringP(val))
-        return DisplayStringValue(val,s);
-    return CsPrint(c,val,s);
+    return s->put(c,val);
+}
+
+bool stream::put(VM* c, value v)
+{
+    if (CsStringP(v))
+        return DisplayStringValue(v,this) != EOS;
+    return CsPrint(c,v,this) != EOS;
+}
+bool stream::get(VM* c, value& v)
+{
+    return false;
 }
 
 /* DisplayVectorValue - display a vector value */
@@ -60,11 +69,14 @@ static int DisplayVectorValue(VM *c,value val,stream *s)
 /* DisplayStringValue - display a string value */
 static int DisplayStringValue(value val,stream *s)
 {
-    wchar *p = CsStringAddress(val);
-    long size = CsStringSize(val);
-    while (--size >= 0)
-        if (!s->put(*p++))
-          return stream::EOS;
+    //wchar *p = CsStringAddress(val);
+    //long size = CsStringSize(val);
+    tool::wchars utf16 = CsStringChars(val);
+    while (utf16.length)
+    {
+      if (!s->put(tool::utf16::getc(utf16)))
+        return stream::EOS;
+    }
     return 0;
 }
 
@@ -85,22 +97,6 @@ bool stream::get_str(char* buf, size_t size)
 }
 
 /* CsStreamPutS - output a string to a stream */
-bool stream::put_str(const char* str)
-{
-    while (*str != '\0')
-        if (!put(*str++))
-            return false;
-    return true;
-}
-
-/* CsStreamPutS - output a string to a stream */
-bool stream::put_str(const wchar* str)
-{
-    while (*str != L'\0')
-        if (!put(*str++))
-            return false;
-    return true;
-}
 
 bool stream::put_str(const wchar* s, const wchar* end)
 {
@@ -152,11 +148,14 @@ bool stream::printf(const wchar *fmt,...)
 
 /* prototypes for null streams */
 
-stream null_dipatch;
+stream null_dispatch;
 
+const byte BOM[3] = { 0xEF, 0xBB, 0xBF };
 
 string_stream::string_stream(const wchar *str, size_t len)
 {
+  if( !len || str[0] != 0xFEFF )
+    buf.push(BOM,3);
   tool::to_utf8(str,len,buf);
   //buf.push(str,len);
   pos = 0;
@@ -165,11 +164,11 @@ string_stream::string_stream(const wchar *str, size_t len)
 string_stream::string_stream(tool::bytes utf)
 {
   buf.clear();
+  if( !utf.starts_with( tool::MAKE_SLICE(byte,BOM)) )
+    buf.push(BOM,3);
   buf.push(utf);
   pos = 0;
 }
-
-
 
 bool string_stream::finalize()
 {
@@ -187,6 +186,7 @@ string_stream::string_stream(size_t len)
 {
   buf.size(len);
   buf.size(0);
+  buf.push(BOM,3);
   pos = 0;
 }
 
@@ -211,7 +211,7 @@ bool string_output_stream::put(wchar *start, wchar *end)
 
 tool::ustring string_stream::to_ustring() const
 {
-  return tool::ustring::utf8(buf.head(),buf.size());
+  return tool::ustring::utf8(buf.head()+3,buf.size()-3);
 }
 
 value string_stream::string_o(VM* c)
@@ -236,10 +236,14 @@ stream *OpenFileStream(VM *c,const wchar *fname, const wchar *mode)
     if((c->features & FEATURE_FILE_IO) == 0)
       return 0;
 
+    s = c->ploader->open(fname);
+    if( s ) 
+      return s;
+
     if( wcsncmp(fname,L"file://",7) == 0)
       fname = fname + 7;
 
-    wchar buf[10] = {0};
+    wchar buf[11] = {0};
     wcsncpy(buf,mode,9);
     bool utfstream = false;
 
@@ -248,14 +252,15 @@ stream *OpenFileStream(VM *c,const wchar *fname, const wchar *mode)
     if( (pu = wcschr(buf,'u')) != 0)
     {
       utfstream = true;
-      *pu = 'b';
+      *pu = ' ';
+      wcscat(buf,L"b");
     }
     else if(wcschr(buf,'b') == 0)
       wcscat(buf,L"b");
 
     bool writeable = wcschr(buf,'w') || wcschr(buf,'a');
 
-    FILE *fp = fopen(tool::string(fname),tool::string(buf));
+    FILE *fp = _wfopen(fname, buf);
     if (fp)
     {
       if(utfstream)
@@ -285,8 +290,8 @@ int file_stream::get_utf8()
 
 bool file_stream::put_utf8(int c)
 {
-    int r = tool::putc_utf8((wchar)c,fp);
-    return ferror( fp ) == 0;
+    bool r = tool::putc_utf8((wchar)c,fp);
+    return r;
 }
 
 

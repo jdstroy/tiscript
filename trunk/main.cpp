@@ -162,7 +162,7 @@ int main(int argc,char **argv)
     catch(tis::error_event& e) // uncaught error
     {
       e;
-      tis::CsDisplay(&vm,vm.val,vm.standardError);
+      tis::CsDisplay(&vm,vm.val[0],vm.standardError);
     }
 
     /* read/eval/print loop */
@@ -311,7 +311,7 @@ static void ReadEvalPrint(tis::VM *c)
       catch(tis::error_event& e) // uncaught error
       {
         e;
-        tis::CsDisplay(c,c->val,c->standardError);
+        tis::CsDisplay(c,c->val[0],c->standardError);
       }
     }
 

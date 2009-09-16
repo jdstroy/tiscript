@@ -97,7 +97,7 @@ static value CSF_isNaN(VM *c)
     value obj;
     CsParseArguments(c,"V=*",&obj,&CsFloatDispatch);
     float_t fv = CsFloatValue(obj);
-    return isnan( fv )? c->trueValue: c->falseValue;
+    return isnan( fv )? TRUE_VALUE: FALSE_VALUE;
 }
 
 /* CSF_isFinite - built-in method 'isFinite' */
@@ -106,7 +106,7 @@ static value CSF_isFinite(VM *c)
     value obj;
     CsParseArguments(c,"V=*",&obj,&CsFloatDispatch);
     float_t fv = CsFloatValue(obj);
-    return finite( fv )? c->trueValue: c->falseValue;
+    return finite( fv )? TRUE_VALUE: FALSE_VALUE;
 }
 
 static value minimum( VM *c, value *argv, int argc )
@@ -129,7 +129,7 @@ static value minimum( VM *c, value *argv, int argc )
       float_t t = CsFloatValue(arg);       
       if( t < r ) r = t;
     }
-    return gotone? CsMakeFloat(c,r): c->undefinedValue; 
+    return gotone? CsMakeFloat(c,r): UNDEFINED_VALUE; 
 }
 
 static value maximum( VM *c, value *argv, int argc )
@@ -152,7 +152,7 @@ static value maximum( VM *c, value *argv, int argc )
       float_t t = CsFloatValue(arg);       
       if( t > r ) r = t;
     }
-    return gotone? CsMakeFloat(c,r): c->undefinedValue; 
+    return gotone? CsMakeFloat(c,r): UNDEFINED_VALUE; 
 }
 
 static value CSF_min(VM *c)

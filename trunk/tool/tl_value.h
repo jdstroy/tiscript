@@ -66,7 +66,7 @@ namespace tool
     virtual void  enumerate( enumerator& en ) {;}
     virtual bool  to_bool() const { return true; }
 
-    virtual uint  type() const { return 0; }
+    virtual uint  type() const { return (uint)type_id(); }
 
     virtual bool    get_user_data( void** ppv) { return false; }
     virtual bool    set_user_data( void* pv) { return false; }
@@ -155,32 +155,32 @@ namespace tool
       t_object, // 14 /eval/ object
       t_resource,  // 15 - other thing derived from tool::resource
       t_range,     // 16 - N..M, integer range.
-      
+      t_duration,  //17
     };
   
     enum unit_type 
       {
         //-------- rel
         em = 1, //height of the element's font. 
-        ex, //height of letter 'x' 
-        pr, //%
-        sp, //%% "springs"
-        rs, //value is -1,1 // smaller larger
+        ex = 2, //height of letter 'x' 
+        pr = 3, //%
+        sp = 4, //%% "springs"
+        rs = 5, //value is -1,1 // smaller larger
         //-------- abs
-        as, //value is x-small, etc 1,2,3,4,5,6,7
-        px, //pixels, device dependent
-        in, //Inches (1 inch = 2.54 centimeters). 
-        cm, //Centimeters. 
-        mm, //Millimeters. 
-        pt, //Points (1 point = 1/72 inches). 
-        pc, //Picas (1 pica = 12 points). 
-        dip,// device independent pixels, 1/96 of inch. Thus on 96 DPI screen these correspond to a single physical pixel
-        nm, //Number
+        as = 6, //value is x-small, etc 1,2,3,4,5,6,7
+        px = 7, //pixels, device dependent
+        in = 8, //Inches (1 inch = 2.54 centimeters). 
+        cm = 9, //Centimeters. 
+        mm = 10, //Millimeters. 
+        pt = 11, //Points (1 point = 1/72 inches). 
+        pc = 12, //Picas (1 pica = 12 points). 
+        dip= 13,// device independent pixels, 1/96 of inch. Thus on 96 DPI screen these correspond to a single physical pixel
+        nm = 14, //Number
         // above-stated should match size_v
-        clr,  // color
-        uri,  // url
-        func, // func
-        algn, // alignment
+        clr  = 15, // color
+        uri  = 16, // url
+        func = 17, // func
+        algn = 18, // alignment
       };
 
     enum unit_type_object
@@ -267,6 +267,21 @@ namespace tool
       t._i64(d);
       return t;
     }
+    static value wrap_resource( resource* res , uint u = 0 )
+    {
+      value t; t.set_resource(res,u);
+      return t;
+    }
+
+    static value make_duration( real seconds )
+    {
+      value t;
+      t._type= t_duration;
+      t._units = 9;
+      t._d(seconds);
+      return t;
+    }
+
 
     void set(const value& cv);
     bool set(uint idx, const value& v); // set element by index
@@ -314,6 +329,7 @@ namespace tool
           return _type + 1 + uint(_i()) + _units;
         case t_length:
           return _type + 1 + uint(_i()) + _units;
+        case t_duration:
         case t_double:
           return _type + uint(_i()) + _units;
         case t_string:
@@ -330,6 +346,7 @@ namespace tool
     bool  is_undefined() const { return _type == t_undefined; }
     bool  is_null() const { return _type == t_null; }
     bool  is_cancel() const { return _type == t_null && _units == 0xAFED; }
+    bool  is_color() const { return _type == t_int && _units == clr; } 
     bool  is_inherit() const { return _type == t_null && _units == 0xFFFF; }
     bool  is_int() const { return _type == t_int; }
     bool  is_bool() const { return _type == t_bool; }
@@ -350,6 +367,7 @@ namespace tool
     bool  is_proxy_of_array() const { return _type == t_object_proxy && _units == UT_OBJECT_ARRAY; }
     bool  is_resource() const { return _type == t_resource; }
     bool  is_range() const { return _type == t_range; }
+    bool  is_duration() const { return _type == t_duration; }
 
     bool  is_string_symbol() const { return _type == t_string && _units == UT_SYMBOL; }
     // evalutable byte codes
@@ -361,9 +379,15 @@ namespace tool
     int64     get_int64() const { assert(_type == t_currency || _type == t_date); return _i64(); }
     bool      get_bool() const { assert(_type == t_bool); return _b(); }
     double    get_double(double dv = 0.0) const { if(_type == t_double) return _d(); 
+                                                  else if(_type == t_duration) return _d(); 
                                                   else if(_type == t_int) return get(0); 
                                                   else if(_type == t_length) return length_to_float(); 
                                                   return dv; }
+    double    get_duration(double dv = 0.0) const { if(_type == t_double || _type == t_duration) return _d(); 
+                                                  else if(_type == t_int) return get(0) / 1000.0; 
+                                                  return dv; }
+
+
     //string    get_string() const { assert(_type == t_string); return string(_s()); }
     ustring   get_string() const { assert(_type == t_string); return ustring(_us()); }
     wchars    get_chars() const { return (_type == t_string)? wchars(_us()->get_chars()):wchars(); }
@@ -637,15 +661,13 @@ namespace tool
 
     static value parse_length(const ustring& us)
     {
-      long  i, i1,i2 = 0;
+      long  i = 0;
       unit_type u = unit_type(0);
+
       wchar* uniptr;
-      i1 = wcstol(us,&uniptr,10);
-      if( uniptr == us.c_str() )
-        return value();
-      if( *uniptr == '.' )
-        i2 = wcstol(uniptr,&uniptr,10);
-      i = i1 * 1000 + ( i2 > 1000? 0:i2 ); // fixed point
+      double d =  str_to_d(us.c_str(),&uniptr);
+      
+      i = long(d * 1000); // fixed point
       
       int uni_length = us.c_str() + us.length() - uniptr;
       if(uni_length <= 0)
@@ -661,22 +683,22 @@ namespace tool
       else if( *uniptr == 'p' )
       {
         ++uniptr;
-        if(*uniptr == 'x')      { u = px; i = i1; ++uniptr; }
+        if(*uniptr == 'x')      { u = px; i /= 1000; ++uniptr; }
         else if(*uniptr == 't') { u = pt; ++uniptr; }
         else if(*uniptr == 'c') { u = pc; ++uniptr; }
       }
       else if( *uniptr == '%' )
       {
         ++uniptr;
-        if(*uniptr == '%')      { u = sp; i = i1; ++uniptr; }
-        else                    { u = pr; i = i1; }
+        if(*uniptr == '%')      { u = sp; i /= 1000; ++uniptr; }
+        else                    { u = pr; i /= 1000; }
       }
       else if( *uniptr == 'd' && uni_length >= 3 && *++uniptr == 'i' && *++uniptr == 'p' ) {  u = dip; ++uniptr; }
       else if( *uniptr == 'i' && *++uniptr == 'n' ) {  u = in; ++uniptr; }
       else if( *uniptr == 'c' && *++uniptr == 'm' ) {  u = cm; ++uniptr; }
       else if( *uniptr == 'm' && *++uniptr == 'm' ) {  u = mm; ++uniptr; }
-      else if( *uniptr == '*' )                     {  u = sp; i = i1 * 100; ++uniptr; }
-      else if( *uniptr == '#' )                     {  u = nm; i = i1; ++uniptr; }
+      else if( *uniptr == '*' )                     {  u = sp; i /= 10; ++uniptr; }
+      else if( *uniptr == '#' )                     {  u = nm; i /= 1000; ++uniptr; }
 
       if( *uniptr != 0)
         return value();
@@ -701,6 +723,9 @@ namespace tool
       value v; 
       v._type = t_length;
       v._units = ut;
+      if( ut == px || ut == pr || ut == sp)
+        v._i(int(d));
+      else
       v._i(int(d * 1000));
       return v;
     }
@@ -1093,6 +1118,7 @@ namespace tool
         case t_date:
         case t_currency:
         case t_range:
+        case t_duration:
         case t_double:    {  _data = cv._data; } break;
         default:          assert(false); break;
       }
@@ -1118,6 +1144,7 @@ namespace tool
         case t_date:
         case t_currency:
         case t_range:
+        case t_duration:
         case t_double:   break;
         default:         
           assert(false); 
@@ -1205,6 +1232,7 @@ namespace tool
         case t_int:
         case t_length:
           return _i() != 0;
+        case t_duration:
         case t_double:
           return (int)_d() != 0;
         case t_string:
@@ -1332,6 +1360,7 @@ namespace tool
     return false;
   }
 
+#pragma pack(push,4) //IT MUST BE 4 bytes aligned!!!!
 
   template<typename T, T default_value, T null_value, T inherit_value >
   struct t_value
@@ -1453,6 +1482,37 @@ namespace tool
   };
 
 
+  struct enum_str_v
+  {
+    enum_v   ev;  
+    string   sv;
+
+    enum_str_v() {}
+    enum_str_v(const enum_str_v& iv): ev(iv.ev),sv(iv.sv) {}
+    
+    operator int() const { return ev; }
+    enum_str_v& operator = (const string& vs) { sv = vs; ev.clear(); return *this; }
+    enum_str_v& operator = (const int& vi) { ev = vi; sv.clear(); return *this; } 
+
+    static enum_str_v null_val()     { enum_str_v n; return n; }
+    static enum_str_v inherit_val()  { enum_str_v n; n.ev = enum_v::inherit_val(); return n; }
+
+    bool undefined() const { return ev.undefined() && sv.undefined(); }
+    bool defined() const   { return ev.defined() || sv.defined(); }
+    bool inherit() const   { return ev == enum_v::inherit_val(); }
+
+    bool is_string() const { return sv.defined(); }
+
+    void clear()      { ev.clear(); sv.clear(); }
+
+    void inherit(const enum_str_v& v) { if(v.defined()) {ev = v.ev; sv = v.sv; } }
+
+    //double val(const float_v& v1) const { return defined()? (double)_v: (double)v1; }
+    //static double val(const float_v& v1,double defval) { return v1.defined()? v1._v:defval; }
+    
+  };
+
+ #pragma pack(pop)
 
 }
 

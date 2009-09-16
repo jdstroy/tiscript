@@ -860,7 +860,7 @@ static value CSF_setFullYear(VM *c)
     SYSTEMTIME st = get_local(c);   
     st.wYear = int_param(c);
     set_local(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 
@@ -869,7 +869,7 @@ static value CSF_setYear(VM *c)
     SYSTEMTIME st = get_local(c);   
     st.wYear = int_param(c) + 1900;
     set_local(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 
@@ -878,7 +878,7 @@ static value CSF_setMonth(VM *c)
     SYSTEMTIME st = get_local(c);   
     st.wMonth = int_param(c) + 1;
     set_local(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setDate(VM *c)
@@ -886,7 +886,7 @@ static value CSF_setDate(VM *c)
     SYSTEMTIME st = get_local(c);   
     st.wDay = int_param(c);
     set_local(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setHours(VM *c)
@@ -894,7 +894,7 @@ static value CSF_setHours(VM *c)
     SYSTEMTIME st = get_local(c);   
     st.wHour = int_param(c);
     set_local(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setMinutes(VM *c)
@@ -902,7 +902,7 @@ static value CSF_setMinutes(VM *c)
     SYSTEMTIME st = get_local(c);   
     st.wMinute = int_param(c);
     set_local(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setSeconds(VM *c)
@@ -910,7 +910,7 @@ static value CSF_setSeconds(VM *c)
     SYSTEMTIME st = get_local(c);   
     st.wSecond = int_param(c);
     set_local(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setMilliseconds(VM *c)
@@ -926,7 +926,7 @@ static value CSF_setUTCFullYear(VM *c)
     SYSTEMTIME st = get_utc(c);   
     st.wYear = int_param(c);
     set_utc(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setUTCYear(VM *c)
@@ -934,7 +934,7 @@ static value CSF_setUTCYear(VM *c)
     SYSTEMTIME st = get_utc(c);   
     st.wYear = int_param(c) + 1900;
     set_utc(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 
@@ -943,7 +943,7 @@ static value CSF_setUTCMonth(VM *c)
     SYSTEMTIME st = get_utc(c);   
     st.wMonth = int_param(c) + 1;
     set_utc(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setUTCDate(VM *c)
@@ -951,7 +951,7 @@ static value CSF_setUTCDate(VM *c)
     SYSTEMTIME st = get_utc(c);   
     st.wDay = int_param(c);
     set_utc(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setUTCHours(VM *c)
@@ -959,7 +959,7 @@ static value CSF_setUTCHours(VM *c)
     SYSTEMTIME st = get_utc(c);   
     st.wHour = int_param(c);
     set_utc(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setUTCMinutes(VM *c)
@@ -967,7 +967,7 @@ static value CSF_setUTCMinutes(VM *c)
     SYSTEMTIME st = get_utc(c);   
     st.wMinute = int_param(c);
     set_utc(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setUTCSeconds(VM *c)
@@ -975,7 +975,7 @@ static value CSF_setUTCSeconds(VM *c)
     SYSTEMTIME st = get_utc(c);   
     st.wSecond = int_param(c);
     set_utc(c,st);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_setUTCMilliseconds(VM *c)
@@ -1034,9 +1034,15 @@ static value CSF_toUTCString(VM *c)
 bool CsPrintDate(VM *c,value v, stream* s)
 {
     tool::date_time st = get_utc(c,v); 
-    return s->printf(L"%d-%d-%d %02d:%02d:%02d UTC",
-      st.year(), st.month(), st.day(),
-      st.hours(), st.minutes(), st.seconds() );
+    tool::string ds = st.emit_iso(tool::date_time::DT_HAS_DATE | 
+                                  tool::date_time::DT_HAS_TIME | 
+                                  tool::date_time::DT_HAS_SECONDS |
+                                  tool::date_time::DT_UTC );  
+    return s->put_str(ds);
+
+    //return s->printf(L"%d-%d-%d %02d:%02d:%02d UTC",
+    //  st.year(), st.month(), st.day(),
+    //  st.hours(), st.minutes(), st.seconds() );
 }
 
 static value CSF_toLocaleString(VM *c)
@@ -1193,7 +1199,7 @@ static value CSF_localOffset(VM *c)
     case TIME_ZONE_ID_DAYLIGHT:
       return CsMakeInteger(tzi.Bias + tzi.DaylightBias);
   }
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 */
 }
 
@@ -1217,7 +1223,7 @@ static value CSF_localTimeZone(VM *c)
       return CsMakeCString(c, tzi.DaylightName);
   }
 */
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 static value CSF_isDaylight(VM *c)
@@ -1241,7 +1247,7 @@ static value CSF_isDaylight(VM *c)
       return c->trueValue;
   }
   */
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 
@@ -1258,7 +1264,7 @@ static value CSF_parse(VM *c)
       int64 n = dtu.absolute_millis() - ms1970();
       return CsMakeFloat(c, float_t(n) );
     }
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static int comment_length(const wchar *str)
@@ -1919,7 +1925,14 @@ static bool ParseDateTime(value s, tool::datetime_t& utc)
   int tz_minutes;
 
   if (ParseRfc822Date(str, &tms, &tz_minutes, tz_name, 20) != 0)
-    return false;
+  {
+    uint dcomponents = 0;
+    tool::date_time dt = tool::date_time::parse_iso(CsStringChars(s),dcomponents);
+    if(dcomponents == tool::date_time::DT_UNKNOWN)
+      return false;
+    utc = dt.time();
+    return true;
+  }
 
   tool::date_time::cvt(utc,tms);
 

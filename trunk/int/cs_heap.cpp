@@ -52,12 +52,6 @@ void finalize()
   symbol_table().clear();
 }
 
-const value VM::undefinedValue = UNDEFINED_VALUE;        /* undefined value */
-const value VM::nullValue = NULL_VALUE;             /* null value */
-const value VM::trueValue = TRUE_VALUE;             /* true value */
-const value VM::falseValue = FALSE_VALUE;            /* false value */
-const value VM::nothingValue = NOTHING_VALUE;          /* internal 'nothing' value */
-
 
 //void finalize();
 VM::VM(unsigned int features, long size,long expandSize,long stackSize)
@@ -102,7 +96,7 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     this->sp = this->stackTop;
 
     /* make the symbol table */
-    //this->symbols = CsMakeObject(this,this->undefinedValue);
+    //this->symbols = CsMakeObject(this,UNDEFINED_VALUE);
 
 #if 0
     if(!undefinedValue)
@@ -119,13 +113,13 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
 #endif
 
     /* fixup the symbol table */
-    //CsSetObjectClass(this->symbols,this->undefinedValue);
-    //CsSetObjectProperties(this->symbols,this->undefinedValue);
+    //CsSetObjectClass(this->symbols,UNDEFINED_VALUE);
+    //CsSetObjectProperties(this->symbols,UNDEFINED_VALUE);
 
     /* initialize the global scope */
     this->globalScope.c = this;
-    this->globalScope.globals = CsMakeObject(this,this->undefinedValue);
-    this->globalScope.ns = this->undefinedValue;
+    this->globalScope.globals = CsMakeObject(this,UNDEFINED_VALUE);
+    this->globalScope.ns = UNDEFINED_VALUE;
     this->globalScope.next = this->scopes;
     this->scopes = &this->globalScope;
 
@@ -139,16 +133,14 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     this->currentNS = this->currentScope.globals;
     
   /* enter undefined into the symbol table */
-    CsSetGlobalValue(CsCurrentScope(this),this->undefinedValue,this->undefinedValue);
-    CsSetGlobalValue(CsCurrentScope(this),this->nothingValue,this->nothingValue);
+    CsSetGlobalValue(CsCurrentScope(this),UNDEFINED_VALUE,UNDEFINED_VALUE);
+    CsSetGlobalValue(CsCurrentScope(this),NOTHING_VALUE,NOTHING_VALUE);
 
     /* make the true and false symbols */
-    //this->trueValue = CsInternCString(this,"true");
-    CsSetGlobalValue(CsCurrentScope(this),this->trueValue,this->trueValue);
-    //this->falseValue = CsInternCString(this,"false");
-    CsSetGlobalValue(CsCurrentScope(this),this->falseValue,this->falseValue);
-
-    this->prototypeSym = CsInternCString(this,"prototype");
+    //TRUE_VALUE = CsInternCString(this,"true");
+    CsSetGlobalValue(CsCurrentScope(this),TRUE_VALUE,TRUE_VALUE);
+    //FALSE_VALUE = CsInternCString(this,"false");
+    CsSetGlobalValue(CsCurrentScope(this),FALSE_VALUE,FALSE_VALUE);
 
     /* initialize the interpreter */
     InitInterpreter(this);
@@ -203,15 +195,22 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     /* return successfully */
     valid = 0xAFED;
 
-    if(!thread_get_data())
-      thread_set_data(this);
+    //if(!thread_get_data())
+    //  thread_set_data(this);
 }
 
 /* CsFreeInterpreter - free an interpreter structure */
 VM::~VM()
 {
-    if(thread_get_data() == this)
-      thread_set_data(0);
+    //if(thread_get_data() == this)
+    //  thread_set_data(0);
+
+    this->standardInput->close();
+    this->standardOutput->close();
+    this->standardError->close();
+
+  {
+    tool::critical_section cs(guard);
 
     //CsMemorySpace *space,*nextSpace;
     //CsProtectedPtrs *p,*nextp;
@@ -225,6 +224,13 @@ VM::~VM()
     CsDestroyAllCObjects(this);
 
     pvalue *t = pins.next;
+
+    while(t != &pins)
+    {
+      pvalue *tn = t->next;
+      t->prune();
+      t = tn;
+    }
     assert(t == &pins);
 
     /* free memory spaces */
@@ -267,14 +273,66 @@ VM::~VM()
         if (s != &this->globalScope && s != &this->currentScope)
             CsFree(this,s);
     }
+  }
 }
 
 VM* VM::get_current()
 {
-  return (VM*)thread_get_data();
+  //return (VM*)thread_get_data();
+  return 0;
 }
 
-//reset
+bool _call_host_side(VM* c, const char* host_method_path, tool::value& envelope, int_t alien_id )
+{
+  value host_method = CsGetGlobalValueByPath(c,host_method_path);
+  if( !CsMethodP(host_method) )
+    return false;
+
+  TRY
+  {
+    value host_v = CsCallFunction(CsCurrentScope(c),host_method,1,int_value(alien_id));
+    envelope = value_to_value(c, host_v);
+    envelope.isolate();
+//if(!host_tv.isolate())
+//  CsThrowKnownError(this, CsErrUnexpectedTypeError, tag, "simple types or async streams");
+    return true;
+  }
+  CATCH_ERROR(e)
+  {
+    e;
+  }
+  return false;
+}
+
+
+static bool get_stream(const pvalue& tv, tool::handle<async_stream>& as)
+{
+  if( tv.pvm && tv.val) 
+  {
+    //??? tool::critical_section cs(tv.pvm->guard);
+    stream* s = CsFileStream(tv.val);
+    if(!s->is_async_stream())
+      return false;
+    as = static_cast<async_stream*>(s);
+  }
+  return true;
+}
+
+// ATTN: must be called in context(thread of) VM* c
+bool CsConnect(VM* c, pvalue& input, pvalue& output, pvalue& error)
+{
+  tool::handle<async_stream> sin,sout,serr;
+  if( get_stream(input, sin) &&
+      get_stream(output, sout) &&
+      get_stream(error, serr))
+  {
+    if(sin)   { sin->add_ref();  c->standardInput->close(); c->standardInput = sin.ptr(); }
+    if(sout)  { sout->add_ref(); c->standardOutput->close(); c->standardOutput = sout.ptr(); }
+    if(serr)  { serr->add_ref(); c->standardError->close(); c->standardError = serr.ptr(); }
+    return true;
+  }
+  return false;
+}
 
 /* CsMakeScope - make a variable scope structure */
 CsScope *CsMakeScope(VM *c,CsScope *proto)
@@ -283,14 +341,12 @@ CsScope *CsMakeScope(VM *c,CsScope *proto)
     if (scope) {
         scope->c = c;
         scope->globals = CsMakeObject(c,CsScopeObject(proto));
-        scope->ns = VM::undefinedValue;
+        scope->ns = UNDEFINED_VALUE;
         scope->next = c->scopes;
         c->scopes = scope;
     }
     return scope;
 }
-
-
 
 CsScope *CsMakeScopeFromObject(VM *c,value gobject)
 {
@@ -299,7 +355,7 @@ CsScope *CsMakeScopeFromObject(VM *c,value gobject)
         scope->c = c;
         scope->globals = gobject;
         scope->next = c->scopes;
-        scope->ns = VM::undefinedValue;
+        scope->ns = UNDEFINED_VALUE;
         c->scopes = scope;
         CsSetObjectClass(scope->globals,CsGlobalScope(c)->globals);
     }
@@ -325,7 +381,7 @@ void CsFreeScope(CsScope *scope)
 void CsInitScope(CsScope *scope)
 {
     value obj = CsScopeObject(scope);
-    CsSetObjectProperties(obj,scope->c->undefinedValue);
+    CsSetObjectProperties(obj,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(obj,0);
 }
 
@@ -337,10 +393,10 @@ static void InitInterpreter(VM *c)
     c->sp = c->stackTop;
 
     /* initialize the registers */
-    c->val = c->undefinedValue;
-    c->env = c->undefinedValue;
-    c->env_yield = c->undefinedValue;
-    c->currentNS = c->undefinedValue;
+    c->val[0] = UNDEFINED_VALUE;
+    c->vals = 1;
+    c->env = UNDEFINED_VALUE;
+    c->currentNS = UNDEFINED_VALUE;
     c->code = 0;
 }
 
@@ -367,6 +423,8 @@ value CsAllocate(VM *c,size_t size)
     long expandSize;
 #endif
     value val;
+
+    tool::critical_section cs(c->guard);
 
     /* look for free space
     for (newSpace = c->newSpace; newSpace != NULL; newSpace = newSpace->next)
@@ -452,7 +510,7 @@ value CsAllocate(VM *c,size_t size)
     return val;
 #else
     CsInsufficientMemory(c);
-    return c->undefinedValue; /* never reached */
+    return UNDEFINED_VALUE; /* never reached */
 #endif
 }
 
@@ -505,7 +563,7 @@ bool CsCollectGarbageIf(VM *c, size_t threshold)
         return false;
     }
     else
-      if( (space->top - space->free) > threshold ) 
+      if( size_t(space->top - space->free) > threshold ) 
         return false;
 
     CsCollectGarbage(c);
@@ -563,6 +621,9 @@ void CsCollectGarbage(VM *c)
     c->standardError->put_str("[GC");
 #endif
 
+    tool::critical_section _1(c->guard);
+    tool::auto_state<bool> _2(c->collecting_garbage);
+
     /* run prepare opened storages for garbage collection */
     for( i = c->storages.size() - 1; i >= 0; i-- )
       StoragePreGC(c, c->storages[i] );
@@ -577,18 +638,6 @@ void CsCollectGarbage(VM *c)
     //    ms->free = ms->base;
     ms->free = ms->base;
 
-    /* copy the root objects 
-    c->undefinedValue = CsCopyValue(c,c->undefinedValue);
-    c->nullValue = CsCopyValue(c,c->nullValue);
-    c->trueValue = CsCopyValue(c,c->trueValue);
-    c->falseValue = CsCopyValue(c,c->falseValue);*/
-
-    //c->prototypeValue = CsCopyValue(c,c->prototypeValue);
-    //c->symbols = CsCopyValue(c,c->symbols);
-
-    c->objectObject = CsCopyValue(c,c->objectObject);
-    c->classObject = CsCopyValue(c,c->classObject);
-    
     /* copy global variable scopes */
     for (scope = c->scopes; scope != NULL; scope = scope->next)
     {
@@ -596,11 +645,15 @@ void CsCollectGarbage(VM *c)
         scope->ns = CsCopyValue(c,scope->ns);
     }
 
+    // copy the root objects 
+
+    c->objectObject = CsCopyValue(c,c->objectObject);
+    c->classObject = CsCopyValue(c,c->classObject);
+    
     /* copy basic types */
     c->vectorObject = CsCopyValue(c,c->vectorObject);
     c->methodObject = CsCopyValue(c,c->methodObject);
     c->propertyObject = CsCopyValue(c,c->propertyObject);
-    //c->iteratorObject = CsCopyValue(c,c->iteratorObject);
 
     c->symbolObject = CsCopyValue(c,c->symbolObject);
     c->stringObject = CsCopyValue(c,c->stringObject);
@@ -617,8 +670,6 @@ void CsCollectGarbage(VM *c)
             d->obj = CsCopyValue(c,d->obj);
     }
 
-    c->GC_started();
-
     /* copy "pinned" values */
     pvalue *t = c->pins.next;
     while(t != &c->pins)
@@ -629,7 +680,6 @@ void CsCollectGarbage(VM *c)
         t = t;
       t = t->next;
     }
-
 
     /* copy the saved interpreter states */
     for (ss = c->savedState; ss != NULL; ss = ss->next) {
@@ -649,15 +699,16 @@ void CsCollectGarbage(VM *c)
         c->code = CsCopyValue(c,c->code);
 
     /* copy the registers */
-    c->val = CsCopyValue(c,c->val);
+    for(uint n = 0; n < c->vals; ++n)
+      c->val[n] = CsCopyValue(c,c->val[n]);
     c->env = CsCopyValue(c,c->env);
-    c->env_yield = CsCopyValue(c,c->env_yield);
     c->currentNS = CsCopyValue(c,c->currentNS);
 
     /* copy any user objects */
     if (c->protectHandler)
         (*c->protectHandler)(c,c->protectData);
 
+    c->GC_started();
 
     /* scan and copy until all accessible objects have been copied */
 
@@ -685,21 +736,22 @@ void CsCollectGarbage(VM *c)
         c->allocCount);
 #endif
 
-  /* run CollectGarbage() through all opened storages */
-  for( i = c->storages.size() - 1; i >= 0; i-- )
-  {
-    if( c->storages[i] && CsBrokenHeartP(c->storages[i]))
+    /* run CollectGarbage() through all opened storages */
+    for( i = c->storages.size() - 1; i >= 0; i-- )
     {
-      value newStorage = CsBrokenHeartForwardingAddr(c->storages[i]);
-      StoragePostGC(c, newStorage);
-      c->storages[i] = newStorage;
+      if( c->storages[i] && CsBrokenHeartP(c->storages[i]))
+      {
+        value newStorage = CsBrokenHeartForwardingAddr(c->storages[i]);
+        StoragePostGC(c, newStorage);
+        c->storages[i] = newStorage;
+      }
     }
-  }
 
-  /* destroy any unreachable cobjects */
-  CsDestroyUnreachableCObjects(c);
 
-  c->GC_ended();
+    /* destroy any unreachable cobjects */
+    CsDestroyUnreachableCObjects(c);
+
+    c->GC_ended();
 }
 
 /* CsDumpHeap - dump the contents of the heap */
@@ -740,7 +792,7 @@ void CsDumpScopes(VM *c)
             for (i = 0; i < CsHashTableSize(props); ++i) {
                 value p;
                 //c->standardError->printf(L" Bucket %d\n",i);
-                for (p = CsHashTableElement(props,i); p != c->undefinedValue; p = CsPropertyNext(p)) {
+                for (p = CsHashTableElement(props,i); p != UNDEFINED_VALUE; p = CsPropertyNext(p)) {
                     //c->standardError->put_str("  ");
                     for(int n = 0; n < t; ++n)
                       c->standardError->put_str("\t");
@@ -756,7 +808,7 @@ void CsDumpScopes(VM *c)
             value p;
             //c->standardError->printf(L"Scope %08lx:%08lx (list)\n",scope,scope->globals);
             c->standardError->printf(L"Scope %d:\n", t);
-            for (p = props; p != c->undefinedValue; p = CsPropertyNext(p)) {
+            for (p = props; p != UNDEFINED_VALUE; p = CsPropertyNext(p)) {
                 //c->standardError->put_str("  ");
                 for(int n = 0; n < t; ++n)
                   c->standardError->put_str("\t");
@@ -778,7 +830,7 @@ void CsDumpObject(VM *c, value obj)
       int i;
       for (i = 0; i < CsHashTableSize(props); ++i) {
           value p;
-          for (p = CsHashTableElement(props,i); p != c->undefinedValue; p = CsPropertyNext(p)) {
+          for (p = CsHashTableElement(props,i); p != UNDEFINED_VALUE; p = CsPropertyNext(p)) {
               CsPrint(c,CsPropertyTag(p),c->standardOutput);
               c->standardOutput->put_str(" = ");
               CsPrint(c,CsPropertyValue(p),c->standardOutput);
@@ -788,7 +840,7 @@ void CsDumpObject(VM *c, value obj)
   }
   else {
       value p;
-      for (p = props; p != c->undefinedValue; p = CsPropertyNext(p)) {
+      for (p = props; p != UNDEFINED_VALUE; p = CsPropertyNext(p)) {
           CsPrint(c,CsPropertyTag(p),c->standardOutput);
           c->standardOutput->put_str(" = ");
           CsPrint(c,CsPropertyValue(p),c->standardOutput);
@@ -814,7 +866,7 @@ bool CsDefaultSetProperty(VM *c,value obj,value tag,value value)
 
 value CsDefaultGetItem(VM *c,value obj,value tag)
 {
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 void     CsDefaultSetItem(VM *c,value obj,value tag,value value)
 {
@@ -826,7 +878,7 @@ void     CsDefaultSetItem(VM *c,value obj,value tag,value value)
 value CsDefaultNewInstance(VM *c,value proto)
 {
   CsThrowKnownError(c,CsErrNewInstance,proto);
-  return c->undefinedValue; /* never reached */
+  return UNDEFINED_VALUE; /* never reached */
 }
 
 /* CsDefaultPrint - print an obj */
@@ -926,11 +978,26 @@ int_t CsDefaultHash(value obj)
 static long BrokenHeartSize(value obj);
 static value BrokenHeartCopy(VM *c,value obj);
 
+/* CsDefaultGetProperty - get the value of a property */
+static bool BrokenHeartGetProperty(VM *c,value& obj,value tag,value *pValue)
+{
+  CsThrowKnownError(c, CsErrNoProperty, obj, tag);
+  return false;
+}
+
+/* CsDefaultSetProperty - set the value of a property */
+bool BrokenHeartSetProperty(VM *c,value obj,value tag,value value)
+{
+  CsThrowKnownError(c, CsErrUnexpectedTypeError, obj, tag);
+  return false;
+}
+
+
 dispatch CsBrokenHeartDispatch = {
     "BrokenHeart",
     &CsBrokenHeartDispatch,
-    CsDefaultGetProperty,
-    CsDefaultSetProperty,
+    BrokenHeartGetProperty,
+    BrokenHeartSetProperty,
     CsDefaultNewInstance,
     CsDefaultPrint,
     BrokenHeartSize,
@@ -996,7 +1063,7 @@ bool CsProtectPointer(VM *c,value *pp)
     while (ppb) {
         if (ppb->count < CsPPSize) {
             ppb->pointers[ppb->count++] = pp;
-            *pp = c->undefinedValue;
+            *pp = UNDEFINED_VALUE;
             return true;
         }
         ppb = ppb->next;
@@ -1013,7 +1080,7 @@ bool CsProtectPointer(VM *c,value *pp)
 
     /* add the pointer to the new block */
     ppb->pointers[ppb->count++] = pp;
-    *pp = c->undefinedValue;
+    *pp = UNDEFINED_VALUE;
     return true;
 }
 

@@ -25,6 +25,7 @@ static const char* well_known_symbols[] =
   "null",
   "true",
   "false",
+  "prototype",
   "boolean",
   "integer",
   "float",
@@ -32,6 +33,7 @@ static const char* well_known_symbols[] =
   "date",
   "array",
   "object",
+  "class",
   "symbol",
   "function",
   "color",
@@ -324,7 +326,9 @@ bool CsGetGlobalValue(VM *c,value sym,value *pValue)
   {
         obj = CsScopeObject(ps);
         if( pobj == obj) 
+        {
           continue;
+        }
         if ((property = CsFindProperty(c,obj,sym,NULL,NULL)) != 0)
         {
             *pValue = CsPropertyValue(property);
@@ -354,7 +358,7 @@ value CsGetGlobalValueByPath(VM *c,const char* path)
 {
   tool::atokens tz(tool::chars_of(path),".");
   tool::chars s;
-  value obj = CsGlobalScope(c)->globals;
+  value obj = CsCurrentScope(c)->globals;
   while( tz.next(s) )
   {
     value v = 0;
@@ -366,7 +370,7 @@ value CsGetGlobalValueByPath(VM *c,const char* path)
         continue;
       }
     }
-    obj = 0;
+    obj = UNDEFINED_VALUE;
     break;
   }
   return obj;
@@ -442,7 +446,7 @@ bool CsGetGlobalOrNamespaceValue(VM *c,value tag,value *pValue)
             CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
         }
         else if(CsPropertyMethodP(propValue))
-          *pValue = CsSendMessage(c,obj,propValue,1, c->nothingValue);
+          *pValue = CsSendMessage(c,obj,propValue,1, NOTHING_VALUE);
         else
           *pValue = propValue;
         return true;
@@ -464,7 +468,7 @@ void CsSetGlobalValue(CsScope *scope,value sym,value value)
 void CsSetNamespaceValue(VM *c,value sym,value val)
 {
 #ifdef _DEBUG
-    if(sym == VM::undefinedValue)
+    if(sym == UNDEFINED_VALUE)
       sym = sym;
 #endif
     CsSetProperty1(c,c->getCurrentNS(),sym,val);

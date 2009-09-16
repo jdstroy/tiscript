@@ -84,7 +84,7 @@ OTDEF otab[] = {
 {       BC_EH_PUSH,   "EH_PUSH",      FMT_WORD        },
 {       BC_EH_POP,    "EH_POP",       FMT_WORD        },
 {       BC_IN,        "IN",           FMT_NONE        },
-{       BC_NEXT,      "NEXT",         FMT_NONE        },
+{       BC_NEXT,      "NEXT",         FMT_2BYTE       },
 {       BC_NOTHING,   "NOTHING",      FMT_NONE        },
 {       BC_BRDEF,     "BRDEF",        FMT_WORD        },
 {       BC_OUTPUT,    "OUTPUT",       FMT_NONE        },
@@ -104,7 +104,6 @@ OTDEF otab[] = {
 
 {       BC_S_CALL,    "BC_S_CALL",    FMT_WORD        },
 {       BC_S_RETURN,  "BC_S_RETURN",  FMT_NONE        },
-{       BC_YIELD,     "YIELD",        FMT_WORD        },
 {       BC_NEWCLASS,  "NEWCLASS",     FMT_NONE        },
 {       BC_USHL,       "USHL",        FMT_NONE        },
 {       BC_USHR,       "USHR",        FMT_NONE        },
@@ -119,8 +118,17 @@ OTDEF otab[] = {
 {       BC_ROTATE,    "ROTATE",       FMT_BYTE        },
 
 {       BC_INCLUDE_LIBRARY, "INCLUDE LIBRARY", FMT_NONE  }, 
-{       BC_PRE_YIELD, "PRE_YIELD", FMT_NONE  }, 
+{       BC_ASSERT, "ASSERT",          FMT_NONE  }, 
 
+{       BC_PUSH_RVAL, "PUSH_RVAL",    FMT_NONE  }, 
+{       BC_POP_RVAL, "POP_RVAL",      FMT_NONE  }, 
+{       BC_RESET_RVAL, "RESET_RVAL",  FMT_NONE  }, 
+
+{       BC_EQ_M,      "EQ_M",         FMT_2BYTE  }, 
+{       BC_NE_M,      "NE_M",         FMT_2BYTE  }, 
+{       BC_EQ_STRONG_M,      "EQ_STRONG_M",         FMT_2BYTE  }, 
+{       BC_NE_STRONG_M,      "NE_STRONG_M",         FMT_2BYTE  }, 
+{       BC_STACK_RVAL,       "STACK_RVAL",          FMT_NONE   }, 
 
 {0,0,0}
 };

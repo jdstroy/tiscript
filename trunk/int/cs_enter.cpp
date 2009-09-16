@@ -55,7 +55,7 @@ value CsEnterObject(CsScope *scope,char *name,value proto,c_method *methods, vp_
       CsCPush(c,CsMakeObject(c,proto));
       */
     value nameSymbol = CsInternCString(c,name);
-    CsPush(c,CsNewClassInstance(c,VM::undefinedValue,nameSymbol));
+    CsPush(c,CsNewClassInstance(c,UNDEFINED_VALUE,nameSymbol));
     CsSetGlobalValue(scope,nameSymbol,CsTop(c));
     /* enter the methods */
     if (methods)
@@ -82,7 +82,8 @@ dispatch *CsEnterCObjectType(CsScope *scope,dispatch *proto,char *typeName,c_met
 
   /* add the type symbol */
   CsCPush(c,CsInternCString(c,typeName));
-    CsSetGlobalValue(scope,CsTop(c),d->obj);
+    //CsSetGlobalValue(scope,CsTop(c),d->obj);
+    CsSetNamespaceValue(c,CsTop(c),d->obj);
   CsDrop(c,1);
 
     /* return the new obj type */
@@ -101,7 +102,8 @@ dispatch *CsEnterCPtrObjectType(CsScope *scope,dispatch *proto,char *typeName,c_
 
   /* add the type symbol */
   CsCPush(c,CsInternCString(c,typeName));
-    CsSetGlobalValue(scope,CsTop(c),d->obj);
+    //CsSetGlobalValue(scope,CsTop(c),d->obj);
+    CsSetNamespaceValue(c,CsTop(c),d->obj);
   CsDrop(c,1);
 
     /* return the new obj type */

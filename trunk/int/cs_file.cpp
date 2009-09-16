@@ -21,10 +21,20 @@ static value CSF_scanf(VM *c);
 static value CSF_getc(VM *c);
 static value CSF_putc(VM *c);
 static value CSF_readln(VM *c);
+static value CSF_send(VM *c);
+static value CSF_post(VM *c);
 static value CSF_openFile(VM *c);
+static value CSF_openPipe(VM *c);
 static value CSF_openSocket(VM *c);
 static value CSF_openString(VM *c);
 static value CSF_toString(VM *c);
+
+static value CSF_isInput(VM *c,value obj);
+static value CSF_isOutput(VM *c,value obj);
+static value CSF_isPipe(VM *c,value obj);
+static value CSF_proxy(VM *c,value obj);
+static void  CSF_set_proxy(VM *c,value obj,value val);
+static value CSF_pending(VM *c,value obj);
 
 /* file methods */
 static c_method methods[] = {
@@ -32,6 +42,7 @@ static c_method methods[] = {
 C_METHOD_ENTRY( "openFile",         CSF_openFile        ),
 C_METHOD_ENTRY( "openSocket",       CSF_openSocket      ),
 C_METHOD_ENTRY( "openString",       CSF_openString      ),
+C_METHOD_ENTRY( "openPipe",         CSF_openPipe        ),
 C_METHOD_ENTRY( "close",            CSF_close           ),
 C_METHOD_ENTRY( "print",            CSF_print           ),
 C_METHOD_ENTRY( "println",          CSF_println         ),
@@ -40,18 +51,30 @@ C_METHOD_ENTRY( "scanf",            CSF_scanf           ),
 C_METHOD_ENTRY( "toString",         CSF_toString        ),
 C_METHOD_ENTRY( "getc",             CSF_getc            ),
 C_METHOD_ENTRY( "putc",             CSF_putc            ),
+C_METHOD_ENTRY( "send",             CSF_send            ),
+C_METHOD_ENTRY( "post",             CSF_post            ),
 C_METHOD_ENTRY( "readln",           CSF_readln          ),
 C_METHOD_ENTRY( 0,                  0                  )
 };
 
 /* file properties */
 static vp_method properties[] = {
+VP_METHOD_ENTRY( "isInput",   CSF_isInput,           0  ),
+VP_METHOD_ENTRY( "isOutput",  CSF_isOutput,          0  ),
+VP_METHOD_ENTRY( "isPipe",    CSF_isPipe,            0  ),
+VP_METHOD_ENTRY( "proxy",     CSF_proxy,             CSF_set_proxy ),
+VP_METHOD_ENTRY( "pending",   CSF_pending,           0 ),
+
+//set_request_handler
+
+//VP_METHOD_ENTRY( "onRead",    CSF_onRead,            CSF_set_onRead  ),
 VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
 /* prototypes */
 static void EnterPort(VM *c,char *name,stream **pStream);
 static void DestroyFile(VM *c,value obj);
+
 
 /* CsInitFile - initialize the 'File' obj */
 void CsInitFile(VM *c)
@@ -62,7 +85,7 @@ void CsInitFile(VM *c)
 
     /* setup alternate handlers */
     c->fileDispatch->destroy = DestroyFile;
-
+    
     /* enter the built-in ports */
     EnterPort(c,"stdin",&c->standardInput);
     EnterPort(c,"stdout",&c->standardOutput);
@@ -83,7 +106,7 @@ static void EnterPort(VM *c,char *name,stream **pStream)
     CsCheck(c,2);
     CsPush(c,CsMakeFile(c,s));
     CsPush(c,CsInternCString(c,name));
-    CsSetNamespaceConst(c,CsTop(c),c->sp[1]);
+    CsSetNamespaceConst(c,CsTop(c),CsTop(c,1));
     CsDrop(c,2);
 }
 
@@ -102,7 +125,7 @@ static value CSF_ctor(VM *c)
     value val;
     CsParseArguments(c,"V=*SS",&val,c->fileDispatch,&fname,&mode);
     if (!(s = OpenFileStream(c,fname,mode)))
-        return c->undefinedValue;
+        return UNDEFINED_VALUE;
     CsSetCObjectValue(val,s);
     CsCtorRes(c) = val;
     return val;
@@ -120,7 +143,24 @@ static value CSF_openFile(VM *c)
   CsParseArguments(c,"**SS",&fname,&mode);
   s = OpenFileStream(c,fname,mode);
   if( !s )
-    return c->nullValue;
+    return NULL_VALUE;
+  return CsMakeFile(c,s);
+}
+
+static value CSF_openPipe(VM *c)
+{
+  value received = NULL_VALUE, proxy = NULL_VALUE;
+  CsParseArguments(c,"**V|V",&received, &proxy);
+  if( (received != NULL_VALUE) && !CsMethodP(received) )
+    CsThrowKnownError(c,CsErrUnexpectedTypeError,received, "either function or null" );
+  //if( (sent != NULL_VALUE) && !CsMethodP(sent) )
+  //  CsThrowKnownError(c,CsErrUnexpectedTypeError,sent, "either function or null" );
+  if( (proxy != NULL_VALUE) && !CsObjectP(proxy) )
+    CsThrowKnownError(c,CsErrUnexpectedTypeError,proxy, "either object or null" );
+  async_stream *s = new async_stream(c,received, proxy);
+  if( !s )
+    return NULL_VALUE;
+  s->add_ref();
   return CsMakeFile(c,s);
 }
 
@@ -132,7 +172,7 @@ static value CSF_openSocket(VM *c)
     CsParseArguments(c,"**S|i",&address,&tout);
     s = OpenSocketStream(c,address,tout,true);
     if( !s )
-      return c->nullValue;
+      return NULL_VALUE;
     return CsMakeFile(c,s);
 }
 
@@ -152,17 +192,69 @@ static value CSF_openString(VM *c)
     else
       s = new string_stream_sd(64);
     if( !s )
-      return c->nullValue;
+      return NULL_VALUE;
     return CsMakeFile(c,s);
 }
 
+static value CSF_isInput(VM *c,value obj)
+{
+  stream *s = CsFileStream(obj);
+  return s && s->is_input_stream()? TRUE_VALUE : FALSE_VALUE;
+}
+static value CSF_isOutput(VM *c,value obj)
+{
+  stream *s = CsFileStream(obj);
+  return s && s->is_output_stream()? TRUE_VALUE : FALSE_VALUE;
+}
 
+static value CSF_isPipe(VM *c,value obj)
+{
+  stream *s = CsFileStream(obj);
+  return s && s->is_async_stream()? TRUE_VALUE : FALSE_VALUE;
+}
+
+static value CSF_pending(VM *c,value obj)
+{
+  stream *s = (stream *)CsCObjectValue(obj);
+  if(!s || !s->is_async_stream()) return int_value(0);
+  async_stream *as = static_cast<async_stream *>(s);
+  return int_value(as->pending);
+}
+
+static value CSF_proxy(VM *c,value obj)
+{
+  stream *s = (stream *)CsCObjectValue(obj);
+  if(!s || !s->is_async_stream()) return UNDEFINED_VALUE;
+  async_stream *as = static_cast<async_stream *>(s);
+  if( !as->request_cb.is_alive() )
+    return NULL_VALUE;
+  if( as->request_cb.pvm == c )
+    return as->request_cb;
+  else
+    return TRUE_VALUE;
+}
+static void CSF_set_proxy(VM *c,value obj,value val)
+{
+  stream *s = (stream *)CsCObjectValue(obj);
+  if(!s || !s->is_async_stream()) 
+    CsThrowKnownError(c,CsErrUnexpectedTypeError,obj, "is not a pipe stream" );
+  if( (val != NULL_VALUE) && !CsObjectP(val) )
+    CsThrowKnownError(c,CsErrUnexpectedTypeError,val, "either object or null" );
+  async_stream *as = static_cast<async_stream *>(s);
+  if( as->request_cb.is_alive() && as->request_cb.pvm != c)
+    CsThrowKnownError(c,CsErrUnexpectedTypeError,val, "cannot reset remote proxy" );
+  if(val == NULL_VALUE)
+    as->request_cb.unpin();
+  else
+    as->request_cb.pin(c,val);
+}
 
 /* DestroyFile - destroy a file obj */
 static void DestroyFile(VM *c,value obj)
 {
     stream *s = (stream *)CsCObjectValue(obj);
     if (s) s->close();
+    CsSetCObjectValue(obj, 0);
 }
 
 /* CSF_Close - built-in method 'Close' */
@@ -173,10 +265,10 @@ static value CSF_close(VM *c)
     int sts;
     CsParseArguments(c,"V=*",&val,c->fileDispatch);
     s = (stream *)CsCObjectValue(val);
-    if (!s) return c->falseValue;
+    if (!s) return FALSE_VALUE;
     sts = s->close();
     CsSetCObjectValue(val,0);
-    return sts == 0 ? c->trueValue : c->falseValue;
+    return sts == 0 ? TRUE_VALUE : FALSE_VALUE;
 }
 
 /* CSF_toString - built-in method 'toString' */
@@ -186,7 +278,7 @@ static value CSF_toString(VM *c)
     stream *s;
     CsParseArguments(c,"V=*",&val,c->fileDispatch);
     s = (stream *)CsCObjectValue(val);
-    if (!s) return c->undefinedValue;
+    if (!s) return UNDEFINED_VALUE;
     if ( s->is_string_stream() )
     {
        string_stream_sd* ps = static_cast<string_stream_sd*>( s );
@@ -197,7 +289,6 @@ static value CSF_toString(VM *c)
 }
 
 
-
 /* CSF_print - built-in function 'Print' */
 static value CSF_print(VM *c)
 {
@@ -206,10 +297,10 @@ static value CSF_print(VM *c)
     CsCheckArgMin(c,2);
     CsCheckArgType(c,1,c->fileDispatch);
     if (!(s = CsFileStream(CsGetArg(c,1))))
-        return c->falseValue;
+        return FALSE_VALUE;
     for (i = 3; i <= CsArgCnt(c); ++i)
         CsDisplay(c,CsGetArg(c,i),s);
-    return c->trueValue;
+    return TRUE_VALUE;
 }
 
 /* CSF_println - built-in function 'Display' */
@@ -220,12 +311,12 @@ static value CSF_println(VM *c)
 
     CsCheckArgType(c,1,c->fileDispatch);
     if (!(s = CsFileStream(CsGetArg(c,1))))
-        return c->falseValue;
+        return FALSE_VALUE;
 
     r = CSF_print(c);
     s->put_str("\r\n");
 
-    return c->trueValue;
+    return TRUE_VALUE;
 
 }
 
@@ -236,11 +327,11 @@ static value CSF_printf(VM *c)
     CsCheckArgMin(c,3);
     CsCheckArgType(c,1,c->fileDispatch);
     if (!(s = CsFileStream(CsGetArg(c,1))))
-        return c->falseValue;
+        return FALSE_VALUE;
 
     s->printf_args(c);
 
-    return c->trueValue;
+    return TRUE_VALUE;
 }
 
 /* CSF_scanf - built-in function 'scanf' */
@@ -249,7 +340,7 @@ static value CSF_scanf(VM *c)
     stream *s;
     wchar* fmt;
     CsParseArguments(c,"P=*S",&s,c->fileDispatch,&fmt);
-    if (!s) return c->falseValue;
+    if (!s) return FALSE_VALUE;
     return s->scanf(c,fmt);
 }
 
@@ -260,9 +351,9 @@ static value CSF_getc(VM *c)
     stream *s;
     int ch;
     CsParseArguments(c,"P=*",&s,c->fileDispatch);
-    if (!s) return c->undefinedValue;
+    if (!s) return UNDEFINED_VALUE;
     if ((ch = s->get()) == stream::EOS)
-        return c->undefinedValue;
+        return UNDEFINED_VALUE;
     if( ch == stream::TIMEOUT )
       CsTimeout(c);
     return CsMakeInteger(ch);
@@ -274,7 +365,7 @@ static value CSF_putc(VM *c)
     stream *s;
     int ch;
     CsParseArguments(c,"P=*i",&s,c->fileDispatch,&ch);
-    if (!s) return c->falseValue;
+    if (!s) return FALSE_VALUE;
     return CsMakeBoolean(c, s->put(ch));
 }
 
@@ -284,10 +375,10 @@ static value CSF_putc(VM *c)
       stream *s;
       int ch;
       CsParseArguments(c,"P=*",&s,c->fileDispatch);
-      if (!s) return c->undefinedValue;
+      if (!s) return UNDEFINED_VALUE;
 
       if((ch = s->get()) == stream::EOS)
-        return c->undefinedValue;
+        return UNDEFINED_VALUE;
 
       if( ch == stream::TIMEOUT )
         CsTimeout(c);
@@ -310,6 +401,38 @@ static value CSF_putc(VM *c)
       return CsMakeCharString(c,buf.head(),buf.size());
 
   }
+
+  /* CSF_send - invokes method on other end of the pipe and waits for returned result */
+  static value CSF_send(VM *c)
+  {
+      stream *s;
+      value   v = NOTHING_VALUE;
+      CsParseArguments(c,"P=*|",&s,c->fileDispatch);
+      if(!s || !s->is_async_stream()) 
+        CsThrowKnownError(c,CsErrUnexpectedTypeError,CsGetArg(c,1), "is not a pipe stream" );
+      async_stream* as = static_cast<async_stream*>(s);
+      if(as->send(c,v))
+        return v;
+      v = CsToString(c,v);
+      CsThrowKnownError(c,CsErrGenericErrorW,value_to_string(v).c_str());
+      return v;
+  }
+
+  /* CSF_post - invokes method on other end of the pipe without waiting */
+  static value CSF_post(VM *c)
+  {
+      stream *s;
+      value   v = NOTHING_VALUE;
+      CsParseArguments(c,"P=*|",&s,c->fileDispatch);
+      if(!s || !s->is_async_stream()) 
+        CsThrowKnownError(c,CsErrUnexpectedTypeError,CsGetArg(c,1), "is not a pipe stream" );
+      async_stream* as = static_cast<async_stream*>(s);
+      if(as->post(c))
+        return TRUE_VALUE;
+      CsThrowKnownError(c,CsErrGenericErrorW,"failure of remote side");
+      return FALSE_VALUE;
+  }
+
 
   static bool PrintNumericData(VM* c,value val, stream* s, int *tabs)
   {
@@ -365,11 +488,11 @@ static value CSF_putc(VM *c)
 
   static bool PrintObjectData(VM *c,value obj,stream *s, int *tabs, tool::pool<value>& emited)
   {
-      if(obj == c->nullValue)
+      if(obj == NULL_VALUE)
       {
         return s->put_str("null");
       }
-      if(obj == c->undefinedValue)
+      if(obj == UNDEFINED_VALUE)
       {
         return s->put_str("undefined");
       }
@@ -504,10 +627,10 @@ static value CSF_putc(VM *c)
       CsCheckArgMin(c,2);
       CsCheckArgType(c,1,c->fileDispatch);
       if (!(s = CsFileStream(CsGetArg(c,1))))
-          return c->undefinedValue;
+          return UNDEFINED_VALUE;
       for (i = 3; i <= CsArgCnt(c); ++i)
           CsDisplay(c,CsGetArg(c,i),s);
-      return c->trueValue;
+      return TRUE_VALUE;
   }
 */
 

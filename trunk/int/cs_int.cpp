@@ -21,10 +21,20 @@ namespace tis
 /* types */
 typedef struct FrameDispatch FrameDispatch;
 
+template<class T>
+  struct stack_ptr
+  {
+    uint_ptr top_off;
+    T* get(VM* c) { return top_off? ((T*)( uint_ptr(c->stackTop) - top_off + 1)) : 0; }
+    void  set(VM* c, const T* ptr) { top_off = uint_ptr(c->stackTop) - uint_ptr(ptr) + 1; }
+  };
+
+
 /* frame */
 struct CsFrame {
     FrameDispatch *pdispatch;
-    CsFrame *next;
+    //CsFrame *next;
+    stack_ptr<CsFrame> next;
 };
 
 /* frame pdispatch structure */
@@ -96,20 +106,19 @@ void UnaryOp(VM *c,int op);
 inline void BinaryOp(VM *c,int op)
 {
     value p1 = CsPop(c);
-    value p2 = c->val;
-    c->val = CsBinaryOp(c,op,p1,p2);
+    value p2 = c->val[0];
+    c->val[0] = CsBinaryOp(c,op,p1,p2);
 }
 
 
 static bool Call(VM *c,FrameDispatch *d,int argc);
 static void PushFrame(VM *c,int size, value names = UNDEFINED_VALUE);
 static value UnstackEnv(VM *c,value env);
-static value MakeGenerator(VM *c,value env);
 static void BadOpcode(VM *c,int opcode);
 static int CompareStrings(value str1,value str2);
 static value ConcatenateStrings(VM *c,value str1,value str2);
 
-static value GetNextMember(VM *c, value* index, value collection);
+static value GetNextMember(VM *c, value* index, value collection, int nr);
 static value CsGetRange(VM *c, value col, value start, value end);
 
 /* CsSaveInterpreterState - save the current interpreter state */
@@ -219,7 +228,7 @@ static value ExecuteCall(CsScope *scope,value fun,int argc,va_list ap)
       /* setup the call */
       if (Call(c,&CsTopCDispatch,argc + 2))
       {
-          return c->val;
+          return c->val[0];
       }
       /* execute the function code */
       Execute(c);
@@ -229,7 +238,7 @@ static value ExecuteCall(CsScope *scope,value fun,int argc,va_list ap)
        state.restore();
        RETHROW(e);
     }
-    return c->val;
+    return c->val[0];
 }
 
 /* ExecuteCall - execute a function call */
@@ -252,13 +261,15 @@ value CsCallFunction(CsScope *scope,value fun, vargs& args)
       CsPush(c,scope->globals);
 
       /* push the arguments */
-      for (n = args.count(); --n >= 0; )
+      int argc = args.count();
+
+      for (n = 0; n < argc; ++n )//for (n = argc; --n >= 0; )
           CsPush(c, args.nth(n));
 
       /* setup the call */
-      if (Call(c,&CsTopCDispatch,args.count() + 2))
+      if (Call(c,&CsTopCDispatch,argc + 2))
       {
-          return c->val;
+          return c->val[0];
       }
       /* execute the function code */
       Execute(c);
@@ -268,7 +279,7 @@ value CsCallFunction(CsScope *scope,value fun, vargs& args)
        state.restore();
        RETHROW(e);
     }
-    return c->val;
+    return c->val[0];
 }
 
 
@@ -300,7 +311,7 @@ value CsSendMessage(VM *c,value obj, value selector,int argc,...)
       /* setup the call */
       if (Send(c,&CsTopCDispatch,argc + 2))
       {
-          return c->val;
+          return c->val[0];
       }
       /* execute the method */
       Execute(c);
@@ -311,7 +322,7 @@ value CsSendMessage(VM *c,value obj, value selector,int argc,...)
        state.restore();
        RETHROW(e);
     }
-    return c->val;
+    return c->val[0];
 }
 
 
@@ -351,7 +362,7 @@ value CsCallMethod(VM *c,value obj, value method, value ofClass,  int argc,...)
       /* setup the call */
       if (Send(c,&CsTopCDispatch,argc + 2))
       {
-          return c->val;
+          return c->val[0];
       }
       /* execute the method */
       Execute(c);
@@ -362,7 +373,7 @@ value CsCallMethod(VM *c,value obj, value method, value ofClass,  int argc,...)
        state.restore();
        RETHROW(e);
     }
-    return c->val;
+    return c->val[0];
 }
 
 value CsSendMessage(CsScope *scope,value obj, value selector,int argc,...)
@@ -394,7 +405,7 @@ value CsSendMessage(CsScope *scope,value obj, value selector,int argc,...)
       /* setup the call */
       if (Send(c,&CsTopCDispatch,argc + 2))
       {
-          return c->val;
+          return c->val[0];
       }
       /* execute the method */
       Execute(c);
@@ -405,12 +416,15 @@ value CsSendMessage(CsScope *scope,value obj, value selector,int argc,...)
        state.restore();
        RETHROW(e);
     }
-    return c->val;
+    return c->val[0];
 }
 
 value CsSendMessage(VM *c, value obj, value selector, const value* argv, int argc)
 {
     int n;
+
+    if( obj == NULL_VALUE )
+      obj = CsCurrentScope(c)->globals;
 
     /* save the interpreter state */
     CsSavedState state(c);
@@ -432,7 +446,7 @@ value CsSendMessage(VM *c, value obj, value selector, const value* argv, int arg
       /* setup the call */
       if (Send(c,&CsTopCDispatch,argc + 2))
       {
-          return c->val;
+          return c->val[0];
       }
       /* execute the method */
       Execute(c);
@@ -443,7 +457,7 @@ value CsSendMessage(VM *c, value obj, value selector, const value* argv, int arg
        state.restore();
        RETHROW(e);
     }
-    return c->val;
+    return c->val[0];
 }
 
 
@@ -481,7 +495,7 @@ value CsSendMessageByName(VM *c,value obj,char *sname,int argc,...)
       /* setup the call */
       if (Send(c,&CsTopCDispatch,argc + 2))
       {
-          return c->val;
+          return c->val[0];
       }
 
       /* execute the method */
@@ -492,11 +506,10 @@ value CsSendMessageByName(VM *c,value obj,char *sname,int argc,...)
        state.restore();
        RETHROW(e);
     }
-    return c->val;
+    return c->val[0];
 }
 
-
-inline void StreamOut(VM *c)
+/*inline void StreamOut(VM *c)
 {
     static value print_sym = 0;
     if(!print_sym)
@@ -504,7 +517,7 @@ inline void StreamOut(VM *c)
     value strm = CsPop(c);
     CsSendMessage(c,strm,print_sym,1,c->val);
     c->val = strm;
-}
+}*/
 
 
 /* Execute - execute code */
@@ -544,33 +557,26 @@ bool Execute(VM *c,value gen)
             break;
         case BC_ARGSGE:
             i = *c->pc++;
-            c->val = CsMakeBoolean(c,c->argc >= i);
+            c->val[0] = CsMakeBoolean(c,c->argc >= i);
             break;
         case BC_CLOSE:
             {
-              bool isPropertyMethod = (*c->pc++) ? true:false;
               c->env = UnstackEnv(c,c->env);
-              c->val = isPropertyMethod?
-                CsMakePropertyMethod(c,c->val,c->env,c->currentScope.globals, c->getCurrentNS()):
-                CsMakeMethod(c,c->val,c->env,c->currentScope.globals, c->getCurrentNS());
+              FUNCTION_TYPE fct = (FUNCTION_TYPE)*c->pc++;
+              switch(fct)
+              {
+                case FUNCTION:
+                  c->val[0] = CsMakeMethod(c,c->val[0],c->env,c->currentScope.globals, c->getCurrentNS());
+                  break;
+                case PROPERTY:
+                case UNDEFINED_PROPERTY:
+                  c->val[0] = CsMakePropertyMethod(c,c->val[0],c->env,c->currentScope.globals, c->getCurrentNS());
+                  break;
+                default:
+                  assert(false);
+                  break;
+              }
             }
-            break;
-        case BC_PRE_YIELD:
-            if(CsStackEnvironmentP(c->env))
-              c->env_yield = UnstackEnv(c,c->env);
-            else
-              c->env_yield = c->env;
-            break;
-        case BC_YIELD:
-            if(!gen)
-              gen = c->val = MakeGenerator(c,c->env_yield);
-            c->env_yield = VM::undefinedValue;
-
-            //else
-            //  c->val = MakeGenerator(c);
-            ptr<generator>(gen)->pcoffset = c->pc - c->cbase;
-            if((*c->fp->pdispatch->restore)(c))
-              return true;
             break;
         case BC_RETURN:
             if((*c->fp->pdispatch->restore)(c))
@@ -588,38 +594,38 @@ bool Execute(VM *c,value gen)
             }
 #endif
             i = CsEnvSize(p2) - *c->pc++;
-            c->val = CsEnvElement(p2,i);
+            c->val[0] = CsEnvElement(p2,i);
             break;
         case BC_ESET:
             i = *c->pc++;
             for (p2 = c->env; --i >= 0; )
                 p2 = CsEnvNextFrame(p2);
             i = CsEnvSize(p2) - *c->pc++;
-            CsSetEnvElement(p2,i,value_to_set(c->val));
+            CsSetEnvElement(p2,i,value_to_set(c->val[0]));
             break;
         case BC_BRT:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            if ( CsToBoolean(c,c->val) == TRUE_VALUE )
+            if ( CsToBoolean(c,c->val[0]) == TRUE_VALUE )
                 c->pc = c->cbase + off;
             break;
         case BC_BRDEF: // branch if val != nothingValue
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            if ( c->val != NOTHING_VALUE )
+            if ( c->val[0] != NOTHING_VALUE )
                 c->pc = c->cbase + off;
             break;
         case BC_BRUNDEF:
-            //c->val = ( CsGetArg(c,3) != NOTHING_VALUE )? TRUE_VALUE : FALSE_VALUE;
+            //c->val[0] = ( CsGetArg(c,3) != NOTHING_VALUE )? TRUE_VALUE : FALSE_VALUE;
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            if ( c->val == NOTHING_VALUE )
+            if ( c->val[0] == NOTHING_VALUE )
                 c->pc = c->cbase + off;
             break;
         case BC_BRF:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            if ( CsToBoolean(c,c->val) == FALSE_VALUE )
+            if ( CsToBoolean(c,c->val[0]) == FALSE_VALUE )
                 c->pc = c->cbase + off;
             break;
         case BC_BR:
@@ -629,15 +635,15 @@ bool Execute(VM *c,value gen)
             break;
         case BC_SWITCH:
 #ifdef _DEBUG
-          if( c->val == int_value(-1))
-            c->val = c->val;
+          if( c->val[0] == int_value(-1))
+            c->val[0] = c->val[0];
 #endif
             i = *c->pc++;
             i |= *c->pc++ << 8;
             while (--i >= 0) {
                 off = *c->pc++;
                 off |= *c->pc++ << 8;
-                if (CsEql(c->val,CsCompiledCodeLiteral(c->code,off)))
+                if (CsEql(c->val[0],CsCompiledCodeLiteral(c->code,off)))
                     break;
                 c->pc += 2;
             }
@@ -646,42 +652,42 @@ bool Execute(VM *c,value gen)
             c->pc = c->cbase + off;
             break;
         case BC_T:
-            c->val = TRUE_VALUE;
+            c->val[0] = TRUE_VALUE;
             break;
         case BC_F:
-            c->val = FALSE_VALUE;
+            c->val[0] = FALSE_VALUE;
             break;
         case BC_NULL:
-            c->val = NULL_VALUE;
+            c->val[0] = NULL_VALUE;
             break;
         case BC_UNDEFINED:
-            c->val = UNDEFINED_VALUE;
+            c->val[0] = UNDEFINED_VALUE;
             break;
         case BC_NOTHING:
-            c->val = NOTHING_VALUE;
+            c->val[0] = NOTHING_VALUE;
             break;
         case BC_PUSH:
-            CsCPush(c,c->val);
+            CsCPush(c,c->val[0]);
             break;
         case BC_NOT:
-            c->val = CsToBoolean(c,c->val) == TRUE_VALUE? FALSE_VALUE:TRUE_VALUE;
+            c->val[0] = CsToBoolean(c,c->val[0]) == TRUE_VALUE? FALSE_VALUE:TRUE_VALUE;
             break;
         case BC_NEG:
             UnaryOp(c,'-');
             break;
         case BC_ADD:
-            if (CsStringP(c->val))
+            if (CsStringP(c->val[0]))
             {
                 p1 = CsPop(c);
                 if (!CsStringP(p1))
                   p1 = CsToString(c,p1);
-                c->val = ConcatenateStrings(c,p1,c->val);
+                c->val[0] = ConcatenateStrings(c,p1,c->val[0]);
             }
             else if (CsStringP(CsTop(c)))
             {
-                if (!CsStringP(c->val))
-                  c->val = CsToString(c,c->val);  
-                c->val = ConcatenateStrings(c,CsPop(c),c->val);
+                if (!CsStringP(c->val[0]))
+                  c->val[0] = CsToString(c,c->val[0]);  
+                c->val[0] = ConcatenateStrings(c,CsPop(c),c->val[0]);
             }
             else
                 BinaryOp(c,BC_ADD);
@@ -718,7 +724,16 @@ bool Execute(VM *c,value gen)
             break;
         case BC_SHL:
             if( CsFileP(c,CsTop(c)) )
-              StreamOut(c);
+            {
+              value strm = CsPop(c);
+              if(!CsFileStream(strm)->put(c,c->val[0]))
+              {
+                tool::string n = CsFileStream(strm)->stream_name();
+                CsThrowKnownError(c,CsErrIOError,n.c_str());
+              }
+              c->val[0] = strm;
+              //StreamOut(c);
+            }
             else
               BinaryOp(c,BC_SHL/*'L'*/);
             break;
@@ -733,48 +748,48 @@ bool Execute(VM *c,value gen)
             break;
         case BC_LT:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c,CsCompareObjects(c,p1,c->val) < 0);
+            c->val[0] = CsMakeBoolean(c,CsCompareObjects(c,p1,c->val[0]) < 0);
             break;
         case BC_LE:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c,CsCompareObjects(c,p1,c->val) <= 0);
+            c->val[0] = CsMakeBoolean(c,CsCompareObjects(c,p1,c->val[0]) <= 0);
             break;
         case BC_EQ:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c,CsEqualOp(c,p1,c->val)); // symbol == string
+            c->val[0] = CsMakeBoolean(c,CsEqualOp(c,p1,c->val[0])); // symbol == string
             break;
         case BC_NE:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c,!CsEqualOp(c, p1,c->val)); //
+            c->val[0] = CsMakeBoolean(c,!CsEqualOp(c, p1,c->val[0])); //
             break;
 
         case BC_EQ_STRONG:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c, p1 == c->val);
+            c->val[0] = CsMakeBoolean(c, p1 == c->val[0]);
             break;
         case BC_NE_STRONG:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c, p1 != c->val);
+            c->val[0] = CsMakeBoolean(c, p1 != c->val[0]);
             break;
 
         case BC_GE:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c,CsCompareObjects(c,p1,c->val) >= 0);
+            c->val[0] = CsMakeBoolean(c,CsCompareObjects(c,p1,c->val[0]) >= 0);
             break;
         case BC_GT:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c,CsCompareObjects(c,p1,c->val) > 0);
+            c->val[0] = CsMakeBoolean(c,CsCompareObjects(c,p1,c->val[0]) > 0);
             break;
         case BC_LIT:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            c->val = CsCompiledCodeLiteral(c->code,off);
+            c->val[0] = CsCompiledCodeLiteral(c->code,off);
             break;
         case BC_GREF:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            //if (!CsGetGlobalValue(c,CsCompiledCodeLiteral(c->code,off),&c->val))
-            if(!CsGetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),&c->val))
+            //if (!CsGetGlobalValue(c,CsCompiledCodeLiteral(c->code,off),&c->val[0]))
+            if(!CsGetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),&c->val[0]))
             {
                 //CsDumpScopes(c);
                 CsThrowKnownError(c,CsErrUnboundVariable,CsCompiledCodeLiteral(c->code,off));
@@ -783,33 +798,33 @@ bool Execute(VM *c,value gen)
         case BC_GSET:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            //CsSetGlobalValue(CsCurrentScope(c),CsCompiledCodeLiteral(c->code,off),c->val);
-            CsSetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val));
+            //CsSetGlobalValue(CsCurrentScope(c),CsCompiledCodeLiteral(c->code,off),c->val[0]);
+            CsSetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val[0]));
             break;
 
         case BC_GSETNS:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            CsSetNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val));
+            CsSetNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val[0]));
             break;
         case BC_GSETC:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            CsSetNamespaceConst(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val));
+            CsSetNamespaceConst(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val[0]));
             break;
 
         case BC_GETP:
             p1 = CsPop(c);
-            if (!CsGetProperty(c,p1,c->val,&c->val))
+            if (!CsGetProperty(c,p1,c->val[0],&c->val[0]))
             {
-                //CsThrowKnownError(c,CsErrNoProperty,p1,c->val);
-                c->val = UNDEFINED_VALUE;
+                //CsThrowKnownError(c,CsErrNoProperty,p1,c->val[0]);
+                c->val[0] = UNDEFINED_VALUE;
             }
             break;
         case BC_SETP:
             p2 = CsPop(c);
             p1 = CsPop(c);
-            if (!CsSetProperty(c,p1,p2,value_to_set(c->val)))
+            if (!CsSetProperty(c,p1,p2,value_to_set(c->val[0])))
                 CsThrowKnownError(c,CsErrNoProperty,p1,p2);
             break;
         case BC_SETPM: // set method, used in class declarations only
@@ -824,7 +839,7 @@ bool Execute(VM *c,value gen)
             }
 #endif
             if ( CsObjectOrMethodP(p1) || CsIsType(p1, c->typeDispatch) )
-              CsSetProperty1(c,p1,p2,c->val);
+              CsSetProperty1(c,p1,p2,c->val[0]);
             else
             {
                 dispatch *pd = CsGetDispatch(p1);
@@ -835,21 +850,21 @@ bool Execute(VM *c,value gen)
 
         case BC_VREF:
             p1 = CsPop(c);
-            c->val = CsGetItem(c,p1,c->val);
+            c->val[0] = CsGetItem(c,p1,c->val[0]);
             break;
         case BC_VSET:
             p2 = CsPop(c);
             p1 = CsPop(c);
-            CsSetItem(c,p1,p2,value_to_set(c->val));
+            CsSetItem(c,p1,p2,value_to_set(c->val[0]));
             break;
         case BC_DUP2:
             CsCheck(c,2);
             c->sp -= 2;
-            c->sp[1] = c->val;
+            c->sp[1] = c->val[0];
             CsSetTop(c,c->sp[2]);
             break;
         case BC_DROP:
-            c->val = CsPop(c);
+            c->val[0] = CsPop(c);
             break;
         case BC_DUP:
             CsCheck(c,1);
@@ -871,19 +886,19 @@ bool Execute(VM *c,value gen)
         case BC_PUSH_NS: // this used in class construction
             CsCheck(c,1);
             //CsPush(c,c->currentScope.globals);
-            //c->currentScope.globals = c->val;
+            //c->currentScope.globals = c->val[0];
             CsPush(c,c->currentNS);
-            c->currentNS = c->val;
+            c->currentNS = c->val[0];
             break;
         case BC_POP_NS:
             //c->currentScope.globals = CsPop(c);
             c->currentNS = CsPop(c);
             break;
         case BC_NS:
-            c->val = c->getCurrentNS();
+            c->val[0] = c->getCurrentNS();
             break;
         case BC_DEBUG:
-            //c->val = c->val;
+            //c->val[0] = c->val[0];
             //c->standardOutput->put_str("|");
             n = *c->pc++;
             switch( n )
@@ -902,15 +917,15 @@ bool Execute(VM *c,value gen)
             if(*c->pc++)
             {
               CsCheck(c,4);
-              p1 = CsNewInstance(c,c->val);
+              p1 = CsNewInstance(c,c->val[0]);
               CsPush(c,p1);                 // sp[3] - obj
               CsPush(c,p1);                 // sp[2] - obj
               CsPush(c,CsSymbolOf("this")); // sp[1] - #this
-              CsPush(c,c->val);             // sp[0] - class
+              CsPush(c,c->val[0]);             // sp[0] - class
             }
             else // literal creation case
             {
-              c->val = CsNewInstance(c,c->val); 
+              c->val[0] = CsNewInstance(c,c->val[0]); 
             }
             break;
         case BC_NEWCLASS:
@@ -918,20 +933,20 @@ bool Execute(VM *c,value gen)
               value parentClass = CsPop(c);
               if( parentClass == UNDEFINED_VALUE )
                   parentClass = c->currentScope.globals;
-              value classNameSymbol = c->val;
+              value classNameSymbol = c->val[0];
 #ifdef _DEBUG
               dispatch* pd = CsGetDispatch(parentClass);
               const char* n = CsSymbolPrintName(classNameSymbol);
 #endif
-              c->val = CsNewClassInstance(c,parentClass, classNameSymbol);
+              c->val[0] = CsNewClassInstance(c,parentClass, classNameSymbol);
             }
             break;
 
         case BC_NEWVECTOR:
-            if (!CsIntegerP(c->val)) CsTypeError(c,c->val);
-            n = CsIntegerValue(c->val);
-            c->val = CsMakeVector(c,n);
-            p = CsVectorAddressI(c->val) + n;
+            if (!CsIntegerP(c->val[0])) CsTypeError(c,c->val[0]);
+            n = CsIntegerValue(c->val[0]);
+            c->val[0] = CsMakeVector(c,n);
+            p = CsVectorAddressI(c->val[0]) + n;
             while (--n >= 0)
                 *--p = value_to_set(CsPop(c));
             break;
@@ -940,22 +955,22 @@ bool Execute(VM *c,value gen)
             break;
         case BC_INSTANCEOF:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c,CsInstanceOf(c,p1,c->val));
-            //CsTypeError(c,c->val);
+            c->val[0] = CsMakeBoolean(c,CsInstanceOf(c,p1,c->val[0]));
+            //CsTypeError(c,c->val[0]);
             break;
         case BC_LIKE:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c,CsIsLike(c,p1,c->val));
-            //CsTypeError(c,c->val);
+            c->val[0] = CsMakeBoolean(c,CsIsLike(c,p1,c->val[0]));
+            //CsTypeError(c,c->val[0]);
             break;
         case BC_IN:
             p1 = CsPop(c);
-            c->val = CsMakeBoolean(c,CsHasMember(c,c->val,p1));
-            //CsTypeError(c,c->val);
+            c->val[0] = CsMakeBoolean(c,CsHasMember(c,c->val[0],p1));
+            //CsTypeError(c,c->val[0]);
             break;
         case BC_TYPEOF:
             //"number," "string," "boolean," "obj," "function," and "undefined".
-            c->val = CsTypeOf(c,c->val);
+            c->val[0] = CsTypeOf(c,c->val[0]);
             break;
 
         case BC_EH_PUSH:
@@ -991,16 +1006,18 @@ bool Execute(VM *c,value gen)
 /* } try end successfully reached */
             return false;  // return false to indicate that we've exited try block
         case BC_NEXT:
-            c->val = GetNextMember(c,&c->sp[0],c->sp[1]);
+            n = *c->pc++;
+            n |= *c->pc++ << 8;
+            c->val[0] = GetNextMember(c,&c->sp[0],c->sp[1], n);
             break;
 
         case BC_PROTO:
-            if(CsObjectOrMethodP(c->val))
+            if(CsObjectOrMethodP(c->val[0]))
             {
 #ifdef _DEBUG
               dispatch* pd1 = CsGetDispatch(c->sp[0]);
 #endif
-              c->val = CsObjectClass(c->val);
+              c->val[0] = CsObjectClass(c->val[0]);
 #ifdef _DEBUG
               dispatch* pd2 = CsGetDispatch(c->sp[2]);
 #endif
@@ -1008,22 +1025,32 @@ bool Execute(VM *c,value gen)
             break;
 
         case BC_OUTPUT:
-            CsDisplay(c, c->val,c->standardOutput);
+            CsDisplay(c, c->val[0],c->standardOutput);
+            break;
+        case BC_ASSERT:
+            p1 = CsPop(c); // where literal
+            if(CsToBoolean(c,CsPop(c)) != TRUE_VALUE) // expr result
+            {
+              if( c->val[0] == NOTHING_VALUE )
+                CsThrowKnownError(c,CsErrAssertion,p1);
+              else
+                CsThrowKnownError(c,CsErrAssertion2,p1,c->val[0]);
+            }
             break;
 
         case BC_GETRANGE:
             p1 = CsPop(c);
             p2 = CsPop(c);
-            c->val = CsGetRange(c,p2,p1,c->val);
+            c->val[0] = CsGetRange(c,p2,p1,c->val[0]);
             break;
 
         case BC_INCLUDE:
-            assert(CsStringP(c->val));
-            c->val = CsInclude( CsCurrentScope(c), value_to_string(c->val));
+            assert(CsStringP(c->val[0]));
+            c->val[0] = CsInclude( CsCurrentScope(c), value_to_string(c->val[0]));
             break;
         case BC_INCLUDE_LIBRARY:
-            assert(CsStringP(c->val));
-            c->val = CsIncludeLibrary( CsCurrentScope(c), value_to_string(c->val));
+            assert(CsStringP(c->val[0]));
+            c->val[0] = CsIncludeLibrary( CsCurrentScope(c), value_to_string(c->val[0]));
             break;
 
         case BC_S_CALL:
@@ -1044,28 +1071,28 @@ bool Execute(VM *c,value gen)
         case BC_CAR:
             p1 = CsPop(c);
             if( CsStringP(p1) )
-               c->val = CsStringHead(c,p1,c->val);
+               c->val[0] = CsStringHead(c,p1,c->val[0]);
             else
                CsUnexpectedTypeError(c, p1, "string");
             break;
         case BC_CDR:
             p1 = CsPop(c);
             if( CsStringP(p1) )
-               c->val = CsStringTail(c,p1,c->val);
+               c->val[0] = CsStringTail(c,p1,c->val[0]);
             else
                CsUnexpectedTypeError(c, p1, "string");
             break;
         case BC_RCAR:
             p1 = CsPop(c);
             if( CsStringP(p1) )
-               c->val = CsStringHeadR(c,p1,c->val);
+               c->val[0] = CsStringHeadR(c,p1,c->val[0]);
             else
                CsUnexpectedTypeError(c, p1, "string");
             break;
         case BC_RCDR:
             p1 = CsPop(c);
             if( CsStringP(p1) )
-               c->val = CsStringTailR(c,p1,c->val);
+               c->val[0] = CsStringTailR(c,p1,c->val[0]);
             else
                CsUnexpectedTypeError(c, p1, "string");
             break;
@@ -1080,7 +1107,137 @@ bool Execute(VM *c,value gen)
               *p = p1;
             }
             break;
+        case BC_PUSH_RVAL:
+            if( c->vals >= V_REGISTERS )
+              CsTooManyArguments(c);
+            {
+              for( uint n = c->vals; n >= 1; --n )
+                c->val[n] = c->val[n - 1]; 
+            }
+            ++c->vals;
+            break;
+        case BC_POP_RVAL:
+            if( c->vals == 1 )
+              break;
+            {
+              for( uint n = 1; n < c->vals; ++n )
+                c->val[n-1] = c->val[n];
+            }
+            --c->vals;
+            break;
+        case BC_RESET_RVAL:
+            c->vals = 1;
+            break;
 
+        case BC_STACK_RVAL:
+            {
+              for(uint n = 0; n < c->vals; ++n)
+                CsPush(c,c->val[n]);
+            }
+            c->vals = 1;
+            break;
+
+        case BC_EQ_M:
+            n = *c->pc++;
+            n |= *c->pc++ << 8;
+            if( n != c->vals )
+            {
+              CsDrop(c,n);
+              p2 = FALSE_VALUE;
+            }
+            else 
+            {
+              p2 = TRUE_VALUE;
+              while( n )
+              {
+                p1 = CsPop(c);
+                if(!CsEqualOp(c,p1,c->val[--n]))
+                {
+                  CsDrop(c,n); 
+                  p2 = FALSE_VALUE;
+                  break;
+                }
+              }
+            }
+            c->vals = 1;
+            c->val[0] = p2;
+            break;
+        case BC_NE_M:
+            n = *c->pc++;
+            n |= *c->pc++ << 8;
+            if( n != c->vals )
+            {
+              CsDrop(c,n);
+              p2 = TRUE_VALUE;
+            }
+            else 
+            {
+              p2 = FALSE_VALUE;
+              while( n )
+              {
+                p1 = CsPop(c);
+                if(!CsEqualOp(c,p1,c->val[--n]))
+                {
+                  CsDrop(c,n);
+                  p2 = TRUE_VALUE;
+                  break;
+                }
+              }
+            }
+            c->vals = 1;
+            c->val[0] = p2;
+            break;
+
+        case BC_EQ_STRONG_M:
+            n = *c->pc++;
+            n |= *c->pc++ << 8;
+            if( n != c->vals )
+            {
+              CsDrop(c,n);
+              p2 = FALSE_VALUE;
+            }
+            else 
+            {
+              p2 = TRUE_VALUE;
+              while( n )
+              {
+                p1 = CsPop(c);
+                if(p1 != c->val[--n])
+                {
+                  CsDrop(c,n); 
+                  p2 = FALSE_VALUE;
+                  break;
+                }
+              }
+            }
+            c->vals = 1;
+            c->val[0] = p2;
+            break;
+        case BC_NE_STRONG_M:
+            n = *c->pc++;
+            n |= *c->pc++ << 8;
+            if( n != c->vals )
+            {
+              CsDrop(c,n);
+              p2 = TRUE_VALUE;
+            }
+            else 
+            {
+              p2 = FALSE_VALUE;
+              while( n )
+              {
+                p1 = CsPop(c);
+                if(p1 != c->val[--n])
+                {
+                  CsDrop(c,n);
+                  p2 = TRUE_VALUE;
+                  break;
+                }
+              }
+            }
+            c->vals = 1;
+            c->val[0] = p2;
+            break;
         default:
             BadOpcode(c,c->pc[-1]);
             break;
@@ -1091,7 +1248,7 @@ bool Execute(VM *c,value gen)
 /* UnaryOp - handle unary opcodes */
 void UnaryOp(VM *c,int op)
 {
-    value p1 = c->val;
+    value p1 = c->val[0];
 
     if (CsIntegerP(p1)) {
         int_t i1 = CsIntegerValue(p1);
@@ -1116,7 +1273,7 @@ void UnaryOp(VM *c,int op)
             ival = 0; /* never reached */
             break;
         }
-        c->val = CsMakeInteger(ival);
+        c->val[0] = CsMakeInteger(ival);
     }
 
 
@@ -1143,7 +1300,7 @@ void UnaryOp(VM *c,int op)
             fval = 0.0; /* never reached */
             break;
         }
-        c->val = CsMakeFloat(c,fval);
+        c->val[0] = CsMakeFloat(c,fval);
     }
 
     else
@@ -1241,7 +1398,7 @@ value CsBinaryOp(VM *c,int op, value p1, value p2)
         }
         return CsMakeFloat(c,fval);
     }
-    return VM::undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 
@@ -1255,7 +1412,7 @@ value CsInternalSend(VM *c,int argc)
       /* setup the call */
       if (Send(c,&CsTopCDispatch,argc))
       {
-          return c->val;
+          return c->val[0];
       }
 
       /* execute the function code */
@@ -1266,7 +1423,7 @@ value CsInternalSend(VM *c,int argc)
     //{
     //  RETHROW(e);
     //}
-    return c->val;
+    return c->val[0];
 }
 
 /* Send - setup to call a method */
@@ -1294,7 +1451,7 @@ int Send(VM *c,FrameDispatch *d,int argc)
     /* set the method */
     c->sp[argc] = selector; 
 
-    if( CsMethodP(selector) || CsPropertyMethodP(selector) )
+    if( CsMethodP(selector) || CsPropertyMethodP(selector) || CsCMethodP(selector) )
     {
       ; // nothing to lookup, it is a method already 
     }
@@ -1309,7 +1466,7 @@ int Send(VM *c,FrameDispatch *d,int argc)
           {
             c->argv = &c->sp[argc];
             c->argc = argc;
-            if( pd->handleCall(c,selector,argc,&c->val) )
+            if( pd->handleCall(c,selector,argc,&c->val[0]) )
             {
               CsDrop(c,argc + 1);
               return true;
@@ -1326,7 +1483,7 @@ int Send(VM *c,FrameDispatch *d,int argc)
             dispatch* pd = CsGetDispatch(_this);
             if(pd->handleCall)
             {
-              if( pd->handleCall(c,selector,argc,&c->val) )
+              if( pd->handleCall(c,selector,argc,&c->val[0]) )
               {
                 CsDrop(c,argc + 1);
                 return true;
@@ -1367,7 +1524,7 @@ value CsInternalCall(VM *c,int argc)
       /* setup the call */
       if (Call(c,&CsTopCDispatch,argc))
       {
-          return c->val;
+          return c->val[0];
       }
 
       /* execute the function code */
@@ -1377,7 +1534,7 @@ value CsInternalCall(VM *c,int argc)
     //{
     //  RETHROW(e);
     //}
-    return c->val;
+    return c->val[0];
 }
 
 void check_thrown_error( VM *c)
@@ -1406,7 +1563,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
 
     /* handle built-in methods */
     if (CsCMethodP(method)) {
-        c->val = CsCMethodPtr(method)->call(c, CsGetArg(c,1));
+        c->val[0] = CsCMethodPtr(method)->call(c, CsGetArg(c,1));
         CsDrop(c,argc + 1);
         check_thrown_error(c);
         return true;
@@ -1485,7 +1642,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     /* initialize the frame */
     frame = (CallFrame *)(c->sp - WordSize(sizeof(CallFrame)));
     frame->pdispatch = d;
-    frame->next = c->fp;
+    frame->next.set(c,c->fp);
     frame->globals = c->currentScope.globals;
     frame->ns = c->getCurrentNS();
     frame->env = c->env;
@@ -1511,79 +1668,6 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     return false;
 }
 
-/* Continue - setup next step of generator */
-static bool Continue(VM *c, generator* gen )
-{
-    byte *cbase,*pc;
-    int oldArgC = c->argc;
-    value code;
-
-  /* setup the argument list */
-    c->argv = &c->sp[0];
-    c->argc = 0;
-
-    /* get the code obj */
-    code = gen->code;
-    cbase = pc = CsByteVectorAddress(CsCompiledCodeBytecodes(code));
-
-    pc += gen->pcoffset;
-
-    /* reserve space for the call frame */
-    CsCheck(c,WordSize(sizeof(CallFrame)) + CsFirstEnvElement);
-
-    /* complete the environment frame */
-    CsPush(c,UNDEFINED_VALUE);  /* names */
-    CsPush(c,c->env);         /* nextFrame */
-
-    /* initialize the frame */
-    CallFrame *frame = (CallFrame *)(c->sp - WordSize(sizeof(CallFrame)));
-    frame->pdispatch = &CsTopCDispatch;
-    frame->next = c->fp;
-    frame->globals = c->currentScope.globals;
-    frame->ns = c->getCurrentNS();
-    frame->env = c->env;
-    frame->code = c->code;
-    frame->pcOffset = c->pc - c->cbase;
-    frame->argc = oldArgC;
-    CsSetDispatch(ptr_value(&frame->stackEnv),&CsStackEnvironmentDispatch);
-    CsSetEnvSize(ptr_value(&frame->stackEnv),CsFirstEnvElement + 0);
-
-    /* establish the new frame */
-    c->env = gen->env;//ptr_value(&frame->stackEnv);
-    c->fp = (CsFrame *)frame;
-    c->sp = (value *)frame;
-
-    /* setup the new method */
-    c->currentScope.globals = gen->globals;
-    c->currentNS = gen->ns;
-    c->code = code;
-    c->cbase = cbase;
-    c->pc = pc;
-
-    /* didn't complete the call */
-    return false;
-}
-
-value CsExecuteNext(VM* c, value gen)
-{
-    //int n;
-    /* save the interpreter state */
-    //CsSavedState state(c);
-    //TRY
-    {
-      /* setup the continue call */
-      Continue(c, ptr<generator>(gen));
-      /* execute it */
-      Execute(c,gen);
-    }
-    //CATCH_ERROR(e)
-    //{
-    //   state.restore();
-    //   RETHROW(e);
-    //}
-    return c->val;
-}
-
 
 /* TopRestore - restore a top continuation */
 static bool TopRestore(VM *c)
@@ -1599,7 +1683,7 @@ static bool CallRestore(VM *c)
     value env = c->env;
 
     /* restore the previous frame */
-    c->fp = frame->next;
+    c->fp = frame->next.get(c);
     c->currentScope.globals = frame->globals;
     c->currentNS = frame->ns;
     c->env = frame->env;
@@ -1659,7 +1743,7 @@ static void PushFrame(VM *c,int size, value names)
     /* initialize the frame */
     frame = (BlockFrame *)(c->sp - WordSize(sizeof(BlockFrame)));
     frame->pdispatch = &CsBlockCDispatch;
-    frame->next = c->fp;
+    frame->next.set(c,c->fp);
     frame->env = c->env;
     CsSetDispatch(ptr_value(&frame->stackEnv),&CsStackEnvironmentDispatch);
     CsSetEnvSize(ptr_value(&frame->stackEnv),CsFirstEnvElement + size);
@@ -1677,7 +1761,7 @@ static bool BlockRestore(VM *c)
     BlockFrame *frame = (BlockFrame *)c->fp;
 
     /* restore the previous frame */
-    c->fp = frame->next;
+    c->fp = frame->next.get(c);
     c->env = frame->env;
 
     /* fixup moved environments */
@@ -1766,34 +1850,6 @@ static value UnstackEnv(VM *c,value env)
     return CsPop(c);
 }
 
-static value MakeGenerator(VM *c, value env)
-{
-#ifdef _DEBUG
-  int i = CsEnvSize(env);
-  value t = CsEnvElement(env,2);
-#endif
-
-  //c->env = UnstackEnv(c, c->env);
-
-  value newo;
-  newo = CsAllocate(c,sizeof(generator));
-  CsSetDispatch(newo,&CsGeneratorDispatch);
-  generator* pg = ptr<generator>(newo);
-  pg->val = c->val;
-  pg->env = env;
-  pg->globals = c->currentScope.globals;
-  pg->ns = c->getCurrentNS();
-  pg->code = c->code;
-
-#ifdef _DEBUG
-  i = CsEnvSize(env);
-  t = CsEnvElement(env,2);
-#endif
-
-  return newo;
-}
-
-
 
 /* CsTypeError - signal a 'type' error */
 void CsTypeError(VM *c,value v)
@@ -1853,7 +1909,7 @@ static void BadOpcode(VM *c,int opcode)
 
 void CsThrowExit(VM *c, value v)
 {
-   c->val = v;
+   c->val[0] = v;
    THROW_ERROR(0);
 }
 
@@ -1914,6 +1970,10 @@ value CsToBoolean(VM* c, value obj)
 /* CsEql - compare two objects for equality */
 bool CsEqualOp(VM* c, value obj1,value obj2)
 {
+    // Too restrictive?
+    // if (obj1 == UNDEFINED_VALUE || obj2 == UNDEFINED_VALUE)
+    //  CsWarning(c,"comparison with undefined value!");
+
     if (CsFloatP(obj1) || CsFloatP(obj2))
         return CsToFloat(c,obj1) == CsToFloat(c,obj2);
     else if ( CsIntegerP(obj1) || CsIntegerP(obj2))
@@ -1944,6 +2004,8 @@ int CsCompareObjects(VM *c,value obj1,value obj2, bool suppressError)
         return to_int(CsToInteger(c,obj1)) - to_int(CsToInteger(c,obj2));
     else if (CsStringP(obj1) && CsStringP(obj2))
         return CompareStrings(obj1,obj2);
+    else if (CsSymbolP(obj1) && CsSymbolP(obj2))
+        return strcmp( CsSymbolPrintName(obj1),CsSymbolPrintName(obj2));
     else if (CsVectorP(obj1) && CsVectorP(obj2))
         return CsCompareVectors(c,obj1,obj2, suppressError);
     else if (suppressError)
@@ -2006,7 +2068,7 @@ void CsCopyStack(VM *c)
     while (sp < c->stackTop) {
         if (sp >= (value *)fp) {
             sp = (*fp->pdispatch->copy)(c,fp);
-            fp = fp->next;
+            fp = fp->next.get(c);
         }
         else {
             *sp = CsCopyValue(c,*sp);
@@ -2028,7 +2090,6 @@ int GetLineNumber(VM *c, value ccode, int pc )
   return 0;
 }
 
-
 void CsStreamStackTrace(VM *c,stream *s)
 {
     bool calledFromP = false;
@@ -2045,10 +2106,12 @@ void CsStreamStackTrace(VM *c,stream *s)
         if( ln )
         {
           value fn = CsCompiledCodeFileName(c->code);
-          s->printf(L"\tat %S(%S:%d)\n", CsSymbolName(name).c_str(), CsSymbolName(fn).c_str(),ln);
+          s->printf(L"\tat %S (%S(%d))\n", CsSymbolName(name).c_str(), CsSymbolName(fn).c_str(),ln);
         }
-        else
+        else if( CsSymbolP(name) )
           s->printf(L"\tat %S\n", CsSymbolName(name).c_str());
+        else if( CsStringP(name) )
+          s->printf(L"\tat %s\n", CsStringAddress(name));
           //s->put_str("'\n");
     }
     while (fp && fp <= (CsFrame *)c->stackTop)
@@ -2066,16 +2129,16 @@ void CsStreamStackTrace(VM *c,stream *s)
             {
               //CsDisplay();
               if( fn != name )
-                s->printf(L"\tat %S(%S:%d)\n", CsSymbolName(name).c_str(), CsSymbolName(fn).c_str(),ln);
+                s->printf(L"\tat %S (%S(%d))\n", CsSymbolName(name).c_str(), CsSymbolName(fn).c_str(),ln);
               else
-                s->printf(L"\tat (%S:%d)\n", CsSymbolName(fn).c_str(),ln);
+                s->printf(L"\tat (%S(%d))\n", CsSymbolName(fn).c_str(),ln);
             }
             else
             {
               s->printf(L"\tat %S\n", CsSymbolName(name).c_str());
             }
         }
-        fp = fp->next;
+        fp = fp->next.get(c);
     }
 }
 
@@ -2127,13 +2190,11 @@ inline value FindNextMember(VM *c, value& index, value collection)
 }
 */
 
-value GetNextMember(VM *c, value* index, value collection)
+value GetNextMember(VM *c, value* index, value collection, int nr)
 {
   dispatch *pd = CsGetDispatch(collection);
   if(pd->getNextElement)
-  {
-    return (*(pd->getNextElement))(c,index,collection);
-  }
+    return (*(pd->getNextElement))(c,index,collection, nr);
   else if(collection != NOTHING_VALUE)
     CsThrowKnownError(c,CsErrNoSuchFeature,collection, "enumeration");
   return NOTHING_VALUE;
@@ -2162,60 +2223,6 @@ value CsGetRange(VM *c, value col, value start, value end)
     CsThrowKnownError(c,CsErrNoSuchFeature,col, "range operation");
   return UNDEFINED_VALUE;
 }
-
-/*
-value IteratorNextElement(VM *c, value* index, value gen)
-{
-    if(*index == NOTHING_VALUE) // first
-    {
-      *index = int_value(0);
-      return ptr<generator>(gen)->val;
-    }
-    else if(CsIntegerP(*index))
-    {
-      int_t i = to_int(*index) + 1;
-      *index = int_value(i);
-
-      CsPush(c,gen);
-      CsSavedState state(c);
-      bool r = false;
-      TRY
-      {
-          Call(c,&CsTopCDispatch,0);
-          r = Execute(c);
-      }
-      CATCH_ERROR(e)
-      {
-          state.restore();
-          gen = CsPop(c);
-          ptr<CsIterator>(gen)->code = NOTHING_VALUE;
-          ptr<CsIterator>(gen)->env = NOTHING_VALUE;
-          ptr<CsIterator>(gen)->globals = NOTHING_VALUE;
-          throw e;
-      }
-      //int pcoff = c->pc - c->cbase;
-      //value val = c->val; //CsPop(c);
-      state.restore();
-      gen = CsPop(c);
-      if(r) // it's finished
-      {
-        ptr<CsIterator>(gen)->code = NOTHING_VALUE;
-        ptr<CsIterator>(gen)->env = NOTHING_VALUE;
-        ptr<CsIterator>(gen)->globals = NOTHING_VALUE;
-      }
-      else
-      {
-        //ptr<CsIterator>(gen)->pcoffset = pcoff;
-        return ptr<CsIterator>(gen)->val;
-      }
-    }
-    else
-      assert(false);
-
-    return NOTHING_VALUE;
-}
-
-*/
 
 
 

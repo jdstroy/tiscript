@@ -19,6 +19,9 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <assert.h>
+#include <limits.h>
+#include <float.h>
+#include <math.h>
 
 #if defined(WINDOWS)
   #ifndef min       // Hopefully this isn't already defined
@@ -136,7 +139,7 @@ template <typename T>
     {
       assert ( _ref_cntr == 0 );
     }
-    unsigned int get_ref_count() { return _ref_cntr; }
+    int      get_ref_count() { return _ref_cntr; }
     virtual long release()
     {
         assert(_ref_cntr > 0);
@@ -152,7 +155,47 @@ template <typename T>
     {  
       delete this;
     }
+
+    virtual uint_ptr  type_id() const { return 0; }
+
+    template <typename OT>
+      bool is_of_type() const { return type_id() == OT::class_id(); } 
   };
+
+  template <typename T>
+   class resource_x: public resource
+   {
+    public:
+     static  uint_ptr  class_id() { return (uint_ptr)(resource_x<T>::class_id); }
+     virtual uint_ptr  type_id() const { return class_id(); }
+   };
+
+  class ext_resource
+  {
+    locked::counter _ext_ref_cntr;
+  public:
+    ext_resource ()
+    {
+      _ext_ref_cntr = 0;
+    }
+    virtual ~ext_resource ()
+    {
+      assert ( _ext_ref_cntr == 0 );
+    }
+    int ext_get_ref_count() { return _ext_ref_cntr; }
+    virtual long ext_release()
+    { 
+        assert(_ext_ref_cntr > 0); 
+        long t = locked::dec(_ext_ref_cntr);
+        if(t == 0)
+          ext_finalize();
+        return t;
+    }
+    virtual void ext_add_ref() { locked::inc(_ext_ref_cntr); }
+
+    virtual void ext_finalize() = 0; 
+  };
+
 
   template <class T>
   class handle
@@ -593,7 +636,7 @@ template <typename TC, typename TV>
   template<typename T, class CMP>
     struct sorter
   {
-    inline static void sort(T* arr, size_t arr_size, CMP cmp)
+    inline static void sort(T* arr, size_t arr_size, CMP& cmp)
     {
         enum
             {
@@ -743,11 +786,13 @@ template<typename T>
   };
 
   // I do not know what is this either. Let it be auto_state.
+  template<typename T>
   struct auto_state
   {
-    bool  _state_value;
-    bool& _state;
-    auto_state(bool& state): _state(state) { _state_value = state; state = false; }
+      T  _state_value;
+      T& _state;
+      auto_state(T& state, T init_val): _state(state) { _state_value = state; state = init_val; }
+      auto_state(T& state): _state(state) { _state_value = state; }
     ~auto_state() { _state = _state_value; }
   };
 
@@ -796,6 +841,132 @@ inline void memzero( void *p, size_t sz )
   memset(p,0,sz);
 }
 
+inline bool is_space( char c ) { return isspace(c) != 0; }
+inline bool is_space( wchar c ) { return iswspace(c) != 0; }
+inline bool is_digit( char c ) { return isdigit(c) != 0; }
+inline bool is_digit( wchar c ) { return iswdigit(c) != 0; }
+inline bool is_alpha( char c ) { return isalpha(c) != 0; }
+inline bool is_alpha( wchar c ) { return iswalpha(c) != 0; }
+inline bool is_alnum( char c ) { return isalnum(c) != 0; }
+inline bool is_alnum( wchar c ) { return iswalnum(c) != 0; }
+
+// strtod, modified version of http://www.jbox.dk/sanos/source/lib/strtod.c.html
+// reason: strtod is locale dependent.
+template <typename TC>
+  inline double str_to_d(const TC *str, TC **endptr)
+  {
+    double number;
+    int exponent;
+    int negative;
+    TC *p = (TC *) str;
+    double p10;
+    int n;
+    int num_digits;
+    int num_decimals;
+
+    // Skip leading whitespace
+    while (is_space(*p)) p++;
+
+    // Handle optional sign
+    negative = 0;
+    switch (*p) 
+    {             
+      case '-': negative = 1; // Fall through to increment position
+      case '+': p++;
+    }
+
+    number = 0.;
+    exponent = 0;
+    num_digits = 0;
+    num_decimals = 0;
+
+    // Process string of digits
+    while (is_digit(*p))
+    {
+      number = number * 10. + (*p - '0');
+      p++;
+      num_digits++;
+    }
+
+    // Process decimal part
+    if (*p == '.') 
+    {
+      p++;
+
+      while (is_digit(*p))
+      {
+        number = number * 10. + (*p - '0');
+        p++;
+        num_digits++;
+        num_decimals++;
+      }
+
+      exponent -= num_decimals;
+    }
+
+    if (num_digits == 0)
+    {
+      if (endptr) *endptr = p;
+      return 0.0;
+    }
+
+    // Correct for sign
+    if (negative) number = -number;
+
+    // Process an exponent string
+    if (*p == 'e' || *p == 'E') 
+    {
+      // Handle optional sign
+      negative = 0;
+      switch(*++p) 
+      {   
+        case '-': negative = 1;   // Fall through to increment pos
+        case '+': p++;
+        default : 
+          if(!is_digit(*p)) { --p; goto NO_EXPONENT; }
+      }
+
+      // Process string of digits
+      n = 0;
+      while (is_digit(*p)) 
+      {   
+        n = n * 10 + (*p - '0');
+        p++;
+      }
+
+      if (negative) 
+        exponent -= n;
+      else
+        exponent += n;
+    }
+
+    if (exponent < DBL_MIN_EXP  || exponent > DBL_MAX_EXP)
+    {
+      if (endptr) *endptr = p;
+      return HUGE_VAL;
+    }
+NO_EXPONENT:
+    // Scale the result
+    p10 = 10.;
+    n = exponent;
+    if (n < 0) n = -n;
+    while (n) 
+    {
+      if (n & 1) 
+      {
+        if (exponent < 0)
+          number /= p10;
+        else
+          number *= p10;
+      }
+      n >>= 1;
+      p10 *= p10;
+    }
+    if (endptr) *endptr = p;
+    return number;
+  }
+
+
 template <typename T>
   inline void memzero( T& t )
   {
@@ -803,6 +974,7 @@ template <typename T>
   }
 
 unsigned int crc32( const unsigned char *buffer, unsigned int count);
+unsigned hashlittle( const void *key, size_t length, unsigned initval);
 
 #define REVERSE_BYTE_BITS(a)\
   ((a << 7) & (1 << 7)) |\

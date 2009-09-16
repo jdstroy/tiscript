@@ -182,7 +182,7 @@ static int WriteMethod(VM *c,value method,stream *s)
 /* WriteValue - write a value */
 static int WriteValue(VM *c,value v,stream *s)
 {
-    if (v == c->undefinedValue)
+    if (v == UNDEFINED_VALUE)
         return s->put(CsFaslTagNil);
     else if (CsCompiledCodeP(v))
         return WriteCodeValue(c,v,s);
@@ -228,7 +228,7 @@ static int WriteObjectValue(VM *c,value v,stream *s)
 
     /* write the type tag, class and obj size */
     if (!s->put(CsFaslTagObject)
-    ||  !WriteValue(c,c->undefinedValue,s) /* class symbol */
+    ||  !WriteValue(c,UNDEFINED_VALUE,s) /* class symbol */
     ||  !s->put_int(CsObjectPropertyCount(v)))
         return false;
 
@@ -239,7 +239,7 @@ static int WriteObjectValue(VM *c,value v,stream *s)
         int_t i;
         for (i = 0; i < size; ++i) {
             value pp = CsVectorElement(c,p,i);
-            for (; pp != c->undefinedValue; pp = CsPropertyNext(pp)) {
+            for (; pp != UNDEFINED_VALUE; pp = CsPropertyNext(pp)) {
                 if (!WriteValue(c,CsPropertyTag(pp),s)
                 ||  !WriteValue(c,CsPropertyValue(pp),s))
                     return false;
@@ -247,7 +247,7 @@ static int WriteObjectValue(VM *c,value v,stream *s)
         }
     }
     else {
-        for (; p != c->undefinedValue; p = CsPropertyNext(p)) {
+        for (; p != UNDEFINED_VALUE; p = CsPropertyNext(p)) {
             if (!WriteValue(c,CsPropertyTag(p),s)
             ||  !WriteValue(c,CsPropertyValue(p),s))
                 return false;

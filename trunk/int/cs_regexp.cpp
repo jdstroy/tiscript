@@ -54,19 +54,19 @@ static void DestroyRegExp(VM *c,value obj);
 value RegExpGetItem(VM *c,value obj,value tag)
 {
   if(!CsRegExpP(c,obj))
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
   if(!CsIntegerP(tag))
      CsTypeError(c,tag);
   
   tool::wregexp* pre = RegExpValue(c,obj);
   if(!pre)
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
 
   int_t idx = CsIntegerValue(tag);
   if(idx < pre->get_number_of_matches())
       return string_to_value(c, pre->get_match(idx));
 
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 
 }
 void RegExpSetItem(VM *c,value obj,value tag,value value)
@@ -113,7 +113,6 @@ static value CSF_ctor(VM *c)
     value val;
     CsParseArguments(c,"V=*VV?",&val,c->regexpDispatch,&src,&flags);
 
-
     //tool::wregexp* pre = RegExpValue(c,val);
     //pre->source = src;
     //pre->flags = flags;
@@ -124,7 +123,9 @@ static value CSF_ctor(VM *c)
     tool::wregexp* pre = new tool::wregexp();
     if( !pre->compile(s,f.index_of('i') >= 0, f.index_of('g') >= 0) )
     {
+      tool::string err = pre->get_error_string();
       delete pre;
+      CsThrowKnownError(c,CsErrRegexpError, err.c_str() );
       return val;
     }
     SetRegExpValue(val,pre);
@@ -150,7 +151,7 @@ static value CSF_length(VM *c,value obj)
       return CsMakeInteger(0);
     return CsMakeInteger(pre->get_number_of_matches());
   }
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 static value CSF_index(VM *c,value obj)
@@ -162,7 +163,7 @@ static value CSF_index(VM *c,value obj)
       return CsMakeInteger(0);
     return CsMakeInteger(pre->get_match_start());
   }
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 static value CSF_lastIndex(VM *c,value obj)
 {
@@ -173,7 +174,7 @@ static value CSF_lastIndex(VM *c,value obj)
       return CsMakeInteger(0);
     return CsMakeInteger(pre->get_match_end());
   }
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 
@@ -183,10 +184,10 @@ static value CSF_input(VM *c,value obj)
   {
     tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
     return string_to_value(c,pre->m_test);
   }
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 static value CSF_source(VM *c,value obj)
@@ -195,35 +196,35 @@ static value CSF_source(VM *c,value obj)
   {
     tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
     return string_to_value(c,pre->m_pattern);
   }
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 
 /* CSF_test - built-in method 'test' */
 static value CSF_test(VM *c)
 {
-    //return c->falseValue;
+    //return FALSE_VALUE;
     value obj;
     wchar *str;
     CsParseArguments(c,"V=*S",&obj,c->regexpDispatch,&str);
     tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
-      return c->undefinedValue;
-    return pre->exec(str)? c->trueValue: c->falseValue;
+      return UNDEFINED_VALUE;
+    return pre->exec(str)? TRUE_VALUE: FALSE_VALUE;
 }
 
 static value CSF_exec(VM *c)
 {
-    //return c->falseValue;
+    //return FALSE_VALUE;
     value obj;
     wchar *str;
     CsParseArguments(c,"V=*S",&obj,c->regexpDispatch,&str);
     tool::wregexp* pre = RegExpValue(c,obj);
     if(!pre)
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
 
     int idx = 0;
     if(pre->get_number_of_matches())
@@ -231,7 +232,7 @@ static value CSF_exec(VM *c)
 
 #pragma TODO("wrong return?!?")
 
-    return pre->exec(str)? obj: c->nullValue;
+    return pre->exec(str)? obj: NULL_VALUE;
 }
 
 value CSF_string_match(VM *c)
@@ -262,9 +263,9 @@ value CSF_string_match(VM *c)
           }
           return CsPop(c);
         }
-        //return pre->exec(test)?pat: c->nullValue;
+        //return pre->exec(test)?pat: NULL_VALUE;
       }
-      return c->nullValue;
+      return NULL_VALUE;
     }
     else if(CsStringP(pat))
     {
@@ -275,11 +276,11 @@ value CSF_string_match(VM *c)
       }
       if(pre->exec(test))
         return CsMakeRegExp(c,pre.release());
-      return c->nullValue;
+      return NULL_VALUE;
     }
     else
       CsTypeError(c,pat);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 bool CsIsLike( VM *c, value what, value pat )
@@ -338,9 +339,27 @@ value CSF_string_search(VM *c)
     }
     else
       CsTypeError(c,pat);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
+struct replace_fun: public vargs
+{
+  pvalue          fun;
+  tool::wregexp*  pre;
+  replace_fun( VM *pvm, value f, tool::wregexp* re )
+      :fun(pvm,f), pre(re)
+  {
+  }
+  tool::ustring call()
+  {
+    this->pre = pre;
+    value r = CsCallFunction(CsCurrentScope(fun.pvm),fun.val, *this );
+    return value_to_string(r);
+  }
+  virtual int   count() { return pre->get_number_of_matches(); }
+  virtual value nth(int n) { return CsMakeString( fun.pvm, pre->get_match(n)); }
+
+};
 
 value CSF_string_replace(VM *c)
 {
@@ -352,9 +371,6 @@ value CSF_string_replace(VM *c)
     obj = CsToString(c,obj);
     tool::ustring test = value_to_string(obj);
 
-    if(!CsStringP(rep))
-      CsTypeError(c,rep);
-    
     if( CsStringP(pat) )
     {
       if(test.replace( CsStringAddress(pat), CsStringAddress(rep) ))
@@ -371,31 +387,63 @@ value CSF_string_replace(VM *c)
       CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
 
     bool g = pre->m_global;
-    pre->m_nextIndex = 0;
 
-    if(!pre->exec(test))
+    if(!pre->exec_first(test))
       return obj;
 
-    pre->m_global = g;
-
-    tool::ustring reps = value_to_string(rep);
-
-    int start = 0;
-    int end = pre->get_match_start(0);
-
-    string_stream s(test.length());
-    
-    for( int i = 1; i <= pre->get_number_of_matches(); ++i )
+    if( CsMethodP(rep))
     {
+      int start = 0;
+      int end = 0;
+
+      string_stream s(test.length());
+
+      replace_fun cb(c,rep,pre);
+      
+      while(true)
+      {
+        end = pre->get_match_start(0);
+        s.put_str( (const wchar*)test + start, (const wchar*)test + end );
+        s.put_str( cb.call() );
+        start = pre->get_match_end(0);
+        end = test.length();
+        if(!g) 
+          break;
+        if(!pre->exec_next())
+          break;
+      }
       s.put_str( (const wchar*)test + start, (const wchar*)test + end );
-      s.put_str( reps );
-      start = pre->get_match_end(i-1);
-      end = i == pre->get_number_of_matches()? test.length(): pre->get_match_start(i);
+      return s.string_o(c);
     }
+    else if(CsStringP(rep))
+    {
+      tool::ustring reps = value_to_string(rep);
 
-    s.put_str( (const wchar*)test + start, (const wchar*)test + end );
+      int start = 0;
+      int end = 0;
 
-    return s.string_o(c);
+      string_stream s(test.length());
+      
+      while(true)
+      {
+        end = pre->get_match_start(0);
+        s.put_str( test.c_str() + start, test.c_str() + end );
+        s.put_str( reps );
+        start = pre->get_match_end(0);
+        end = test.length();
+        
+        if(!g) 
+          break;
+        if(!pre->exec_next())
+          break;
+      }
+      s.put_str( (const wchar*)test + start, (const wchar*)test + end );
+      return s.string_o(c);
+    }
+    else
+      CsTypeError(c,rep);
+
+    return obj;
 }
 
 value CSF_string_split(VM *c)

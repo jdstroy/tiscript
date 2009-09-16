@@ -24,6 +24,11 @@
 #include "tl_array.h"
 #include "tl_slice.h"
 #include "ucdata/ucdata_lt.h"
+//#include "ucdata/ucpgba_lt.h"
+
+#if !defined(_WIN32)
+#define wcsicmp wcscasecmp
+#endif
 
 namespace tool 
 {
@@ -138,6 +143,9 @@ class ustring {
         bool contains(const wchar *s) const;
         bool contains(wchar c) const;
 
+        bool starts_with ( const wchar *s ) const;
+        bool ends_with ( const wchar *s ) const;
+
         bool equals( const wchar *s, bool nocase = true) const;
 
         uint hash() const;
@@ -168,9 +176,9 @@ class ustring {
         static ustring utf8(chars s) { return utf8( s.start, s.length ); }
         static ustring utf8(bytes s) { return utf8( s.start, s.length ); }
 
-        
         // create utf8 string
-        string utf8() const;
+        string utf8() const { return utf8(wchars(*this)); }
+        static string utf8(wchars s);
         ustring xml_escape() const;
 
         void inherit(const ustring& src) { if(src.length()) *this = src; }
@@ -442,12 +450,33 @@ inline unsigned int ustring::hash() const
   return h;
 }
 
+namespace utf16
+{
+  uint getc(wchars& buf);
+  uint putc(uint uc, wchar* W2 /*W[2]*/);
 
+  // is a first code unit of surrogate pair in utf16 sequence
+  inline bool is_suro_head(wchar c) { return c >= 0xD800 && c <= 0xDBFF; }
+  // is a second code unit of surrogate pair in utf16 sequence
+  inline bool is_suro_tail(wchar c) { return c >= 0xDC00 && c <= 0xDFFF; }
+  // advance pos in buf with respect of surrogate pairs
+  bool advance(const wchars& buf, int n, int& pos);
 
-/****************************************************************************/
+  inline uint codepoints(wchars utf16)
+  {
+    uint n = 0;
+    while(utf16.length)
+    {
+      utf16::getc(utf16);
+      ++n;
+    }
+    return n;
+  }
+
+}
+
 
 extern wchar getc_utf8(FILE *f);
-
 
 inline void to_utf8(uint c, array<byte>& utf8out)
 {
@@ -475,7 +504,7 @@ inline void to_utf8(uint c, array<byte>& utf8out)
 inline bool putc_utf8(uint c, FILE* utf8out)
 {
 #undef APPEND
-#define APPEND(x) if(EOF == putc((unsigned char)(x),utf8out)) return false;
+#define APPEND(x) if( (unsigned char)(x) != putc((unsigned char)(x),utf8out)) return false;
 
   if (c < (1 << 7)) {
     APPEND (c);
@@ -502,17 +531,17 @@ inline void to_utf8(const wchar* utf16, size_t utf16_length, array<byte>& utf8ou
 {
   const wchar *pc = utf16;
   const wchar *pc_end = utf16 + utf16_length;
-  for(wchar c = *pc; pc < pc_end ; c = *(++pc)) 
-    to_utf8(c,utf8out);
+  for(; pc < pc_end ; ++pc) 
+    to_utf8(*pc,utf8out);
 }
 
 inline void to_utf8_x(const wchar* utf16, size_t utf16_length, array<byte>& utf8out)
 {
   const wchar *pc = utf16;
   const wchar *pc_end = utf16 + utf16_length;
-  for(wchar c = *pc; pc < pc_end ; c = *(++pc)) 
+  for(; pc < pc_end ; ++pc) 
   {
-    switch(c) 
+    switch(*pc) 
     {
         case '<': utf8out.push((const byte*)"&lt;",4); continue;
         case '>': utf8out.push((const byte*)"&gt;",4); continue;
@@ -520,7 +549,7 @@ inline void to_utf8_x(const wchar* utf16, size_t utf16_length, array<byte>& utf8
         case '"': utf8out.push((const byte*)"&quot;",6); continue;
         case '\'': utf8out.push((const byte*)"&apos;",6); continue;
     }
-    to_utf8(c,utf8out);
+    to_utf8(*pc,utf8out);
   }
 }
 

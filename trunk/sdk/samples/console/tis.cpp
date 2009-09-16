@@ -81,6 +81,17 @@ int main(int argc, char* argv[])
   args[0] = obj;
   retval = tiscript::call(vm, tiscript::get_current_ns(vm), func, args, 1);
 
+  {
+    tiscript::value arg = tiscript::v_string(vm,L"{ok:true}");
+    retval = tiscript::call(vm, "generateForm", &arg, 1);
+  }
+  //function generateForm(data, lang=null){
+	//var obj = JSON.parse(data);
+	//if(typeof obj=="object"){
+	//	return createForm(obj, lang, false, false);
+	//}
+
+
   return 0;
   
 }

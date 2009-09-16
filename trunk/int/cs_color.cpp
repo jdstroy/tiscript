@@ -8,6 +8,8 @@
 #include "cs.h"
 #include <limits.h>
 
+#undef SCITER
+
 #ifdef SCITER
 #include "../gool/gool.h"  
 #endif
@@ -145,7 +147,6 @@ static value CSF_rgba(VM *c)
     }
     return unit_value( rgba(vr,vg,vb,va), tool::value::clr ); 
 }
-
 
 #ifdef SCITER
 

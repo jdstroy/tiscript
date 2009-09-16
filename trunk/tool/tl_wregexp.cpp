@@ -68,6 +68,7 @@ static int isalpha_f(wchar c)
 
 static int isblank_f(wchar c)
 {
+    if( c == 0 ) return true;
     return cisblank(c);
 }
 
@@ -189,6 +190,11 @@ static const cclass_t class_table_f[] = {
                     /* the level follows the OPEN opcode. (NEW) */
 #define CLOSE 30  /* lvl  Analogous to OPEN. */
 
+#define OP_MOD_DONT_STORE 0x100 /* group that starts with (?: ... ) */
+#define OP_MOD_IF_FOLLOWED 0x200 /* group that starts with (?= ... ) */
+#define OP_MOD_IF_NOT_FOLLOWED 0x300 /* group that starts with (?! ... ) */
+
+
 /* character classes */
 
 /*
@@ -225,8 +231,9 @@ static const cclass_t class_table_f[] = {
  * Using two bytes for the "next" pointer is vast overkill for most things,
  * but allows patterns to get big without disasters.
  */
-#define OP(p)   (*(p))
-#define NEXT(p)   (((*((p)+1)&0177)<<8) + (*((p)+2)&0377))
+#define OP(p)     (*(p) & 0xff )
+#define OP_MOD(p) (*(p) & 0xff00)
+#define NEXT(p)   (((*((p)+1) & 0x7f)<<8) + (*((p)+2) & 0xff))
 #define OPERAND(p)  ((p) + 3)
 
 /*
@@ -412,16 +419,27 @@ reg(struct comp* cp, int paren, int* flagp, int* errp)
             *errp = REGEXP_EEND;
             return NULL;
         }
-        
     parno = cp->regnpar;
     cp->regnpar++;
+
+    int op_mod = 0;
+    if(cp->regparse[0] == LIT('?'))
+    {
+      switch( cp->regparse[1] )
+      {
+        case LIT(':') : op_mod = OP_MOD_DONT_STORE; cp->regparse += 2; break;
+        case LIT('=') : op_mod = OP_MOD_IF_FOLLOWED; cp->regparse += 2; break;
+        case LIT('!') : op_mod = OP_MOD_IF_NOT_FOLLOWED; cp->regparse += 2; break;
+        break;
+      }
+    }
         if(parno > NSUBEXPS)
         {
-            ret = regnode(cp, OPEN);
+        ret = regnode(cp, op_mod | OPEN);
             regc(cp, parno);
         }
         else
-            ret = regnode(cp, OPEN + parno);
+        ret = regnode(cp, op_mod | (OPEN + parno));
   }
 
   /* Pick up the branches, linking them together. */
@@ -929,7 +947,7 @@ static int regmatch_(struct exec* ep, wchar* prog)
 
   for (scan = prog; scan != NULL; scan = next) {
     next = regnext(scan);
-
+    int op_mod = OP_MOD(scan);
     switch (OP(scan)) {
     case BOL:
       if (ep->reginput != ep->regbol)
@@ -1062,7 +1080,10 @@ static int regmatch_(struct exec* ep, wchar* prog)
                 if (ep->regmatchp &&
                     no < ep->regnsubexp &&
                     ep->regmatchp[no].begin == -1)
+                {
+                    ep->regmatchp[no].skip = op_mod == OP_MOD_DONT_STORE;
                     ep->regmatchp[no].begin = input - ep->regbol;
+                }
                 return(1);
             } else
                 return(0);
@@ -1082,7 +1103,10 @@ static int regmatch_(struct exec* ep, wchar* prog)
                 if (ep->regmatchp &&
                     no < ep->regnsubexp &&
                     ep->regmatchp[no].begin == -1)
+                {
+                    ep->regmatchp[no].skip = op_mod == OP_MOD_DONT_STORE;
                     ep->regmatchp[no].begin = input - ep->regbol;
+                }
                 return(1);
             } else
                 return(0);
@@ -1374,7 +1398,7 @@ const struct error_message errors[] = {
     { REGEXP_EPAREN,  "parenteses () not balanced" },
     { REGEXP_ERANGE,  "invalid character range" },
     { REGEXP_EBRACK,  "brackets [] not balanced" },
-    { REGEXP_BADRPT,  "quantifier operator invalid" },
+    { REGEXP_BADRPT,  "quantifier operator invalid - '+' or '?' follows nothing" },
     { REGEXP_EESCAPE, "invalid escape \\ sequence" },
     { REGEXP_EEND,    "internal error!" },
     { 1,              "unknown error code (0x%x)!" }
@@ -1485,7 +1509,7 @@ namespace tool
         is_error(nErrCode);
         if( nErrCode <= 0) { m_nextIndex = 0; break; }
               
-        regmatch_w rm;
+        regmatch_r rm;
         rm.begin = m_index + m_arMatches[0].begin;
         m_nextIndex = rm.end = m_index + m_arMatches[0].end;
         m_result.push(rm);
@@ -1495,6 +1519,90 @@ namespace tool
 
       }
 
+      return m_result.size() > 0;
+
+  }
+
+  bool wregexp::exec_first(const wchar* sMatch)
+  {
+      m_test = sMatch;
+      m_test_input = m_test;
+
+      if(m_ignorecase)
+      {
+        m_test_input.to_lower();
+      }
+
+      m_result.size(0);
+
+      reset_matches();
+
+      m_index = 0;
+      m_nextIndex = 0;
+
+      int nErrCode = re_exec_w(m_preCompiled,
+                               m_test_input.c_str() + m_index,
+                               m_arMatches.size(),
+                               &m_arMatches[0]);
+      is_error(nErrCode);
+      if( nErrCode <= 0) 
+      { 
+        m_nextIndex = m_test_input.length(); 
+      }
+      else
+      {
+        m_nextIndex = m_index + m_arMatches[0].end;
+        for( int n = 0; n < m_arMatches.size(); ++n )
+        {
+          if(!m_arMatches[n].skip)
+          {
+            regmatch_r rm;
+            rm.begin = m_arMatches[n].begin;
+            rm.end = m_arMatches[n].end;
+            m_result.push(rm);
+          }
+        }
+      }
+      return m_result.size() > 0;
+  }
+
+  bool wregexp::exec_next()
+  {
+      m_result.size(0);
+
+      reset_matches();
+
+      m_index = m_nextIndex;
+
+      if(m_index < 0 || m_index >= m_test_input.length())
+      {
+        return false;
+      }
+
+      int nErrCode = re_exec_w(m_preCompiled,
+                               m_test_input.c_str() + m_index,
+                               m_arMatches.size(),
+                               &m_arMatches[0]);
+
+      is_error(nErrCode);
+      if( nErrCode <= 0) 
+      { 
+        m_nextIndex = m_test_input.length();
+      }
+      else
+      {    
+        m_nextIndex = m_index + m_arMatches[0].end;
+        for( int n = 0; n < m_arMatches.size(); ++n )
+        {
+          if(!m_arMatches[n].skip)
+          {
+            regmatch_r rm;
+            rm.begin = m_index + m_arMatches[n].begin;
+            rm.end = m_index + m_arMatches[n].end;
+            m_result.push(rm);
+          }
+        }
+      }
       return m_result.size() > 0;
 
   }
@@ -1517,24 +1625,24 @@ namespace tool
       //return nSubExp >= m_arMatches.size() ?  -1 : m_index + m_arMatches[nSubExp].end;
   }
 
-  tool::ustring wregexp::get_match(int matchNo) const
+  tool::wchars wregexp::get_match(int matchNo) const
   {
       if(matchNo >= m_result.size())
-          return tool::ustring();
+          return tool::wchars();
 
-      regmatch_w rmMatch = m_result[matchNo];
+      regmatch_r rmMatch = m_result[matchNo];
       
       if(rmMatch.begin == -1 || rmMatch.end == -1)
-          return tool::ustring();
+          return tool::wchars();
 
-      return m_test.substr(rmMatch.begin, rmMatch.end - rmMatch.begin);
+      return tool::wchars( m_test.c_str() + rmMatch.begin, rmMatch.end - rmMatch.begin );
   }
 
-  regmatch_w wregexp::get_n_match(int matchNo) const
+  regmatch_r wregexp::get_n_match(int matchNo) const
   {
       if(matchNo >= m_result.size())
       {
-          regmatch_w rm; rm.begin = rm.end = -1;
+          regmatch_r rm; rm.begin = rm.end = -1;
           return rm;
       }
       return m_result[matchNo];
@@ -1549,6 +1657,7 @@ namespace tool
   {
       regmatch_w rmDummy;
       rmDummy.begin = rmDummy.end = -1;
+      rmDummy.skip = false;
       int nSize = m_arMatches.size();
 
       for(int nIndex = 0; nIndex < nSize; ++nIndex)

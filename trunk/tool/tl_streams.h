@@ -15,7 +15,6 @@
 #include "tl_array.h"
 #include <stdio.h>
 
-
 namespace tool
 {
 

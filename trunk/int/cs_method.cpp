@@ -15,7 +15,7 @@ namespace tis
 static value CSF_decode(VM *c);
 static value CSF_apply(VM *c);
 static value CSF_call(VM *c);
-static value CSF_Initialize(VM *c);
+static value CSF_function_ctor(VM *c);
 static value CSF_getName(VM *c, value obj);
 static value CSF_getFullName(VM *c, value obj);
 static value CSF_argc(VM *c, value obj);
@@ -32,7 +32,7 @@ static value CSF_argNames(VM *c, value obj);
 
 /* Method methods */
 static c_method methods[] = {
-//C_METHOD_ENTRY( "initialize",     CSF_Initialize      ),
+C_METHOD_ENTRY( "this",             CSF_function_ctor      ),
 //C_METHOD_ENTRY( "decode",         CSF_decode          ),
 C_METHOD_ENTRY( "apply",            CSF_apply           ),
 C_METHOD_ENTRY( "call",             CSF_call            ),
@@ -41,7 +41,6 @@ C_METHOD_ENTRY( 0,                 0                   )
 
 /* Method properties */
 static vp_method properties[] = {
-  //VP_METHOD_ENTRY( "this",    CSF_GetInitialize, 0),
   VP_METHOD_ENTRY( "name",           CSF_getName,       0),
   VP_METHOD_ENTRY( "fullName",       CSF_getFullName,   0),
   VP_METHOD_ENTRY( "length",         CSF_argc,          0),
@@ -63,23 +62,6 @@ static vp_method pm_properties[] = {
   VP_METHOD_ENTRY( 0,                0,             0)
 };
 
-/* generator handlers */
-//static value CSF_generator_next(VM *c);
-//static value CSF_generator_get_function(VM *c, value obj);
-
-/* virtual property methods */
-
-/* Method methods */
-//static c_method generator_methods[] = {
-//C_METHOD_ENTRY( "next",             CSF_generator_next          ),
-//C_METHOD_ENTRY( 0,                  0                   )
-//};
-
-/* Method properties */
-//static vp_method generator_properties[] = {
-//  VP_METHOD_ENTRY( 0,                0,             0)
-//};
-
 /* CsInitMethod - initialize the 'Method' obj */
 void CsInitMethod(VM *c)
 {
@@ -90,10 +72,6 @@ void CsInitMethod(VM *c)
     c->propertyObject = CsEnterType(CsGlobalScope(c),"Property",&CsPropertyMethodDispatch);
     CsEnterMethods(c,c->propertyObject,pm_methods);
     CsEnterVPMethods(c,c->propertyObject,pm_properties);
-
-    //c->iteratorObject = CsEnterType(CsGlobalScope(c),"Iterator",&CsIteratorDispatch);
-    //CsEnterMethods(c,c->iteratorObject,iterator_methods);
-    //CsEnterVPMethods(c,c->iteratorObject,iterator_properties);
 }
 
 /* CSF_Decode - built-in method 'Decode' */
@@ -108,8 +86,45 @@ static value CSF_decode(VM *c)
     }
     else
         CsDecodeProcedure(c,obj,s);
-    return c->trueValue;
+    return TRUE_VALUE;
 }
+
+/* CSF_function_ctor - built-in constructor of 'Function' object */
+static value CSF_function_ctor(VM *c)
+{
+    tool::array<tool::ustring> params;
+    tool::ustring body;
+    //tool::wchars str;
+    value func;
+    //CsParseArguments(c,"V=*S#",&obj,&CsMethodDispatch,&str.start,&str.length);
+    CsCheckArgMin(c,3);
+    //CsCheckType(c,1,CsMethodP); -- don't care, it should be null
+    int argc = CsArgCnt(c);
+    for( int n = 3; n <= argc; ++n )
+    {
+      CsCheckType(c,n,CsStringP);
+      body = value_to_string(CsGetArg(c,n));
+      params.push(body);
+    }
+    
+    tool::slice<tool::ustring> argnames = params();
+    --argnames.length;
+
+    string_stream s(body.c_str(),body.length());
+    CsInitScanner(c->compiler,&s);
+    func = CsCompileExpr(CsCurrentScope(c), true, argnames);
+    if( !CsMethodP(func) )
+      return NULL_VALUE;
+
+    value code = CsMethodCode(func);
+    CsSetCompiledCodeName(code,CsGetArg(c,argc));
+
+    //return val ? CsSendMessage(scope, self, val,0) : UNDEFINED_VALUE;
+        
+    CsCtorRes(c) = func;
+    return func;
+}
+
 
 /* CSF_Apply - built-in method 'Apply' */
 /*static value CSF_apply(VM *c)
@@ -150,20 +165,30 @@ value CSF_apply(VM *c)
 {
     int_t i,vcnt,argc;
     value argv;
+    value fun = CsGetArg(c,1);
+
+    if( !CsMethodP(fun) && !CsCMethodP(fun) )
+      CsTypeError(c,fun);
+
+    CsCheckArgMin(c,3);
+
+    value obj = CsGetArgSafe(c,3);
+    if(obj == UNDEFINED_VALUE || obj == NULL_VALUE)
+      obj = c->currentScope.globals;
 
     if(CsArgCnt(c) == 3)
     {
-      CsCheckType(c,1,CsMethodP);
-      CsCheckType(c,3,CsObjectOrMethodP);
+      //CsCheckType(c,1,CsMethodP);
+      //CsCheckType(c,3,CsObjectOrMethodP);
       CsCheck(c,3);
-      CsPush(c,CsGetArg(c,3));
-      CsPush(c,CsGetArg(c,1));
-      CsPush(c,CsGetArg(c,3));
+      CsPush(c,obj);
+      CsPush(c,fun);
+      CsPush(c,obj);
       return CsInternalSend(c,2);
     }
     CsCheckArgMin(c,4);
-    CsCheckType(c,1,CsMethodP);
-    CsCheckType(c,3,CsObjectOrMethodP);
+    //CsCheckType(c,1,CsMethodP);
+    //CsCheckType(c,3,CsObjectOrMethodP);
     CsCheckType(c,CsArgCnt(c),CsVectorP);
     argv = CsGetArg(c,CsArgCnt(c));
     if (CsMovedVectorP(argv))
@@ -171,9 +196,9 @@ value CSF_apply(VM *c)
     vcnt = CsVectorSizeI(argv);
     argc = CsArgCnt(c) + vcnt - 2;
     CsCheck(c,argc + 1);
-    CsPush(c,CsGetArg(c,3));
-    CsPush(c,CsGetArg(c,1));
-    CsPush(c,CsGetArg(c,3));
+    CsPush(c,obj);
+    CsPush(c,fun);
+    CsPush(c,obj);
     for (i = 4; i < CsArgCnt(c); ++i)
         CsPush(c,CsGetArg(c,i));
     for (i = 0; i < vcnt; ++i)
@@ -185,9 +210,13 @@ value CSF_call(VM *c)
 {
     int_t i, argc;
 
+    value fun = CsGetArg(c,1);
+    if( !CsMethodP(fun) && !CsCMethodP(fun) )
+      CsTypeError(c,fun);
+
     if(CsArgCnt(c) == 3)
     {
-      CsCheckType(c,1,CsMethodP);
+      //CsCheckType(c,1,CsMethodP);
       CsCheckType(c,3,CsObjectOrMethodP);
       CsCheck(c,3);
       CsPush(c,CsGetArg(c,3));
@@ -196,7 +225,7 @@ value CSF_call(VM *c)
       return CsInternalSend(c,2);
     }
     CsCheckArgMin(c,4);
-    CsCheckType(c,1,CsMethodP);
+    //CsCheckType(c,1,CsMethodP);
     CsCheckType(c,3,CsObjectOrMethodP);
     argc = CsArgCnt(c) - 1;
     CsCheck(c,argc + 1);
@@ -208,14 +237,14 @@ value CSF_call(VM *c)
     return CsInternalSend(c,argc);
 }
 
-static value MethodNextElement(VM *c,value* index, value obj)
+static value MethodNextElement(VM *c,value* index, value obj, int nr)
 {
   assert(CsMethodP(obj));
   if(!CsMethodP(obj))
-    return c->nothingValue;
-  value r = CsCallFunction( CsCurrentScope(c), obj, 0 );
+    return NOTHING_VALUE;
+  value r = CsCallFunction( CsCurrentScope(c), obj, 1, int_value(nr) );
   return r;
-  //return (r == c->undefinedValue)? c->nothingValue: r;
+  //return (r == UNDEFINED_VALUE)? NOTHING_VALUE: r;
 }
 
 /* METHOD */
@@ -232,6 +261,11 @@ static bool  PropertyMethodPrint(VM *c,value val,stream *s, bool toLocale);
 static long  MethodSize(value obj);
 static void  MethodScan(VM *c,value obj);
 static value MethodNextElement(VM *c,value* index, value obj);
+static value MethodNewInstance(VM *c,value proto)
+{
+    return NULL_VALUE; // CSF_function_ctor will supply the instance
+}
+
 
 /* CsMakeUDObject is used for ECMAScript comptaibility when standalone function
    can serve role of constructor:
@@ -254,7 +288,7 @@ dispatch CsMethodDispatch = {
     &CsMethodDispatch,
     GetMethodProperty,
     SetMethodProperty,
-    CsDefaultNewInstance, /*CsMakeUDObject, this feature is dropped in favor of constructor method */
+    MethodNewInstance, /*CsMakeUDObject, this feature is dropped in favor of constructor method */
     MethodPrint,
     MethodSize,
     CsDefaultCopy,
@@ -316,7 +350,7 @@ static bool SetMethodProperty(VM *c,value obj,value tag,value value)
             CsThrowKnownError(c,CsErrIndexOutOfBounds,tag);
         return CsVectorElement(c,vec,i);
     }
-    return VM::undefinedValue;
+    return UNDEFINED_VALUE;
 }*/
 
 
@@ -354,7 +388,7 @@ static void MethodScan(VM *c,value obj)
 static bool MethodPrint(VM *c,value val,stream *s, bool toLocale)
 {
     value name = CsCompiledCodeName(CsMethodCode(val));
-    if (name == c->undefinedValue)
+    if (name == UNDEFINED_VALUE)
         return CsDefaultPrint(c,val,s, toLocale);
     //if( CsStringP( ) )
     if( CsSymbolP( name ) )
@@ -374,7 +408,7 @@ static bool MethodPrint(VM *c,value val,stream *s, bool toLocale)
 static bool PropertyMethodPrint(VM *c,value val,stream *s, bool toLocale)
 {
     value name = CsCompiledCodeName(CsMethodCode(val));
-    if (name == c->undefinedValue)
+    if (name == UNDEFINED_VALUE)
         return CsDefaultPrint(c,val,s, toLocale);
     return s->put_str("[property ")
         && s->put_str(CsSymbolName(name))
@@ -387,7 +421,7 @@ static value CSF_getName(VM *c, value obj)
     if(CsMethodP(obj))
     {
       value n = CsCompiledCodeName(CsMethodCode(obj));
-      if( n != VM::undefinedValue )
+      if( n != UNDEFINED_VALUE )
       {
         dispatch *pd = CsGetDispatch(n);
         tool::string s = CsSymbolName(n);
@@ -395,7 +429,7 @@ static value CSF_getName(VM *c, value obj)
         return CsSymbolOf(shortname.start);
       }
     }
-    return VM::undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_getFullName(VM *c, value obj)
@@ -404,7 +438,7 @@ static value CSF_getFullName(VM *c, value obj)
     {
       return CsCompiledCodeName(CsMethodCode(obj));
     }
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_argNames(VM *c, value obj)
@@ -413,7 +447,7 @@ static value CSF_argNames(VM *c, value obj)
     {
       return CsCompiledCodeArgNames(CsMethodCode(obj));
     }
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_argc(VM *c, value obj)
@@ -426,7 +460,7 @@ static value CSF_argc(VM *c, value obj)
     //cptr[2] = ocnt;
     return CsMakeInteger(pc[1] + pc[2] - 2);
   }
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 static value CSF_argcOptional(VM *c, value obj)
@@ -439,7 +473,7 @@ static value CSF_argcOptional(VM *c, value obj)
     //cptr[2] = ocnt;
     return CsMakeInteger(pc[2] );
   }
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 static value CSF_vararg(VM *c, value obj)
@@ -450,9 +484,9 @@ static value CSF_vararg(VM *c, value obj)
     byte *pc = CsByteVectorAddress(CsCompiledCodeBytecodes(code));
     //cptr[1] = rcnt;
     //cptr[2] = ocnt;
-    return pc[0] == BC_AFRAMER ? VM::trueValue : VM::falseValue;
+    return pc[0] == BC_AFRAMER ? TRUE_VALUE : FALSE_VALUE;
   }
-  return c->undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 
@@ -463,13 +497,13 @@ static value CsMakeMethodValue(VM *c,dispatch *type)
     long allocSize = sizeof(CsMethod);
     value newo = CsAllocate(c,allocSize);
     CsSetDispatch(newo,type);
-    CsSetObjectClass(newo,c->undefinedValue);
-    CsSetObjectProperties(newo,c->undefinedValue);
+    CsSetObjectClass(newo,UNDEFINED_VALUE);
+    CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
-    CsSetMethodCode(newo,c->undefinedValue);
-    CsSetMethodEnv(newo,c->undefinedValue);
-    CsSetMethodGlobals(newo,c->undefinedValue);
-    CsSetMethodNamespace(newo,c->undefinedValue);
+    CsSetMethodCode(newo,UNDEFINED_VALUE);
+    CsSetMethodEnv(newo,UNDEFINED_VALUE);
+    CsSetMethodGlobals(newo,UNDEFINED_VALUE);
+    CsSetMethodNamespace(newo,UNDEFINED_VALUE);
 
     return newo;
 }
@@ -601,7 +635,7 @@ dispatch CsCompiledCodeDispatch = {
 static bool CompiledCodePrint(VM *c,value val,stream *s, bool toLocale)
 {
     value name = CsCompiledCodeName(val);
-    if (name == c->undefinedValue)
+    if (name == UNDEFINED_VALUE)
         return CsDefaultPrint(c,val,s, toLocale);
     return s->put_str("[bytecode ")
         && s->put_str(CsStringAddress(name))
@@ -615,7 +649,7 @@ value CsMakeCompiledCode(VM *c,long size,value bytecodes, value linenumbers, val
     CsCPush(c,bytecodes);
     CsCPush(c,linenumbers);
     CsCPush(c,argnames);
-    CsCPush(c,filename?CsMakeSymbol(c,filename):c->undefinedValue);
+    CsCPush(c,(filename && filename[0])?CsMakeSymbol(c,filename):UNDEFINED_VALUE);
     code = CsMakeBasicVector(c,&CsCompiledCodeDispatch,size);
     CsSetCompiledCodeFileName(code,CsPop(c));
     CsSetCompiledCodeArgNames(code,CsPop(c));
@@ -623,94 +657,6 @@ value CsMakeCompiledCode(VM *c,long size,value bytecodes, value linenumbers, val
     CsSetCompiledCodeBytecodes(code,CsPop(c));
     return code;
 }
-
-
-static bool GeneratorPrint(VM *c,value val,stream *s, bool toLocale);
-static long GeneratorSize(value obj)
-{
-  return sizeof(generator);
-}
-static void GeneratorScan(VM *c,value obj)
-{
-  generator* pg = ptr<generator>(obj);
-  pg->env = CsCopyValue(c, pg->env);
-  pg->globals = CsCopyValue(c, pg->globals);
-  pg->ns = CsCopyValue(c, pg->ns);
-  pg->code = CsCopyValue(c, pg->code);
-  if(pg->val)
-    pg->val = CsCopyValue(c, pg->val);
-  //if( pg->localFrames )
-  //  pg->localFrames = CsCopyValue(c, pg->localFrames);
-}
-
-
-extern value GeneratorNextElement(VM *c, value* index, value gen);
-
-/* Generator pdispatch */
-dispatch CsGeneratorDispatch = {
-    "Generator",
-    &CsGeneratorDispatch,
-    CsDefaultGetProperty,
-    CsDefaultSetProperty,
-    CsDefaultNewInstance, 
-    GeneratorPrint,
-    GeneratorSize,
-    CsDefaultCopy,
-    GeneratorScan,
-    CsDefaultHash,
-    CsDefaultGetItem,
-    CsDefaultSetItem,
-    GeneratorNextElement
-};
-
-
-
-/* GeneratorPrint - Method print handler */
-static bool GeneratorPrint(VM *c,value val,stream *s, bool toLocale)
-{
-    return s->put_str("[generator]");
-    /*
-    value name = CsCompiledCodeName(CsMethodCode(val));
-    if (name == c->undefinedValue)
-        return CsDefaultPrint(c,val,s, toLocale);
-    //if( CsStringP( ) )
-    if( CsSymbolP( name ) )
-      return s->put_str("[method ")
-          //&& s->put_str(CsStringAddress(name))
-          && s->put_str(CsSymbolPrintName(name))
-          && s->put(']');
-    else
-      return s->put_str("[method ")
-          && CsDisplay(c,name,s)
-          && s->put(']');
-    */
-}
-
-static value CSF_generator_next(VM *c)
-{
-  return c->nothingValue;
-}
-static value CSF_generator_get_function(VM *c, value obj)
-{
-  return c->nothingValue;
-}
-
-value GeneratorNextElement(VM *c,value* index, value obj)
-{
-  assert(CsGeneratorP(obj));
-  if(!CsGeneratorP(obj))
-    return c->nothingValue;
-
-  if( ptr<generator>(obj)->val )
-  {
-    value r = ptr<generator>(obj)->val;
-    ptr<generator>(obj)->val = 0;
-    return r;  
-  }
-  value r = CsExecuteNext( c, obj);
-  return r;
-}
-
 
 
 }

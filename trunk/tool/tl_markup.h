@@ -66,7 +66,8 @@ template< typename CHAR_TYPE >
         input_char(0),
         tag_name_length(0),
         c_scan(0),
-        attr_name_length(0) { c_scan = &scanner<CHAR_TYPE>::scan_body; }
+        attr_name_length(0),
+        line_no(1) { c_scan = &scanner<CHAR_TYPE>::scan_body; }
 
     // get next token
     token_type      get_token()  { return (this->*c_scan)(); }
@@ -82,6 +83,8 @@ template< typename CHAR_TYPE >
     const char*     get_tag_name()                { tag_name[tag_name_length] = 0; return tag_name; }
     size_t          get_tag_name_length() const   { return tag_name_length; }
 
+    int             get_line_no() const           { return line_no; } 
+    
     // should be overrided to resolve entities, e.g. &nbsp;
     virtual char_type  resolve_entity(const char* buf, int buf_size) { return 0; }
 
@@ -128,6 +131,7 @@ template< typename CHAR_TYPE >
 
     instream<CHAR_TYPE>&  input;
     char_type             input_char;
+    int         line_no; 
 
     // case sensitive string equality test
     // s_lowcase shall be lowercase string
@@ -162,7 +166,7 @@ template< typename CHAR_TYPE >
       while(true)
       {
         value.push(c);
-        c = input.get_char();
+        c = get_char();
         if(c == 0)  { push_back(c); break; }
         if(c == '<') { push_back(c); break; }
         if(c == '&') c = scan_entity();
@@ -189,7 +193,7 @@ template< typename CHAR_TYPE >
       while(c != '=')
       {
         if( c == 0) return TT_EOF;
-        if( c == '>' ) { push_back(c); return TT_ATTR; } // attribute without value (HTML style)
+        if( c == '>' || c == '/' ) { push_back(c); return TT_ATTR; } // attribute without value (HTML style)
         if( is_whitespace(c) )
         {
           c = skip_whitespace();
@@ -218,7 +222,14 @@ template< typename CHAR_TYPE >
             if(c == '&') c = scan_entity();
             append_value(c);
         }
+      else if(c == '>') // attr= >
+      {
+        push_back(c);
+        return TT_ATTR; // let it be empty attribute.
+      }
       else // scan token, allowed in html: e.g. align=center
+      {
+        append_value(c);
         while((c = get_char()))
         {
             if( is_whitespace(c) ) return TT_ATTR;
@@ -226,6 +237,7 @@ template< typename CHAR_TYPE >
             if( c == '&' ) c = scan_entity();
             append_value(c);
         }
+      }
       return TT_ERROR;
     }
 
@@ -249,10 +261,12 @@ template< typename CHAR_TYPE >
         switch(tag_name_length)
         {
         case 3:
-          if(equal(tag_name,"!--",3)) return scan_comment();
+          if(equal(tag_name,"!--",3)) 
+            return scan_comment(); 
           break;
         case 8:
-          if( equal(tag_name,"![CDATA[",8) ) return scan_cdata();
+          if( equal(tag_name,"![CDATA[",8) ) 
+            return scan_cdata();
           break;
         }
 
@@ -288,8 +302,11 @@ template< typename CHAR_TYPE >
 
     inline char_type get_char()
     {
-      if(input_char) { char_type t(input_char); input_char = 0; return t; }
-      return input.get_char();
+      char_type t;
+      if(input_char) { t = input_char; input_char = 0; return t; }
+      t = input.get_char();
+      if( t == '\n' ) ++line_no;
+      return t;
     }
 
     // caller consumed '&'

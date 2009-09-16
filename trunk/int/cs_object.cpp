@@ -21,6 +21,7 @@ static value CSF_call(VM *c);
 static value CSF_show(VM *c);
 static value CSF_store(VM *c);
 static value CSF_restore(VM *c);
+       value CSF_propertyAt(VM *c);
 
 static value CSF_length(VM *c,value obj);
 static value CSF_prototype(VM *c,value obj);
@@ -50,6 +51,7 @@ C_METHOD_ENTRY( "show",             CSF_show            ),
 C_METHOD_ENTRY( "store",            CSF_store           ),
 C_METHOD_ENTRY( "restore",          CSF_restore         ),
 C_METHOD_ENTRY( "eval",             CSF_eval            ),
+C_METHOD_ENTRY( "propertyAt",       CSF_propertyAt      ),
 C_METHOD_ENTRY( 0,                  0                   )
 };
 
@@ -75,8 +77,8 @@ VP_METHOD_ENTRY( 0,          0,         0         )
 void CsInitObject(VM *c)
 {
     /* make the base of the obj inheritance tree */
-    c->objectObject = CsEnterObject(CsGlobalScope(c),"Object",c->undefinedValue,methods, properties);
-    c->classObject = CsEnterObject(CsGlobalScope(c),"Class",c->undefinedValue,methods, class_properties);
+    c->objectObject = CsEnterObject(CsGlobalScope(c),"Object",UNDEFINED_VALUE,methods, properties);
+    c->classObject = CsEnterObject(CsGlobalScope(c),"Class",UNDEFINED_VALUE,methods, class_properties);
 }
 
 /* CSF_ctor - built-in method 'initialize' */
@@ -136,7 +138,7 @@ static void CSF_set_class_class_name(VM *c,value obj, value v)
     if( CsClassP(obj) && CsStringP(v)) 
     {
       value n = CsClassName(obj);
-      if( n == c->undefinedValue )
+      if( n == UNDEFINED_VALUE )
         CsSetClassName(obj,v);
     }
 }
@@ -151,20 +153,35 @@ static value CSF_clone(VM *c)
     return CsCloneObject(c,obj);
 }
 
-/* CSF_Exists - built-in method 'Exists' */
+/* CSF_Exists - built-in method 'exists' */
 static value CSF_exists(VM *c)
 {
     value obj,tag;
     bool deep = false;
-    CsParseArguments(c,"V=*V|B",&obj,&CsObjectDispatch,&tag);
+    CsParseArguments(c,"V=*V|B",&obj,&CsObjectDispatch,&tag,&deep);
     FETCH( c, obj );
     while (CsObjectP(obj)) {
         if (CsFindProperty(c,obj,tag,NULL,NULL))
-            return c->trueValue;
+            return TRUE_VALUE;
         if( !deep ) break;
         obj = CsObjectClass(obj);
     }
-    return c->falseValue;
+    return FALSE_VALUE;
+}
+
+/* CSF_propertyAt - built-in method 'val = Object.propertyAt(sym)' 
+   It is a direct equivalent of val = Object.sym;  
+*/
+value CSF_propertyAt(VM *c)
+{
+    value obj,tag, val;
+    CsParseArguments(c,"V*V",&obj,&tag);
+    FETCH( c, obj );
+
+    if(CsGetProperty(c,obj,tag,&val))
+      return val;
+
+    return UNDEFINED_VALUE;
 }
 
 /* CSF_remove - built-in method 'Remove' */
@@ -174,7 +191,7 @@ static value CSF_remove(VM *c)
     CsParseArguments(c,"V=*V",&obj,&CsObjectDispatch,&tag);
     FETCH( c, obj );
     CsRemoveObjectProperty(c,obj,tag);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 /* CSF_call - built-in method 'call'
@@ -233,7 +250,7 @@ void CsScanObjectNoLoad( VM *c, value obj, object_scanner& osc )
         int_t i;
         for (i = 0; i < cnt; ++i) {
             value prop = CsHashTableElement(props,i);
-            for (; prop != c->undefinedValue; prop = CsPropertyNext(prop))
+            for (; prop != UNDEFINED_VALUE; prop = CsPropertyNext(prop))
             {
               if(!osc.item(c,CsPropertyTag(prop),CsPropertyValue(prop)))
                  return;
@@ -241,7 +258,7 @@ void CsScanObjectNoLoad( VM *c, value obj, object_scanner& osc )
         }
     }
     else
-        for (; props != c->undefinedValue; props = CsPropertyNext(props))
+        for (; props != UNDEFINED_VALUE; props = CsPropertyNext(props))
         {
             if(!osc.item(c,CsPropertyTag(props),CsPropertyValue(props)))
               return;
@@ -267,7 +284,7 @@ static value CSF_show(VM *c)
             int_t i;
             for (i = 0; i < cnt; ++i) {
                 value prop = CsHashTableElement(props,i);
-                for (; prop != c->undefinedValue; prop = CsPropertyNext(prop)) {
+                for (; prop != UNDEFINED_VALUE; prop = CsPropertyNext(prop)) {
                     s->put_str("  ");
                     CsPrint(c,CsPropertyTag(prop),s);
                     s->put_str(": ");
@@ -277,7 +294,7 @@ static value CSF_show(VM *c)
             }
         }
         else {
-            for (; props != c->undefinedValue; props = CsPropertyNext(props)) {
+            for (; props != UNDEFINED_VALUE; props = CsPropertyNext(props)) {
                 s->put_str("  ");
                 CsPrint(c,CsPropertyTag(props),s);
                 s->put_str(": ");
@@ -296,12 +313,12 @@ value CSF_store(VM *c)
   CsParseArguments( c, "V=*", &obj, &CsObjectDispatch );
 
   if( !CsIsPersistent(c,obj) )
-   return c->falseValue;
+   return FALSE_VALUE;
   if( !CsIsModified( obj ) )
-   return c->trueValue;
+   return TRUE_VALUE;
 
   CsStoreObjectData(c, obj);
-  return c->trueValue;
+  return TRUE_VALUE;
 }
 
 /* CSF_rollback - built-in method 'Rollback' for persistent objects */
@@ -312,7 +329,7 @@ value CSF_restore(VM *c)
   CsParseArguments( c, "V=*", &obj, &CsObjectDispatch );
 
   if( !CsIsPersistent(c,obj) )
-  { return c->falseValue; }
+  { return FALSE_VALUE; }
 
   return CsRestoreObj(c, obj);
 }
@@ -377,7 +394,7 @@ dispatch CsClassDispatch = {
 /* CsSetCObjectProperty - CObject set property handler */
 static bool AddClassConstant(VM *c,value obj,value tag,value val)
 {
-    if( tag == VM::undefinedValue ) // special treatment for property undefined(n,v) handler
+    if( tag == UNDEFINED_VALUE ) // special treatment for property undefined(n,v) handler
     {
       if(CsPropertyMethodP(val))
       {
@@ -390,7 +407,7 @@ static bool AddClassConstant(VM *c,value obj,value tag,value val)
 
 static bool CsSetClassProperty(VM *c,value obj,value tag,value val)
 {
-   if( tag == VM::undefinedValue ) // special treatment for property undefined(n,v) handler
+   if( tag == UNDEFINED_VALUE ) // special treatment for property undefined(n,v) handler
    {
       if(CsPropertyMethodP(val))
       {
@@ -403,7 +420,7 @@ static bool CsSetClassProperty(VM *c,value obj,value tag,value val)
 
 static void CsClassSetItem(VM *c,value obj,value tag,value val)
 {
-  if( tag == VM::undefinedValue ) // special treatment for property undefined(n,v) handler
+  if( tag == UNDEFINED_VALUE ) // special treatment for property undefined(n,v) handler
   {
     if(CsPropertyMethodP(val))
     {
@@ -419,7 +436,7 @@ value CsObjectGetItem(VM *c,value obj,value tag)
 {
     FETCH(c,obj);
     value p;
-    if( CsSymbolP(tag) && tag == c->prototypeSym )
+    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
     {
       return CsObjectClass(obj);
     }
@@ -428,7 +445,7 @@ value CsObjectGetItem(VM *c,value obj,value tag)
       value propValue = CsPropertyValue(p);
       return propValue;
     }
-    return VM::undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 void CsObjectSetItemNoLoad(VM *c,value obj,value tag,value val)
@@ -436,9 +453,9 @@ void CsObjectSetItemNoLoad(VM *c,value obj,value tag,value val)
     int_t hashValue,i;
     value p;
 
-    if( CsSymbolP(tag) && tag == c->prototypeSym )
+    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
     {
-      if( !CsObjectP(val) )
+      if( !CsObjectP(val) && val != UNDEFINED_VALUE)
         CsUnexpectedTypeError(c,val, "instance of Object class");
       CsSetObjectClass(obj, val);
     }
@@ -474,7 +491,7 @@ bool CsGetObjectProperty(VM *c,value& obj,value tag,value *pValue)
     FETCH(c,obj);
     value p;
 
-    if( CsSymbolP(tag) && tag == c->prototypeSym )
+    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
     {
       *pValue = CsObjectClass(obj);
       return true;
@@ -494,13 +511,13 @@ bool CsGetObjectProperty(VM *c,value& obj,value tag,value *pValue)
           CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
       }
       else if(CsPropertyMethodP(propValue))
-        *pValue = CsSendMessage(c,self,propValue,1, c->nothingValue);
+        *pValue = CsSendMessage(c,self,propValue,1, NOTHING_VALUE);
       else
         *pValue = propValue;
       return true;
     }
 
-    value uph = VM::undefinedValue; // undefined property handler
+    value uph = UNDEFINED_VALUE; // undefined property handler
 
     while ( ((obj = CsObjectClass(obj)) != 0) && CsObjectOrMethodP(obj) )
     {
@@ -516,19 +533,19 @@ bool CsGetObjectProperty(VM *c,value& obj,value tag,value *pValue)
             CsThrowKnownError(c,CsErrWriteOnlyProperty,tag);
         }
         else if(CsPropertyMethodP(propValue))
-          *pValue = CsSendMessage(c,self,propValue,1, VM::nothingValue);
+          *pValue = CsSendMessage(c,self,propValue,1, NOTHING_VALUE);
         else
           *pValue = propValue;
         return true;
       }
-      if( CsClassP(obj) && uph == VM::undefinedValue)
+      if( CsClassP(obj) && uph == UNDEFINED_VALUE)
          uph = CsClassUndefinedPropHandler(obj);
     }
 
     if( CsPropertyMethodP(uph))
     {
-      value v = CsSendMessage(c,self,uph, 2, tag, VM::nothingValue );
-      if(v != VM::nothingValue )
+      value v = CsSendMessage(c,self,uph, 2, tag, NOTHING_VALUE );
+      if(v != NOTHING_VALUE )
       {
         *pValue = v;
         return true;
@@ -543,9 +560,9 @@ bool CsSetObjectPropertyNoLoad(VM *c,value obj,value tag,value val)
     int_t hashValue = 0,i = 0;
     value p;
 
-    if( tag == c->prototypeSym )
+    if( tag == PROTOTYPE_VALUE )
     {
-      if( !CsObjectP(val) )
+      if( !CsObjectP(val) && val != UNDEFINED_VALUE)
         CsUnexpectedTypeError(c,val, "instance of Object class");
       CsSetObjectClass(obj, val);
       return true;
@@ -570,7 +587,7 @@ bool CsSetObjectPropertyNoLoad(VM *c,value obj,value tag,value val)
     }
 
     value self = obj;
-    value uph  = VM::undefinedValue;
+    value uph  = UNDEFINED_VALUE;
 
     while ( ((obj = CsObjectClass(obj)) != 0) && CsObjectOrMethodP(obj))
     {
@@ -594,13 +611,13 @@ bool CsSetObjectPropertyNoLoad(VM *c,value obj,value tag,value val)
           CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
         break;
       }
-      if( CsClassP(obj) && uph == VM::undefinedValue)
+      if( CsClassP(obj) && uph == UNDEFINED_VALUE)
          uph = CsClassUndefinedPropHandler(obj);
     }
 
     if( CsPropertyMethodP(uph))
     {
-      if(VM::nothingValue != CsSendMessage(c,self,uph, 2, tag, val ))
+      if(NOTHING_VALUE != CsSendMessage(c,self,uph, 2, tag, val ))
          return true;
     }
 
@@ -613,9 +630,9 @@ bool CsSetObjectPersistentProperty(VM *c,value obj,value tag,value val)
     int_t hashValue,i;
     value p;
 
-    if( tag == c->prototypeSym )
+    if( tag == PROTOTYPE_VALUE )
     {
-      if( !CsObjectP(val) )
+      if( !CsObjectP(val) && val != UNDEFINED_VALUE )
         CsUnexpectedTypeError(c,val, "instance of Object class");
       CsSetObjectClass(obj, val);
       return true;
@@ -696,7 +713,7 @@ const char* CsClassClassName(VM* c, value cls)
 const char* CsObjectClassName(VM* c, value obj)
 {
   value cls = CsObjectClass(obj);
-  if(cls == c->undefinedValue)
+  if(cls == UNDEFINED_VALUE)
     return "";
   return CsClassClassName(c,cls);
 }
@@ -711,7 +728,7 @@ bool CsSetProperty1(VM *c, value obj,value tag,value val )
     if( !CsObjectP(obj) && !CsCObjectP(obj) )
       CsUnexpectedTypeError(c,val, "instance of Object class");
 
-    if( CsSymbolP(tag) && tag == c->prototypeSym )
+    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
     {
       if( !CsObjectP(val) )
         CsUnexpectedTypeError(c,val, "instance of Object class");
@@ -730,13 +747,12 @@ bool CsSetProperty1(VM *c, value obj,value tag,value val )
     CsAddProperty(c,self,tag,val,hashValue,i);
     return true;
 */
-
     int_t hashValue,i;
     value p;
 
-    if( CsSymbolP(tag) && tag == c->prototypeSym )
+    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
     {
-      if( !CsObjectP(val) )
+      if( !CsObjectP(val) && val != UNDEFINED_VALUE )
         CsUnexpectedTypeError(c,val, "instance of Object class");
       CsSetObjectClass(obj, val);
     }
@@ -758,14 +774,13 @@ bool CsSetProperty1(VM *c, value obj,value tag,value val )
 
 }
 
-
 /*
 bool CsSetObjectProperty(VM *c,value obj,value tag,value val)
 {
     int_t hashValue,i;
     value p;
 
-    if( CsSymbolP(tag) && tag == c->prototypeSym )
+    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
     {
       if( !CsObjectP(val) )
         CsUnexpectedTypeError(c,val, "instance of Object class");
@@ -825,7 +840,7 @@ value CsMakeObject(VM *c,value proto)
     newo = CsAllocate(c,sizeof(object));
     CsSetDispatch(newo,&CsObjectDispatch);
     CsSetObjectClass(newo,CsPop(c));
-    CsSetObjectProperties(newo,c->undefinedValue);
+    CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
     _CsInitPersistent(newo);
     return newo;
@@ -838,10 +853,10 @@ value CsMakeClass(VM *c,value proto)
     CsCPush(c,proto);
     newo = CsAllocate(c,sizeof(klass));
     CsSetDispatch(newo,&CsClassDispatch);
-    CsSetClassName(newo,VM::undefinedValue);
-    CsSetClassUndefinedPropHandler(newo,VM::undefinedValue);
+    CsSetClassName(newo,UNDEFINED_VALUE);
+    CsSetClassUndefinedPropHandler(newo,UNDEFINED_VALUE);
     CsSetObjectClass(newo,CsPop(c));
-    CsSetObjectProperties(newo,c->undefinedValue);
+    CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
     return newo;
 }
@@ -855,8 +870,8 @@ value CsNewClassInstance(VM* c,value parentClass, value nameSymbol)
     CsSetDispatch(newo,&CsClassDispatch);
     CsSetClassName(newo,CsPop(c));
     CsSetObjectClass(newo,CsPop(c));
-    CsSetClassUndefinedPropHandler(newo,VM::undefinedValue);
-    CsSetObjectProperties(newo,c->undefinedValue);
+    CsSetClassUndefinedPropHandler(newo,UNDEFINED_VALUE);
+    CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
     return newo;
 }
@@ -912,6 +927,9 @@ void CsRemoveObjectProperty(VM *c,value obj, value tag)
 /* CsFindProperty - find a property of a non-inherited obj property */
 value CsFindProperty(VM *c,value obj,value tag,int_t *pHashValue,int_t *pIndex)
 {
+#ifdef _DEBUG
+    dispatch *pd = CsGetDispatch(obj);
+#endif
     value p = CsObjectProperties(obj);
     if (CsHashTableP(p)) {
         int_t hashValue = CsHashValue(tag);
@@ -923,7 +941,7 @@ value CsFindProperty(VM *c,value obj,value tag,int_t *pHashValue,int_t *pIndex)
     else {
         if (pIndex) *pIndex = -1;
     }
-    for (; p != c->undefinedValue; p = CsPropertyNext(p))
+    for (; p != UNDEFINED_VALUE; p = CsPropertyNext(p))
         if (CsEql(CsPropertyTag(p),tag))
             return p;
     return 0;
@@ -937,7 +955,7 @@ value FindFirstSymbol(VM *c, value obj, value& idx)
         for(int i = 0; i < CsHashTableSize(p); ++i)
         {
           value t = CsHashTableElement(p,i);
-          if(t != c->undefinedValue)
+          if(t != UNDEFINED_VALUE)
           {
             idx = t;
 #ifdef _DEBUG
@@ -947,25 +965,58 @@ value FindFirstSymbol(VM *c, value obj, value& idx)
           }
         }
     }
-    if(p != c->undefinedValue)
+    if(p != UNDEFINED_VALUE)
     {
       idx = p;
       return CsPropertyTag(p);
     }
     else
     {
-      idx = c->undefinedValue;
-      return c->nothingValue;
+      idx = UNDEFINED_VALUE;
+      return NOTHING_VALUE;
     }
 }
 
+value FindFirstSymbolValue(VM *c, value obj, value& idx)
+{
+    value p = CsObjectProperties(obj);
+    if (CsHashTableP(p))
+    {
+        for(int i = 0; i < CsHashTableSize(p); ++i)
+        {
+          value t = CsHashTableElement(p,i);
+          if(t != UNDEFINED_VALUE)
+          {
+            idx = t;
+#ifdef _DEBUG
+            dispatch *pd = CsGetDispatch(CsPropertyTag(t));
+#endif
+            CsSetRVal(c,1,CsPropertyTag(t));
+            return CsPropertyValue(t);
+          }
+        }
+    }
+    if(p != UNDEFINED_VALUE)
+    {
+      idx = p;
+      CsSetRVal(c,1,CsPropertyTag(p));
+      return CsPropertyValue(p);
+    }
+    else
+    {
+      idx = UNDEFINED_VALUE;
+      return NOTHING_VALUE;
+    }
+}
+
+
 value FindNextSymbol(VM *c,value obj, value& idx)
 {
-    if( idx == c->undefinedValue )
-      return c->nothingValue;
+    if( idx == UNDEFINED_VALUE )
+      return NOTHING_VALUE;
 
     value np = CsPropertyNext(idx);
-    if( np != c->undefinedValue ) 
+    if( np != UNDEFINED_VALUE ) 
     {
       idx = np; // easy case
       return CsPropertyTag(np);
@@ -977,8 +1028,8 @@ value FindNextSymbol(VM *c,value obj, value& idx)
     if (!CsHashTableP(props)) // this is simple prop list
                               // its end reached.
     {
-      idx = c->undefinedValue;
-      return c->nothingValue;
+      idx = UNDEFINED_VALUE;
+      return NOTHING_VALUE;
     }
     
     int_t hashValue = CsHashValue(tag);
@@ -987,78 +1038,82 @@ value FindNextSymbol(VM *c,value obj, value& idx)
     for(++i; i < CsHashTableSize(props); ++i)
     {
       value p = CsHashTableElement(props,i);
-      if(p != c->undefinedValue)
+      if(p != UNDEFINED_VALUE)
       {
         idx = p; 
         return CsPropertyTag(p);
       }
     }
 
-    idx = c->undefinedValue; // end of has table reached;
-    return c->nothingValue;
+    idx = UNDEFINED_VALUE; // end of table has been reached;
+    return NOTHING_VALUE;
 }
 
-/*value FindNextSymbol(VM *c,value obj, value tag)
+value FindNextSymbolValue(VM *c,value obj, value& idx)
 {
-    value p = CsObjectProperties(obj);
-    value objprops = p;
+    if( idx == UNDEFINED_VALUE )
+      return NOTHING_VALUE;
 
-    int_t hashValue;
-    int_t i;
-
-    if (CsHashTableP(p)) {
-        hashValue = CsHashValue(tag);
-        i = hashValue & (CsHashTableSize(p) - 1);
-        p = CsHashTableElement(p,i);
-    }
-    else
-        i = -1;
-
-    // find current tag
-    for (; p != c->undefinedValue; p = CsPropertyNext(p))
-        if (CsEql(CsPropertyTag(p),tag))
-            break;
-    if(p == c->undefinedValue)
+    value np = CsPropertyNext(idx);
+    if( np != UNDEFINED_VALUE ) 
     {
-      assert(false);
-      return c->nothingValue;
+      idx = np; // easy case
+      CsSetRVal(c,1,CsPropertyTag(np));
+      return CsPropertyValue(np);
     }
-    p = CsPropertyNext(p);
-    if(p != c->undefinedValue)
-        return CsPropertyTag(p);
 
-    if(i >= 0)
+    value props = CsObjectProperties(obj);
+    value tag = CsPropertyTag(idx);
+
+    if (!CsHashTableP(props)) // this is simple prop list
+                              // its end reached.
     {
-      for(++i; i < CsHashTableSize(objprops); ++i)
+      idx = UNDEFINED_VALUE;
+      return NOTHING_VALUE;
+    }
+    
+    int_t hashValue = CsHashValue(tag);
+    int_t i = hashValue & (CsHashTableSize(props) - 1);
+
+    for(++i; i < CsHashTableSize(props); ++i)
+    {
+      value p = CsHashTableElement(props,i);
+      if(p != UNDEFINED_VALUE)
       {
-        p = CsHashTableElement(objprops,i);
-        if(p != c->undefinedValue)
-          return CsPropertyTag(p);
+        idx = p; 
+        CsSetRVal(c,1,CsPropertyTag(p));
+        return CsPropertyValue(p);
       }
     }
-    return c->nothingValue;
+
+    idx = UNDEFINED_VALUE; // end of table has been reached;
+    return NOTHING_VALUE;
 }
-*/
 
 
-value CsObjectNextElement(VM *c, value* index, value obj)
+value CsObjectNextElement(VM *c, value* index, value obj, int nr)
 {
-  if( *index == c->nothingValue ) // first
+  if( *index == NOTHING_VALUE ) // first
   {
     FETCH(c,obj);
-    return FindFirstSymbol(c,obj,*index);
+    return nr > 1? 
+           FindFirstSymbolValue(c,obj,*index):
+           FindFirstSymbol(c,obj,*index);
   }
   else
-    return FindNextSymbol(c,obj,*index);
+    return nr > 1? 
+      FindNextSymbolValue(c,obj,*index):
+      FindNextSymbol(c,obj,*index);
 }
+
 
 /* CopyPropertyList - copy the property list of an obj */
 static value CopyPropertyList(VM *c,value plist)
 {
     CsCheck(c,2);
-    CsPush(c,c->undefinedValue);
+    CsPush(c,UNDEFINED_VALUE);
     CsPush(c,plist);
-    for (; CsTop(c) != c->undefinedValue; CsSetTop(c,CsPropertyNext(CsTop(c)))) {
+    for (; CsTop(c) != UNDEFINED_VALUE; CsSetTop(c,CsPropertyNext(CsTop(c)))) {
         value newo = CsMakeProperty(c,CsPropertyTag(CsTop(c)),CsPropertyValue(CsTop(c)), CsPropertyFlags(CsTop(c))  );
         CsSetPropertyNext(newo,c->sp[1]);
         c->sp[1] = newo;
@@ -1072,7 +1127,7 @@ static value CopyPropertyListExcept(VM *c,value plist, value tag, bool& r)
     value p = 0;
     value t = plist;
 
-    for (; t != c->undefinedValue; t = CsPropertyNext(t))
+    for (; t != UNDEFINED_VALUE; t = CsPropertyNext(t))
     {
         value pTag = CsPropertyTag(t);
         if( CsEql(tag,pTag))
@@ -1093,9 +1148,9 @@ static value CopyPropertyListExcept(VM *c,value plist, value tag, bool& r)
 static value CopyPropertyListExcept(VM *c,value plist, value tag, bool& r)
 {
     CsCheck(c,2);
-    CsPush(c,c->undefinedValue);
+    CsPush(c,UNDEFINED_VALUE);
     CsPush(c,plist);
-    for (; CsTop(c) != c->undefinedValue; CsSetTop(c,CsPropertyNext(CsTop(c))))
+    for (; CsTop(c) != UNDEFINED_VALUE; CsSetTop(c,CsPropertyNext(CsTop(c))))
     {
         value pTag = CsPropertyTag(CsTop(c));
         if( tag == pTag)
@@ -1213,7 +1268,7 @@ static void CreateHashTable(VM *c,value obj,value p)
     obj = CsPop(c);
     p = CsObjectProperties(obj);
     CsSetObjectProperties(obj,table);
-    while (p != c->undefinedValue) {
+    while (p != UNDEFINED_VALUE) {
         value next = CsPropertyNext(p);
         i = CsHashValue(CsPropertyTag(p)) & (CsHashTableCreateThreshold - 1);
         CsSetPropertyNext(p,CsHashTableElement(table,i));
@@ -1240,9 +1295,9 @@ static int ExpandHashTable(VM *c,value obj,int_t hashValue)
         oldTable = CsObjectProperties(CsTop(c));
         for (j = 0; j < oldSize; ++j) {
             value p = CsHashTableElement(oldTable,j);
-            value new0 = c->undefinedValue;
-            value new1 = c->undefinedValue;
-            while (p != c->undefinedValue) {
+            value new0 = UNDEFINED_VALUE;
+            value new1 = UNDEFINED_VALUE;
+            while (p != UNDEFINED_VALUE) {
                 value next = CsPropertyNext(p);
                 if (CsHashValue(CsPropertyTag(p)) & oldSize) {
                     CsSetPropertyNext(p,new1);

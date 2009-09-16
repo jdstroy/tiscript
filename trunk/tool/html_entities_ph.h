@@ -30,7 +30,7 @@
 #endif
 
 #line 1 "html_entities.txt"
-struct html_entity_def { char *name; wchar value; };
+struct html_entity_def { const char *name; wchar value; };
 
 #define TOTAL_KEYWORDS 256
 #define MIN_WORD_LENGTH 2

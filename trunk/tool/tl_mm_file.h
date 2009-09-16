@@ -46,7 +46,11 @@ class mm_file
     }
     virtual ~mm_file() { close(); }
 
+#ifdef WINDOWS
+    void *open(const wchar *path, bool to_write = false);
+#else
     void *open(const char *path, bool to_write = false);
+#endif    
     void  close();
 
     void * data() { return ptr; }

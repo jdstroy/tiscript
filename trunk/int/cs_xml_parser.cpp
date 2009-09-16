@@ -21,12 +21,13 @@ static value CSF_token(VM *c);
 static value CSF_get_value(VM *c,value obj);
 static value CSF_get_tag(VM *c,value obj);
 static value CSF_get_attribute(VM *c,value obj);
+static value CSF_get_lineNo(VM *c,value obj);
 
 /* file methods */
 static c_method methods[] = {
 C_METHOD_ENTRY( "this",    CSF_ctor            ),
 C_METHOD_ENTRY( "token",          CSF_token           ),  
-C_METHOD_ENTRY(	0,                0                   )
+C_METHOD_ENTRY( 0,                0                   )
 };
 
 /* file properties */
@@ -34,7 +35,8 @@ static vp_method properties[] = {
 VP_METHOD_ENTRY( "value",          CSF_get_value,       0),
 VP_METHOD_ENTRY( "tag",            CSF_get_tag,         0),
 VP_METHOD_ENTRY( "attribute",      CSF_get_attribute,   0),
-VP_METHOD_ENTRY( 0,                0,					0					)
+VP_METHOD_ENTRY( "lineNo",         CSF_get_lineNo,      0),
+VP_METHOD_ENTRY( 0,                0,         0         )
 };
 
 
@@ -95,7 +97,7 @@ struct xml_stream:  public tool::markup::instream<wchar>
 struct xml_scanner_ctl 
   {
     markup_scanner    scan;
-    xml_stream            xstr;    
+    xml_stream        xstr;    
     //value streamObj;
     xml_scanner_ctl(value ins): xstr( ins ), scan(xstr) {}
   };
@@ -157,6 +159,10 @@ static value CSF_get_attribute(VM *c,value obj)
     return CsMakeCString(c,pscan->scan.get_attr_name());
 }
 
-
+static value CSF_get_lineNo(VM *c,value obj)
+{
+    xml_scanner_ctl* pscan = (xml_scanner_ctl *)CsCObjectValue(obj);
+    return CsMakeInteger(pscan->scan.get_line_no());
+}
 
 }

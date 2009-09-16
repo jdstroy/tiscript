@@ -52,13 +52,14 @@ namespace tool
     {
     }
     url (const char* src) : port ( 0 ), dport( 0 ) { if(!parse(src)) clear(); }
+    url (const wchar* src) : port ( 0 ), dport( 0 ) { if(!parse(src)) clear(); }
 
     ~url ()
     {
     }
 
-    
     bool parse ( const char * src );
+    bool parse ( const wchar * src ) { return parse( escape(src) ); }
 
     void clear () 
     {
@@ -76,8 +77,8 @@ namespace tool
     }
 
     static string escape ( const char *url, bool space_to_plus = false );
-    static ustring escape ( const wchar *url, bool space_to_plus = false ) { return escape(string(url),space_to_plus); }
-    static string unescape ( const char *src );
+    static string escape ( const wchar *url, bool space_to_plus = false );
+    static ustring unescape ( const char *src );
     static ustring unescape ( const wchar *src ) { return unescape(string(src)); }
     static bool looks_like_encoded(const string& s);
     static bool looks_like_encoded(const ustring& s) { return looks_like_encoded(string(s)); }
@@ -115,8 +116,10 @@ namespace tool
        return !hostname.is_empty() && (port != 0);
     }
 
-
-    bool is_absolute() const { return protocol.length() != 0 && hostname.length() != 0; }
+    bool is_absolute() const 
+    { 
+      return port < 0 || (protocol.length() != 0 && hostname.length() != 0); 
+    }
 
     string dir() const;
     string name_ext() const;  // file name and ext (without path)
@@ -149,7 +152,7 @@ namespace tool
 
   bool is_hyperlink_char(wchar uc);
   bool is_hyperlink(tool::ustring& text);
-  bool is_hyperlink(const tool::ustring& text, tool::ustring& out);
+  bool is_hyperlink(const tool::ustring& text, tool::ustring& out, bool and_no_www = false);
 
 };
 

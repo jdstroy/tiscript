@@ -711,6 +711,7 @@ DATE_LITERAL:
 
       while(token_value.size())
         if( isspace(token_value.last()) ) token_value.pop();
+        else break;
 
       return T_STRING;
     }
@@ -821,10 +822,13 @@ DATE_LITERAL:
     wchars t = s.get_value();
     int dp = t.index_of('$');
     if( dp < 0 ) return value();
-    int64 dollars = to_int64( wchars( t.start, dp ) );
+    wchars tmp(t.start, dp); //You can't bind non-constant references 
+    //to anonymous variables!
+    int64 dollars = to_int64(tmp);
     t.prune(dp + 1);
     if(t.length > 4) t.length = 4; 
-    int cents = to_uint( wchars(t));
+    wchars tmp2(t); 
+    int cents = to_uint(tmp2);
     switch( t.length )
     {
       case 1: cents *= 1000; break;
@@ -867,8 +871,8 @@ DATE_LITERAL:
     uint R = 0, G = 0, B = 0, T = 0; 
     switch( text.length )
     {
-      case 3: swscanf( text.start ,L"%1x%1x%1x",&R,&G,&B); R <<= 4; G <<= 4; B <<= 4; break;
-      case 4: swscanf( text.start ,L"%1x%1x%1x%1x",&R,&G,&B,&T); R <<= 4; G <<= 4; B <<= 4; T <<= 4; break;
+      case 3: swscanf( text.start ,L"%1x%1x%1x",&R,&G,&B); R = R << 4 | R; G = G << 4 | G; B = B << 4 | B; break;
+      case 4: swscanf( text.start ,L"%1x%1x%1x%1x",&R,&G,&B,&T); R = R << 4 | R; G = G << 4 | G; B = B << 4 | B; T = T << 4 | T; break;
       case 6: swscanf( text.start ,L"%2x%2x%2x",&R,&G,&B); break;
       case 8: swscanf( text.start ,L"%2x%2x%2x%2x",&R,&G,&B,&T); break;
       default: return value();
@@ -972,7 +976,7 @@ DATE_LITERAL:
       return false;
     for(;p < end; ++p)
     {
-      if( iswalpha(*p) ) 
+      if( is_alpha(*p) ) 
         continue;
       if( *p == '_' || *p == '-' )
         continue;

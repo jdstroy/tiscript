@@ -153,13 +153,13 @@ static size_t dopr(do_outch_t* dopr_outch, void *buffer, size_t maxlen, const ch
 		   va_list args);
 
 static void fmtstr_m_m(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    char *value, int flags, int min, int max);
+		    const char *value, int flags, int min, int max);
 static void fmtstr_m_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    wchar_t *value, int flags, int min, int max);
+		    const wchar_t *value, int flags, int min, int max);
 static void fmtstr_w_m(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    char *value, int flags, int min, int max);
+		    const char *value, int flags, int min, int max);
 static void fmtstr_w_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    wchar_t *value, int flags, int min, int max);
+		    const wchar_t *value, int flags, int min, int max);
 
 static void fmtint(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
         LLONG value, int base, int min, int max, int flags);
@@ -406,6 +406,7 @@ static size_t dopr(do_outch_t* dopr_outch, void *buffer, size_t maxlen, const ch
 					fvalue = va_arg (args, LDOUBLE);
 				else
 					fvalue = va_arg (args, double);
+        fmtfp ( dopr_outch, buffer, &currlen, maxlen, fvalue, min, max, flags);
 				break;
 			case 'G':
 				flags |= DP_F_UP;
@@ -414,6 +415,7 @@ static size_t dopr(do_outch_t* dopr_outch, void *buffer, size_t maxlen, const ch
 					fvalue = va_arg (args, LDOUBLE);
 				else
 					fvalue = va_arg (args, double);
+        fmtfp ( dopr_outch, buffer, &currlen, maxlen, fvalue, min, max, flags);
 				break;
 			case 'c':
         if( dopr_outch == dopr_outch_m )
@@ -580,7 +582,7 @@ static void fmtstr_w_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, si
 
 /* buffer - multybyte, str - multybyte */
 static void fmtstr_m_m(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    char *value, int flags, int min, int max)
+		    const char *value, int flags, int min, int max)
 {
 	int padlen, strln;     /* amount to pad */
 	int cnt = 0;
@@ -617,7 +619,7 @@ static void fmtstr_m_m(do_outch_t* dopr_outch, void *buffer, size_t *currlen, si
 
 /* buffer - multybyte, str - widechar */
 static void fmtstr_m_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    wchar_t *value, int flags, int min, int max)
+		    const wchar_t *value, int flags, int min, int max)
 {
 	int padlen, strln, wstrln;     /* amount to pad */
 	int cnt = 0;
@@ -666,7 +668,7 @@ static void fmtstr_m_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, si
 
 /* buffer - widechar, str - widechar */
 static void fmtstr_w_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    wchar_t *value, int flags, int min, int max)
+		    const wchar_t *value, int flags, int min, int max)
 {
 	int padlen, strln;     /* amount to pad */
 	int cnt = 0;
@@ -703,7 +705,7 @@ static void fmtstr_w_w(do_outch_t* dopr_outch, void *buffer, size_t *currlen, si
 
 /* buffer - widechar, str - multybyte */
 static void fmtstr_w_m(do_outch_t* dopr_outch, void *buffer, size_t *currlen, size_t maxlen,
-		    char *value, int flags, int min, int max)
+		    const char *value, int flags, int min, int max)
 {
 	int padlen, strln, wstrln;     /* amount to pad */
 	int cnt = 0;

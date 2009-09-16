@@ -83,19 +83,27 @@ namespace tool
 
     bool operator != ( const slice& r ) const { return !operator==(r); }
 
-    T operator[] ( uint idx ) const
+    const T& operator[] ( uint idx ) const
     {
       assert( idx < length );
       if(idx < length)
         return start[idx];
-      return T(0);
+      assert(false);
+      return black_hole();
     }
 
-    T last() const
+    const T& last() const
     {
       if(length)
         return start[length-1];
-      return 0;
+      assert(false);
+      return black_hole();
+    }
+
+    static const T& black_hole() 
+    {
+      static T z = T(); 
+      return z;
     }
 
     // [idx1..length)
@@ -165,6 +173,15 @@ namespace tool
           next_i: continue;
         }
       return -1;
+    }
+
+    bool starts_with(const slice& s ) const
+    {
+      if( length < s.length ) return false;
+      for(uint n = 0; n < s.length; ++n)
+        if(start[n] != s.start[n])
+          return false;
+      return true;
     }
 
     void prune(uint from_start, uint from_end = 0)
@@ -617,7 +634,6 @@ template <typename T>
 template <typename T>
     int64 to_int64(slice<T>& span, unsigned int base = 10)
 {
-
    while (span.length > 0 && isspace(span[0]) ) { ++span.start; --span.length; }
    if(span[0] == '-')
    {
@@ -632,7 +648,15 @@ template <typename T>
    return to_uint64(span,base);
 }
 
+}
 
+template <typename T>
+    int str_to_i(const T* start, T** pend)
+    {
+      tool::slice<T> span = tool::chars_of(start);
+      int n = tool::to_int(span);
+      if( pend ) *pend = const_cast<T*>(span.end());
+      return n;
 }
 
 #endif

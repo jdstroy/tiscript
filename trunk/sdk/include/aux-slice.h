@@ -282,7 +282,7 @@ template <typename T >
   template <typename CT, CT sep = '-', CT end = ']' >
     struct charset
     {
-      #define SET_SIZE (1 << (sizeof(CT) * CHAR_BIT))
+      #define SET_SIZE (1 << ((2<sizeof(CT)?2:sizeof(CT)) * CHAR_BIT))
       #define SIGNIFICANT_BITS_MASK unsigned( SET_SIZE - 1 ) 
       
       unsigned char codes[ SET_SIZE / CHAR_BIT ];

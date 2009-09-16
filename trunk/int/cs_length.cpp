@@ -179,8 +179,10 @@ static value CSF_toFloat(VM *c)
 static value CSF_toInteger(VM *c)
 {
     value obj;
-    CsParseArguments(c,"V=*",&obj,&CsIntegerDispatch);
-    return obj;
+    CsParseArguments(c,"V=*",&obj,&CsLengthDispatch);
+    int v,u;
+    v = to_unit(obj,u);
+    return CsMakeInteger(tool::value::length_to_int(v,u));
 }
 
 /* CSF_toString - built-in method 'toString' */

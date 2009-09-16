@@ -20,10 +20,10 @@ static value CSF_toSymbol(VM *c);
 //static value CSF_ReverseIndex(VM *c);
 static value CSF_substring(VM *c);
 static value CSF_substr(VM *c);
+
 static value CSF_toInteger(VM *c);
-
-
 static value CSF_toFloat(VM *c);
+static value CSF_toNumber(VM *c);
 
 static value CSF_charAt(VM *c);
 static value CSF_charCodeAt(VM *c);
@@ -70,7 +70,6 @@ C_METHOD_ENTRY( "toSymbol",         CSF_toSymbol        ),
 
 C_METHOD_ENTRY( "substring",        CSF_substring       ),
 C_METHOD_ENTRY( "substr",           CSF_substr          ),
-C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
 
 C_METHOD_ENTRY( "charAt",           CSF_charAt          ),
 C_METHOD_ENTRY( "charCodeAt",       CSF_charCodeAt      ),
@@ -107,6 +106,9 @@ C_METHOD_ENTRY( "UID",              CSF_UID ),
 C_METHOD_ENTRY( "printf",           CSF_printf ),
 C_METHOD_ENTRY( "scanf",            CSF_scanf ),
 C_METHOD_ENTRY( "toFloat",          CSF_toFloat         ),
+C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
+C_METHOD_ENTRY( "toNumber",         CSF_toNumber        ),
+
 C_METHOD_ENTRY( 0,                  0                   )
 };
 
@@ -125,7 +127,7 @@ void CsInitString(VM *c)
     CsEnterMethods(c,c->stringObject,methods);
     CsEnterVPMethods(c,c->stringObject,properties);
     
-    //CsSetCObjectPrototype(c->stringObject,CsMakeObject(c,c->undefinedValue));
+    //CsSetCObjectPrototype(c->stringObject,CsMakeObject(c,UNDEFINED_VALUE));
     //CsEnterMethods(c,CsCObjectPrototype(c->stringObject),prototype_methods);
     //CsEnterVPMethods(c,CsCObjectPrototype(c->stringObject),prototype_properties);
      
@@ -175,7 +177,7 @@ static value CSF_charCodeAt(VM *c)
     if(index >= 0 && index < len)
       return CsMakeInteger(str[index]);
     else
-      return c->undefinedValue;
+      return UNDEFINED_VALUE;
 }
 
 static value CSF_fromCharCode(VM *c)
@@ -356,7 +358,7 @@ static value CSF_htmlEscape(VM *c)
 
     while( cp < cpend )
     {
-      if( *cp == '<' || *cp == '>' || *cp == '&' || *cp == '"' || *cp == '\'' )
+      if( *cp == '<' || *cp == '>' || *cp == '&' || *cp == '"' || *cp == '\'' || *cp < ' ' )
       {
         tool::array<wchar> buf;
         buf.push( cpstart, cp - cpstart );
@@ -369,7 +371,18 @@ static value CSF_htmlEscape(VM *c)
               case '&': buf.push(L"&amp;", 5); break; 
               case '"': buf.push(L"&quot;", 6); break;
               case '\'': buf.push(L"&apos;", 6); break;
-              default: buf.push(*cp); break;
+              case '\t':
+              case '\r': 
+              case '\n': buf.push(*cp); break;
+              default: 
+                if(*cp < ' ')
+                {
+                  tool::ustring es = tool::ustring::format(L"&#%d;",*cp);
+                  buf.push(es.c_str(), es.length());
+                }
+                else
+                  buf.push(*cp); 
+                break;
           }
           ++cp;
         }
@@ -616,7 +629,7 @@ static value CSF_localeCompare(VM *c)
     CsParseArguments(c,"S#*S#",&str,&len,&str2,&len2);
 
     if ( !str || !str2)
-        return c->undefinedValue;
+        return UNDEFINED_VALUE;
 //#if defined(PLATFORM_WINCE)        
     return CsMakeInteger(wcscmp(str,str2));
 //#else
@@ -637,13 +650,13 @@ static value CSF_slice(VM *c)
     /* handle indexing from the left */
     if (start > 0) {
         if (start > len)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
     
     /* handle indexing from the right */
     else if (start < 0) {
         if ((start = len + start) < 0)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle the count */
@@ -695,13 +708,13 @@ value CsStringSlice(VM *c, value s, int start, int end)
     /* handle indexing from the left */
     if (start > 0) {
         if (start > len)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
     
     /* handle indexing from the right */
     else if (start < 0) {
         if ((start = len + start) < 0)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle the count */
@@ -733,13 +746,13 @@ static value CSF_substring(VM *c)
     /* handle indexing from the left */
     if (start > 0) {
         if (start > len)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
     
     /* handle indexing from the right */
     else if (start < 0) {
         if ((start = len + start) < 0)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle the count */
@@ -770,13 +783,13 @@ static value CSF_substr(VM *c)
     /* handle indexing from the left */
     if (i > 0) {
         if (i > len)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
     
     /* handle indexing from the right */
     else if (i < 0) {
         if ((i = len + i) < 0)
-            return c->undefinedValue;
+            return UNDEFINED_VALUE;
     }
 
     /* handle the count */
@@ -788,7 +801,7 @@ static value CSF_substr(VM *c)
         cnt = len - i; 
 
     if( cnt < 0 )
-        return c->undefinedValue;
+        return UNDEFINED_VALUE;
    
     /* return the substring */
     return CsMakeSubString(c,CsGetArg(c,1),i,cnt);
@@ -822,7 +835,7 @@ static value CSF_toInteger(VM *c)
     s = tool::trim(s);
     int_t i = wcstol(s.start,&pend,radix);
     if( s.end() != pend )
-      return dv? dv: c->undefinedValue;
+      return dv? dv: UNDEFINED_VALUE;
     return CsMakeInteger(i);
 }
 
@@ -837,9 +850,31 @@ static value CSF_toFloat(VM *c)
     s = tool::trim(s);
     double d = wcstod(s.start,&pend);
     if( s.end() != pend )
-      return dv? dv: c->undefinedValue;
+      return dv? dv: UNDEFINED_VALUE;
     return CsMakeFloat(c,d);
 }
+
+/* CSF_toNumber - built-in method 'toNumber', returns either float or integer or dv or undefined */
+static value CSF_toNumber(VM *c)
+{
+    value obj;
+    value dv = 0;
+    wchar *pend;
+    CsParseArguments(c,"V=*|V",&obj,&CsStringDispatch, &dv);
+    tool::wchars s = CsStringChars(obj);
+    s = tool::trim(s);
+    //double d = (s.start,&pend);
+    int_t i = str_to_i(s.start,&pend);
+    if( s.end() != pend )
+    {
+      double d = str_to_d(s.start,&pend);
+      if( s.end() != pend )
+        return dv? dv: UNDEFINED_VALUE;
+      return CsMakeFloat(c,d);
+    }
+    return CsMakeInteger(i);
+}
+
 
 /* CSF_size - built-in property 'length' */
 static value CSF_length(VM *c,value obj)
@@ -890,7 +925,7 @@ static value CsStringGetItem(VM *c,value obj,value tag)
             CsThrowKnownError(c,CsErrIndexOutOfBounds,tag);
         return CsMakeInteger(CsStringChar(obj,i));
     }
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 static void  CsStringSetItem(VM *c,value obj,value tag,value value)
 {
@@ -1014,12 +1049,11 @@ value CsMakeFilledString(VM *c, wchar fill, int_t size)
     return newo;
 }
 
-
-
 /* CsMakeCString - make a string value from a C string */
 value CsMakeCString(VM *c,const char *str)
 {
-    tool::ustring us = tool::ustring::utf8(str,strlen(str));
+    //tool::ustring us = tool::ustring::utf8(str,strlen(str));
+    tool::ustring us = str;
     return CsMakeCharString(c,us,us.length());
 }
 
@@ -1032,7 +1066,7 @@ value CsMakeCString(VM *c,const wchar *str)
 /* CsMakeCString - make a string value from a C wide string */
 value CsMakeString(VM *c,tool::wchars str)
 {
-    if(str.start >= (wchar*)c->newSpace->base || str.start <= (wchar*)c->newSpace->top)
+    if(str.start >= (wchar*)c->newSpace->base && str.start <= (wchar*)c->newSpace->top)
     {
       tool::ustring buf(str);
       return CsMakeCharString(c,buf, buf.length());

@@ -51,7 +51,7 @@ public:
   int       insert ( int index, const element& elem );
   void      insert ( int index, const element* elems, int count );
 
-  void      set_all_to ( const element &element );
+  void      set_all_to ( const element &element_val );
 
   int       get_index(const element &e) const;
 

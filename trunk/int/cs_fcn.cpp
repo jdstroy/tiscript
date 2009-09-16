@@ -13,7 +13,6 @@
 namespace tis 
 {
 
-
 /* prototypes */
 static value CSF_type(VM *c);
 static value CSF_hash(VM *c);
@@ -104,20 +103,20 @@ static value CSF_symbol(VM *c)
     if( CsStringP(v) )
       return CsIntern(c,v);
     CsTypeError(c,v);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_missed(VM *c)
 {
     CsCheckArgCnt(c,3);
     value v = CsGetArg(c,3);
-    return ( v == c->nothingValue )? c->trueValue: c->falseValue;
+    return ( v == NOTHING_VALUE )? TRUE_VALUE: FALSE_VALUE;
 }
 
 static value CSF_dumpScopes(VM *c)
 {
     CsDumpScopes(c);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 
@@ -195,7 +194,7 @@ static value CSF_toString(VM *c)
     /* return the resulting string */
     return CsMakeString(c,start,s.len);
 #else
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 #endif
 }
 
@@ -224,8 +223,8 @@ value CsToString(VM *c, value val)
 /* CSF_rand - built-in function 'rand' */
 static value CSF_rand(VM *c)
 {
-    static long rseed = time(0);
-    long k1,i;
+    static time_t rseed = time(0);
+    time_t k1,i;
 
     /* parse the arguments */
     CsCheckArgCnt(c,3);
@@ -253,11 +252,11 @@ value CsToInteger(VM *c, value v)
       return v;
     else if (CsFloatP(v))
       i = (int_t) CsFloatValue(v);
-    else if ( v == c->trueValue )
+    else if ( v == TRUE_VALUE )
       return CsMakeInteger(1);
-    else if ( v == c->falseValue )
+    else if ( v == FALSE_VALUE )
       return CsMakeInteger(0);
-    else if ( v == c->undefinedValue || v == c->nullValue )
+    else if ( v == UNDEFINED_VALUE || v == NULL_VALUE )
       return CsMakeInteger(0);
     else if (CsStringP(v))
     {
@@ -275,11 +274,11 @@ value CsToFloat(VM *c, value v)
       return v;
     else if (CsIntegerP(v))
       return CsMakeFloat(c,(float_t) CsIntegerValue(v));
-    else if ( v == c->trueValue )
+    else if ( v == TRUE_VALUE )
       return CsMakeFloat(c,1);
-    else if ( v == c->falseValue )
+    else if ( v == FALSE_VALUE )
       return CsMakeFloat(c,0);
-    else if ( v == c->undefinedValue || v == c->nullValue )
+    else if ( v == UNDEFINED_VALUE || v == NULL_VALUE )
       return CsMakeInteger(0);
     else if (CsStringP(v))
     {
@@ -301,11 +300,11 @@ static value CSF_toInteger(VM *c)
       return v;
     else if (CsFloatP(v))
       i = (int_t) CsFloatValue(v);
-    else if ( v == c->trueValue )
+    else if ( v == TRUE_VALUE )
       return CsMakeInteger(1);
-    else if ( v == c->falseValue )
+    else if ( v == FALSE_VALUE )
       return CsMakeInteger(0);
-    else if ( v == c->undefinedValue || v == c->nullValue )
+    else if ( v == UNDEFINED_VALUE || v == NULL_VALUE )
       return CsMakeInteger(0);
     else if (CsStringP(v))
     {
@@ -326,11 +325,11 @@ static value CSF_toFloat(VM *c)
       return CsMakeFloat(c, CsIntegerValue(v));
     else if (CsFloatP(v))
       return v;
-    else if ( v == c->trueValue )
+    else if ( v == TRUE_VALUE )
       return CsMakeFloat(c,1.0);
-    else if ( v == c->falseValue )
+    else if ( v == FALSE_VALUE )
       return CsMakeFloat(c,0.0);
-    else if ( v == c->undefinedValue || v == c->nullValue )
+    else if ( v == UNDEFINED_VALUE || v == NULL_VALUE )
       return CsMakeFloat(c,0.0);
     else if (CsStringP(v))
     {
@@ -342,13 +341,12 @@ static value CSF_toFloat(VM *c)
 }
 
 
-
 /* CSF_gc - built-in function 'gc' */
 static value CSF_gc(VM *c)
 {
     CsCheckArgCnt(c,2);
     CsCollectGarbage(c);
-    return c->undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 /* CSF_quit - built-in function 'Quit' */
@@ -364,15 +362,15 @@ value CsTypeOf(VM *c, value val)
     //char *str = "undefined";
     dispatch *d;
         
-    if(val == c->undefinedValue)
+    if(val == UNDEFINED_VALUE)
       return symbol_value(S_UNDEFINED);
-    if(val == c->nothingValue)
+    if(val == NOTHING_VALUE)
       return symbol_value(S_NOTHING);
 
-    if(val == c->trueValue || val == c->falseValue)
+    if(val == TRUE_VALUE || val == FALSE_VALUE)
       return symbol_value(S_BOOLEAN);
 
-    if(val == c->nullValue)
+    if(val == NULL_VALUE)
       return symbol_value(S_OBJECT); // #11.4.3
     
     d = CsGetDispatch(val);
@@ -384,7 +382,7 @@ value CsTypeOf(VM *c, value val)
       return symbol_value(S_STRING);
     if(d == &CsVectorDispatch || d == &CsMovedVectorDispatch)
       return symbol_value(S_ARRAY);
-    if(d == &CsObjectDispatch || d == &CsCObjectDispatch || d == &CsClassDispatch)
+    if(d == &CsObjectDispatch || d == &CsCObjectDispatch)
       return symbol_value(S_OBJECT);
     if(d == &CsSymbolDispatch)
       return symbol_value(S_SYMBOL);
@@ -396,7 +394,8 @@ value CsTypeOf(VM *c, value val)
       return symbol_value(S_COLOR);
     if(d == &CsLengthDispatch)
       return symbol_value(S_LENGTH);
-
+    if(d == &CsClassDispatch)
+      return symbol_value(S_CLASS);
     return CsInternCString(c,d->typeName);
 }
 
@@ -409,7 +408,7 @@ static value CSF_crackUrl(VM *c)
   if(str && len)
   {
     tool::url u;
-    if(u.parse(tool::string(str,len)))
+    if(u.parse(str))
     {
       pvalue pobj(c,CsMakeObject(c,c->objectObject));
       pvalue pkey(c);
@@ -420,55 +419,55 @@ static value CSF_crackUrl(VM *c)
       CsObjectSetItem(c,pobj,pkey,pval);
 
       pkey = CsSymbolOf("protocol");
-      pval = CsMakeCString(c,u.protocol);
+      pval = CsMakeCString(c,tool::url::unescape(u.protocol));
       CsObjectSetItem(c,pobj,pkey,pval);
 
       pkey = CsSymbolOf("hostname");
-      pval = CsMakeCString(c,u.hostname);
+      pval = CsMakeCString(c,tool::url::unescape(u.hostname));
       CsObjectSetItem(c,pobj,pkey,pval);
 
       pkey = CsSymbolOf("anchor");
-      pval = CsMakeCString(c,u.anchor);
+      pval = CsMakeCString(c,tool::url::unescape(u.anchor));
       CsObjectSetItem(c,pobj,pkey,pval);
 
       if( !u.is_local() )
       {
         pkey = CsSymbolOf("username");
-        pval = CsMakeCString(c,u.username);
+        pval = CsMakeCString(c,tool::url::unescape(u.username));
         CsObjectSetItem(c,pobj,pkey,pval);
 
         pkey = CsSymbolOf("password");
-        pval = CsMakeCString(c,u.password);
+        pval = CsMakeCString(c,tool::url::unescape(u.password));
         CsObjectSetItem(c,pobj,pkey,pval);
       }
 
       pkey = CsSymbolOf("params");
-      pval = CsMakeCString(c,u.params);
+      pval = CsMakeCString(c,tool::url::unescape(u.params));
       CsObjectSetItem(c,pobj,pkey,pval);
 
-      tool::string dir = u.dir();
+      tool::ustring dir = tool::url::unescape(u.dir());
       pkey = CsSymbolOf("dir");
       pval = CsMakeCString(c,dir);
       CsObjectSetItem(c,pobj,pkey,pval);
 
-      tool::string name = u.name();
+      tool::ustring name = tool::url::unescape(u.name());
       pkey = CsSymbolOf("name");
       pval = CsMakeCString(c,name);
       CsObjectSetItem(c,pobj,pkey,pval);
 
-      tool::string ext = u.ext();
+      tool::ustring ext = tool::url::unescape(u.ext());
       pkey = CsSymbolOf("ext");
       pval = CsMakeCString(c,ext);
       CsObjectSetItem(c,pobj,pkey,pval);
 
-      tool::string name_ext = u.name_ext();
+      tool::ustring name_ext = tool::url::unescape(u.name_ext());
       pkey = CsSymbolOf("name_ext");
       pval = CsMakeCString(c,name_ext);
       CsObjectSetItem(c,pobj,pkey,pval);
       return pobj;
     }
   }
-  return c->nullValue;
+  return NULL_VALUE;
 }
 
 

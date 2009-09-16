@@ -117,11 +117,11 @@ bool TISAPI is_native_object(tiscript_value v) { return v && tis::CsCObjectP(v);
 bool TISAPI is_function(tiscript_value v) { return v && tis::CsMethodP(v); }
 bool TISAPI is_native_function(tiscript_value v) { return v && tis::CsCMethodP(v); }
 bool TISAPI is_instance_of(tiscript_value v, tiscript_value cls) { return v && tis::CsInstanceOf(0,v, cls); }
-bool TISAPI is_undefined(tiscript_value v) { return v == xvm::undefinedValue; }
-bool TISAPI is_nothing(tiscript_value v) { return v == xvm::nothingValue; }
-bool TISAPI is_null(tiscript_value v) { return v == xvm::nullValue; }
-bool TISAPI is_true(tiscript_value v) { return v == xvm::trueValue; }
-bool TISAPI is_false(tiscript_value v) { return v == xvm::falseValue; }
+bool TISAPI is_undefined(tiscript_value v) { return v == UNDEFINED_VALUE; }
+bool TISAPI is_nothing(tiscript_value v) { return v == NOTHING_VALUE; }
+bool TISAPI is_null(tiscript_value v) { return v == NULL_VALUE; }
+bool TISAPI is_true(tiscript_value v) { return v == TRUE_VALUE; }
+bool TISAPI is_false(tiscript_value v) { return v == FALSE_VALUE; }
 bool TISAPI is_class(tiscript_VM* pvm, tiscript_value v) { return v && (tis::CsGetDispatch(v) == ((xvm*)pvm)->typeDispatch); }
 bool TISAPI is_error(tiscript_value v) { return v && tis::CsErrorP(v); }
 bool TISAPI is_bytes(tiscript_value v) { return v && tis::CsByteVectorP(v); }
@@ -148,12 +148,12 @@ bool TISAPI get_float_value(tiscript_value v, double* pd)
 
 bool TISAPI get_bool_value(tiscript_value v, bool* pb)
 {
-  if(v == xvm::trueValue && pb) 
+  if(v == TRUE_VALUE && pb) 
   {
     *pb = true;
     return true;
   }
-  if(v == xvm::falseValue && pb) 
+  if(v == FALSE_VALUE && pb) 
   {
     *pb = true;
     return true;
@@ -196,22 +196,22 @@ bool TISAPI get_string_value(tiscript_value v, const wchar** pdata, uint* plengt
 
 tiscript_value TISAPI undefined_value()
 {
-  return tis::VM::undefinedValue;
+  return UNDEFINED_VALUE;
 }
 
 tiscript_value TISAPI null_value()
 {
-  return tis::VM::nullValue;
+  return NULL_VALUE;
 }
 
 tiscript_value TISAPI nothing_value()
 {
-  return tis::VM::nothingValue;
+  return NOTHING_VALUE;
 }
 
 tiscript_value TISAPI bool_value(bool v)
 {
-  return v? tis::VM::trueValue : tis::VM::falseValue;
+  return v? TRUE_VALUE : FALSE_VALUE;
 }
 tiscript_value TISAPI int_value(int v)
 {
@@ -254,7 +254,7 @@ tis::value NativeObjectCopy(tis::VM *c,tis::value obj)
       return newobj;
     }
     assert(false); //shall not happen
-    return tis::VM::undefinedValue;
+    return UNDEFINED_VALUE;
 }
 
 tiscript_value TISAPI define_class
@@ -319,7 +319,7 @@ tiscript_value TISAPI create_object(tiscript_VM* pvm, tiscript_value of_class)
   if(of_class) 
   {
     if(!tis::CsTypeP((xvm*)pvm,of_class))
-      return tis::VM::nullValue;
+      return NULL_VALUE;
     tis::dispatch* pd = (tis::dispatch*)tis::CsCObjectValue(of_class);
     return pd->newInstance((xvm*)pvm,of_class);
   }
@@ -336,7 +336,7 @@ tiscript_value TISAPI get_prop(tiscript_VM* pvm, tiscript_value obj, tiscript_va
 {
   tiscript_value v; 
   if(!tis::CsGetProperty((xvm*)pvm,obj,key,&v))
-    v = xvm::undefinedValue;
+    v = UNDEFINED_VALUE;
   return v;
 }
 
@@ -389,7 +389,7 @@ bool TISAPI set_elem(tiscript_VM* pvm, tiscript_value obj, uint idx, tiscript_va
 {
   if( !tis::CsVectorP(obj) && !tis::CsMovedVectorP(obj) )
     return false;
-  if( idx >= tis::CsVectorSize((xvm *)pvm,obj)) 
+  if( idx >= uint(tis::CsVectorSize((xvm *)pvm,obj))) 
     return false;
   tis::CsSetVectorElement((xvm *)pvm,obj,idx,value);
   return true;
@@ -397,16 +397,16 @@ bool TISAPI set_elem(tiscript_VM* pvm, tiscript_value obj, uint idx, tiscript_va
 tiscript_value TISAPI get_elem(tiscript_VM* pvm, tiscript_value obj, uint idx)
 {
   if( !tis::CsVectorP(obj) && !tis::CsMovedVectorP(obj) )
-    return xvm::nothingValue;
-  if( idx >= tis::CsVectorSize((xvm *)pvm,obj)) 
-    return xvm::nothingValue;
+    return NOTHING_VALUE;
+  if( idx >= uint(tis::CsVectorSize((xvm *)pvm,obj))) 
+    return NOTHING_VALUE;
   return tis::CsVectorElement((xvm *)pvm,obj,idx);
 }
 
 tiscript_value TISAPI set_array_size(tiscript_VM* pvm, tiscript_value obj, uint of_size)
 {
   if( !tis::CsVectorP(obj) && !tis::CsMovedVectorP(obj) )
-    return xvm::nothingValue;
+    return NOTHING_VALUE;
   return tis::CsResizeVector((xvm *)pvm,obj,of_size);
 }
 
@@ -432,9 +432,9 @@ bool TISAPI eval(tiscript_VM* pvm, tiscript_value ns, tiscript_stream* input, bo
   catch(tis::error_event& e) // uncaught error
   {
     e;
-    tis::CsDisplay((xvm*)pvm, ((xvm*)pvm)->val,((xvm*)pvm)->standardError);
+    tis::CsDisplay((xvm*)pvm, ((xvm*)pvm)->val[0],((xvm*)pvm)->standardError);
     if( pretval )
-      *pretval = ((xvm*)pvm)->val;
+      *pretval = ((xvm*)pvm)->val[0];
   }
   return false;
 }
@@ -452,9 +452,9 @@ bool TISAPI eval_string(tiscript_VM* pvm, tiscript_value ns, const wchar* script
   catch(tis::error_event& e) // uncaught error
   {
     e;
-    tis::CsDisplay((xvm*)pvm, ((xvm*)pvm)->val,((xvm*)pvm)->standardError);
+    tis::CsDisplay((xvm*)pvm, ((xvm*)pvm)->val[0],((xvm*)pvm)->standardError);
     if( pretval )
-      *pretval = ((xvm*)pvm)->val;
+      *pretval = ((xvm*)pvm)->val[0];
   }
   return false;
 }
@@ -472,7 +472,7 @@ bool TISAPI compile( tiscript_VM* pvm, tiscript_stream* input, tiscript_stream* 
   catch(tis::error_event& e) // uncaught error
   {
     e;
-    tis::CsDisplay((xvm*)pvm, ((xvm*)pvm)->val,((xvm*)pvm)->standardError);
+    tis::CsDisplay((xvm*)pvm, ((xvm*)pvm)->val[0],((xvm*)pvm)->standardError);
   }
   return false;
 }
@@ -487,7 +487,7 @@ bool  TISAPI loadbc( tiscript_VM* pvm, tiscript_stream* bytecodes )
   catch(tis::error_event& e) // uncaught error
   {
     e;
-    tis::CsDisplay((xvm*)pvm, ((xvm*)pvm)->val,((xvm*)pvm)->standardError);
+    tis::CsDisplay((xvm*)pvm, ((xvm*)pvm)->val[0],((xvm*)pvm)->standardError);
   }
   return false;
 }
@@ -507,9 +507,9 @@ bool TISAPI call(tiscript_VM* pvm, tiscript_value obj, tiscript_value function, 
   }
   catch(tis::error_event&) // uncaught error
   {
-    tis::CsDisplay((xvm*)pvm,((xvm*)pvm)->val,((xvm*)pvm)->standardError);
+    tis::CsDisplay((xvm*)pvm,((xvm*)pvm)->val[0],((xvm*)pvm)->standardError);
     if(pretval)
-      *pretval = ((xvm*)pvm)->val;
+      *pretval = ((xvm*)pvm)->val[0];
   }  
   return false;
 }
@@ -534,7 +534,7 @@ tiscript_value  TISAPI get_arg_n( tiscript_VM* pvm, uint n )
 bool   TISAPI get_value_by_path(tiscript_VM* pvm, tiscript_value* v, const char* path)
 {
   *v = tis::CsGetGlobalValueByPath((tis::VM*)pvm,path);
-  return *v != tis::VM::undefinedValue;
+  return *v != UNDEFINED_VALUE;
 }
 
 void TISAPI pin(tiscript_VM* pvm, tiscript_pvalue* pval)
@@ -569,7 +569,6 @@ tiscript_value TISAPI native_property_value(tiscript_VM* pvm, tiscript_prop_def*
      }
   };
 
-
 bool TISAPI post(tiscript_VM* pvm, tiscript_callback* pfunc, void* prm)
 {
   tool::handle<cb_thunk> pt = new cb_thunk();
@@ -578,6 +577,19 @@ bool TISAPI post(tiscript_VM* pvm, tiscript_callback* pfunc, void* prm)
   pt->prm   = prm;
   return ((tis::VM*)pvm)->post(pt);
 }
+
+/*unsigned TISAPI introduce_vm(tiscript_VM* pvm_host, const char* hostMethodPath,  tiscript_VM* pvm_alien, const char* alienMethodPath)
+{
+  return CsConnect((xvm*)pvm_host, hostMethodPath,(xvm*)pvm_alien,alienMethodPath);
+}*/
+
+bool TISAPI set_remote_std_streams(tiscript_VM* pvm, tiscript_pvalue* callback_iface, tiscript_pvalue* output, tiscript_pvalue* error )
+{
+  return tis::CsConnect((tis::VM*)pvm, *(tis::pvalue*)callback_iface,*(tis::pvalue*)output,*(tis::pvalue*)error);
+  //return CsConnect((xvm*)pvm_host, hostMethodPath,(xvm*)pvm_alien,alienMethodPath);
+  //return false;
+}
+
 
 /*struct tiscript_method_def
 {
@@ -595,7 +607,6 @@ struct tiscript_prop_def
   tiscript_set_prop*   setter;
   void*                tag;
 };*/
-
 
 tiscript_native_interface native_interface =
 {
@@ -677,7 +688,9 @@ tiscript_native_interface native_interface =
   native_function_value,
   native_property_value,
 
-  post
+  post,
+
+  set_remote_std_streams,
 
 };
 

@@ -9,6 +9,7 @@
 
 #include        "snscanf.h"
 #include        "tl_array.h"
+#include        "tl_basic.h"
 
 #define NUMLEN      512
 #define NR_CHARS    256
@@ -38,7 +39,7 @@ inline long str2ul( const wchar_t *nptr, wchar_t **endptr, int base )
 
 inline double str2d( const char *nptr, char **endptr )
 {
-  return strtod( nptr, endptr );
+  return str_to_d( nptr, endptr );
 }
 
 inline double str2d( const wchar_t *nptr, wchar_t **endptr )

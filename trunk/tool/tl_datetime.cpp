@@ -59,14 +59,6 @@ namespace tool
     dt = syst;
     dt.set_frac_time(tv.tv_usec / 1000, tv.tv_usec % 1000, 0 );
 #endif    
-
-    /*
-    time_t t;
-    ::time ( &t );
-    struct tm syst = utc? *gmtime( &t ): *localtime ( &t );
-    
-    dt = syst;
-    */
     return dt;
   }
 

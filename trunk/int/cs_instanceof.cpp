@@ -45,7 +45,7 @@ bool CsInstanceOf(VM *c, value obj, value cls)
       {
           if(obj == cls)
             break;
-          if(!obj || obj == c->undefinedValue)
+          if(!obj || obj == UNDEFINED_VALUE)
             return false;
           obj = CsObjectClass(obj);
       }

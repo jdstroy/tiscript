@@ -78,18 +78,19 @@ namespace tis
 #define T_SET           312
 #define T_INCLUDE       313
 #define T_LIKE          314
-#define T_YIELD         315
-#define T_USHL          316     /* '<<<' */
-#define T_USHR          317     /* '>>>' */
-#define T_USHLEQ        318     /* '<<<=' */
-#define T_USHREQ        319     /* '>>>=' */
-#define T_CAR           320     /* '~/' */
-#define T_CDR           321     /* '~%' */
-#define T_RCAR          322     /* '/~' */
-#define T_RCDR          323     /* '%~' */
-#define T_CLASS         324     /* class */
-#define T_NAMESPACE     325     /* namespace */
+#define T_USHL          315     /* '<<<' */
+#define T_USHR          316     /* '>>>' */
+#define T_USHLEQ        317     /* '<<<=' */
+#define T_USHREQ        318     /* '>>>=' */
+#define T_CAR           319     /* '~/' */
+#define T_CDR           320     /* '~%' */
+#define T_RCAR          321     /* '/~' */
+#define T_RCDR          322     /* '%~' */
+#define T_CLASS         323     /* class */
+#define T_NAMESPACE     324     /* namespace */
+#define T_ASSERT        325
 #define T_DEBUG         326
+
 #define _TMAX           T_DEBUG
 
 /* argument structure */
@@ -166,6 +167,23 @@ struct LineNumberBlock {
     LineNumberEntry entries[kLineNumberBlockSize];
 };
 
+enum FUNCTION_TYPE
+{
+   FUNCTION,
+   PROPERTY,
+   UNDEFINED_PROPERTY,
+};
+
+/* callback interface used for making code DOM inspectors */
+struct CsCompilerCallback
+{
+  //void on_module_start(const char* name, const char* path_name) {}
+  //void on_module_end(const char* name, const char* path_name) {}
+  virtual void on_class( bool start, const char* name, int type /*T_CLASS, T_NAMESPACE, T_TYPE*/, int line_no) {}
+  virtual void on_method( bool start, const char* name, int function_type /*see FUNCTION_TYPE above*/ , int line_no) {}
+  virtual void on_include( const char* path_name, bool is_lib, int line_no) {}
+};
+
 /* compiler context structure */
 struct CsCompiler {
     VM *ic;                 /* compiler - interpreter context */
@@ -197,7 +215,8 @@ struct CsCompiler {
     int  functionLevel;                 /* scanner - function level */
     const char* qualifiedName;          /* scanner - full name of object being parsed: class and function */
     bool  JSONonly;                     /* parse only data declarations - JSON data literals */
-    bool is_generator;                  /* 'yield' is seen in function body - compile_code() */
+
+    CsCompilerCallback* cDOMcb;         /* code DOM events callback */
 
     struct TryCatchDef
     {
