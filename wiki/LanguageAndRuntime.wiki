@@ -1,5 +1,3 @@
-#summary Language and Runtime.
-
 = Language =
 
  * [http://terrainformatica.com/tiscript/language/Syntax.htm Syntax]
