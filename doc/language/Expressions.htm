@@ -25,7 +25,7 @@
     <li><code><strong>(</strong></code> &lt;lvalue-expression&gt; [ <strong><code>,</code></strong> &lt;lvalue-expression&gt; ]* <code><strong>)</strong></code> = &lt;expression&gt; | <code><strong>(</strong></code> &lt;expression&gt; [ <strong><code>,</code></strong> &lt;expression&gt; ]* <code><strong>)</strong></code></li></ol>
   <p>Examples:</p>
   <pre>var a,b,c;
-   (a,b,c) = 1; // a, b and c will all get value 1; 
+   (a,b,c) = 1; // a, b and c will all get value 1;
    (a,b,c) = (1,2,3); // a will get 1, b - 2 and c will get value 3;
    (a,b) = (b,a); // swaps values of a and b variables.
 </pre>
@@ -56,6 +56,12 @@
     <dd>Returns <em>true</em> if the value of the &lt;expression&gt; is an instance of the class returned by &lt;class-expression&gt;. <strong>!instanceof</strong> returns true if &lt;expression&gt; is not an instance of the class (on the right). Example, following statement will print value of the <em>obj</em> variable if it is an instance of user defined class MyClass:<br/><code>if ( obj instanceof MyClass ) stdout.printf(&quot;got an object %V of class MyClass\n&quot;, obj);</code></dd>
     <dt><strong><code>new</code></strong> &lt;class-name&gt; <strong><code>(</code></strong> [ &lt;arguments&gt; ] <strong><code>)</code></strong></dt>
     <dd>The <strong>new</strong> operator creates an instance of the class defined by the &lt;class-name&gt;. After creation, it calls t he constructor function of the class, passing it the &lt;arguments&gt;.</dd>
+    <dt><strong><code>this</code></strong></dt>
+    <dd>The <em>this</em> keyword inside body of a function refers to the object &nbsp;this function was invoked with.</dd>
+    <dt><strong><code>this function</code></strong></dt>
+    <dd>These two keywords constitute single keyword that is reference to the function being executed. Useful for making recursive calls to a function within its own body. Inside body of anonymous function use <em>this function</em> is the only way to get reference to the function itself.</dd>
+    <dt><strong><code>this super [ super super ...]</code></strong></dt>
+    <dd>In nested functions: <strong><code>this super</code></strong> used in inner function allows to get reference to <em>this</em> object of outer function. Number of <em>super</em>'s after the <em>this</em> designates number of levels up to lookup.</dd>
     <dt>&lt;expression&gt; <strong><code>(</code></strong> [ &lt;arguments&gt; ] <strong><code>)</code></strong></dt>
     <dd>The function is called if &lt;expression&gt; evaluates to a function. If it's not a function, a runtime error will be generated. The result of this operator is the function return value or <em>nothing</em> if the function reaches the end without return. The nothing value is used in cases when the fuction has no value to return, e.g. in iterator functions used in <code>for(var el in &lt;function&gt;)</code> statement. In this case enumeration stops then the function returns <em>nothing</em> value.</dd>
     <dt>&lt;expression&gt; <strong><code>.</code></strong> &lt;name&gt;</dt>

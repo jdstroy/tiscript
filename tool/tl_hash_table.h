@@ -36,7 +36,7 @@ namespace tool
   class hash_table
   {
   public:
-    hash_table ( uint hash_size = 36 )
+    hash_table ( uint hash_size = 0x20 /*32*/ )
     {
       _hash_size = hash_size;
       _table = new array<hash_item> [ hash_size ];
@@ -227,7 +227,20 @@ namespace tool
                                               bool create )
   {
     unsigned int hk = hash<c_key> ( the_key );
-    uint h = hk % _hash_size;
+    uint h;
+#ifdef UNDER_CE    
+    switch(_hash_size)
+    {
+      case 0x10: h = hk & 0x0F; break;    
+      case 0x20: h = hk & 0x1F; break;
+      case 0x40: h = hk & 0x3F; break;
+      case 0x80: h = hk & 0x7F; break;
+      default:   h = hk % _hash_size; break;
+    }
+#else    
+    h = hk % _hash_size;
+#endif    
+
     int i;
     array<hash_item> &bucket = _table [ h ];
 

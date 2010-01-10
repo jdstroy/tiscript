@@ -36,7 +36,7 @@ namespace tool
 
 
   public:
-    handle_pool ( uint hash_size = 36 )
+    handle_pool ( uint hash_size = 32 )
     {
       _hash_size = hash_size;
       _table = new array<hash_item> [ hash_size ];
@@ -161,7 +161,19 @@ namespace tool
                                               bool create )
   {
     uint hk = the_key.hash();
-    uint h = hk % _hash_size;
+    uint h;
+#ifdef UNDER_CE    
+    switch(_hash_size)
+    {
+      case 0x10: h = hk & 0x0F; break;    
+      case 0x20: h = hk & 0x1F; break;
+      case 0x40: h = hk & 0x3F; break;
+      case 0x80: h = hk & 0x7F; break;
+      default:   h = hk % _hash_size; break;
+    }
+#else    
+    h = hk % _hash_size;
+#endif
     int i;
     array<hash_item> &bucket = _table [ h ];
 
@@ -188,7 +200,19 @@ namespace tool
                                               bool create )
   {
     uint hk = the_key->hash();
-    uint h = hk % _hash_size;
+    uint h = hk;
+#ifdef UNDER_CE    
+    switch(_hash_size)
+    {
+      case 0x10: h = hk & 0x0F; break;    
+      case 0x20: h = hk & 0x1F; break;
+      case 0x40: h = hk & 0x3F; break;
+      case 0x80: h = hk & 0x7F; break;
+      default:   h = hk % _hash_size; break;
+    }
+#else    
+    h = hk % _hash_size;
+#endif
     int i;
     array<hash_item> &bucket = _table [ h ];
 

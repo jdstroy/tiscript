@@ -44,7 +44,7 @@ static struct { char *kt_keyword; int kt_token; } ktab[] = {
 { "like",       T_LIKE          },
 { "class",      T_CLASS         },
 { "namespace",  T_NAMESPACE     },
-
+{ "this",       T_THIS          },
 { "assert",     T_ASSERT        },
 { "debug",      T_DEBUG         },
 
@@ -122,6 +122,7 @@ static char *t_names[] = {
 "%~",
 "class",
 "namespace",
+"this",
 "assert",
 "debug",
 };
@@ -374,7 +375,7 @@ static int rtoken(CsCompiler *c)
                             return '/';
                         }
                         break;
-        case '.':       if ((ch = getch(c)) != EOF && isdigit(ch)) {
+        case '.':       if ((ch = getch(c)) != EOF && is_digit(ch)) {
                             c->savedChar = ch;
                             return getnumber(c,'.');
                         }
@@ -406,7 +407,7 @@ static int rtoken(CsCompiler *c)
                         }
                         break;
         case '#':       return getsymbol(c);
-        default:        if (isdigit(ch))
+        default:        if (is_digit(ch))
                             return getnumber(c,ch);
                         else if (isidchar(ch))
                             return getid(c,ch);
@@ -437,6 +438,8 @@ static int getstring(CsCompiler *c, int delim)
     if (ch == EOF)
         c->savedChar = EOF;
     c->t_wtoken.push(0);
+    c->t_wtoken.pop();
+    len = c->t_wtoken.size();
     //*p = '\0';
     return T_STRING;
 }
@@ -481,10 +484,46 @@ int getoutputstring(CsCompiler *c)
     if (ch == EOF)
         c->savedChar = EOF;
     c->t_wtoken.push(0);
+    c->t_wtoken.pop();
     //*p = '\0';
     return T_OUTPUT_STRING;
 }
 
+// $( something { prm } something )
+int scan_stringizer_string(CsCompiler *c, int& level)
+{
+    int ch;
+    c->t_wtoken.clear();
+    while (true) 
+    {
+        ch = getch(c);
+        if( ch == '\\' )
+          ch = literalch(c,ch);
+        else if( ch == EOF )
+          break;
+        else if( ch == ')' )
+        {
+          if(--level == 0) 
+            break;
+        }
+        else if( ch == '(' )
+        {
+          ++level;
+        }
+        else if( ch == '{' )
+          break;
+        c->t_wtoken.push(ch);
+    }
+    c->t_wtoken.push(0);
+    c->t_wtoken.pop();
+
+    if (ch == EOF)
+    {
+       c->savedChar = EOF;
+       CsParseError(c,"end of file in stringizer expression");
+    }
+    return ch;
+}
 
 /* getregexp - get a regexp literal 
    at exit:
@@ -511,6 +550,7 @@ void getregexp(CsCompiler *c)
     }
 
     c->t_wtoken.push(0);
+    c->t_wtoken.pop();
 
     if (ch == EOF)
     {
@@ -554,12 +594,12 @@ static int CollectHexChar(CsCompiler *c)
         c->savedChar = ch;
         return 0;
     }
-    value = isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+    value = is_digit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
     if ((ch = getch(c)) == EOF || !isxdigit(ch)) {
         c->savedChar = ch;
         return value;
     }
-    return (value << 4) | (isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
+    return (value << 4) | (is_digit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
 }
 
 /* CollectOctalChar - collect an octal character code */
@@ -586,22 +626,22 @@ static int CollectUnicodeChar(CsCompiler *c)
         c->savedChar = ch;
         return 0;
     }
-    value = isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+    value = is_digit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
     if ((ch = getch(c)) == EOF || !isxdigit(ch)) {
         c->savedChar = ch;
         return value;
     }
-    value = (value << 4) | (isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
+    value = (value << 4) | (is_digit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
     if ((ch = getch(c)) == EOF || !isxdigit(ch)) {
         c->savedChar = ch;
         return value;
     }
-    value = (value << 4) | (isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
+    value = (value << 4) | (is_digit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
     if ((ch = getch(c)) == EOF || !isxdigit(ch)) {
         c->savedChar = ch;
         return value;
     }
-    return (value << 4) | (isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
+    return (value << 4) | (is_digit(ch) ? ch - '0' : tolower(ch) - 'a' + 10);
 }
 
 /* literalch - get a character from a literal string */
@@ -681,7 +721,7 @@ static int getnumber(CsCompiler *c,int ch)
     /* get the part before the decimal point */
     if (ch != '.') {
         *p++ = ch;
-        while ((ch = getch(c)) != EOF && isdigit(ch))
+        while ((ch = getch(c)) != EOF && is_digit(ch))
             *p++ = ch;
     }
     
@@ -693,10 +733,10 @@ static int getnumber(CsCompiler *c,int ch)
           goto GOT_NUMBER;
         }
         *p++ = '.';
-        if( isdigit(ch) )
+        if( is_digit(ch) )
         {
           *p++ = ch;
-          while ((ch = getch(c)) != EOF && isdigit(ch))
+          while ((ch = getch(c)) != EOF && is_digit(ch))
               *p++ = ch;
         }
         tkn = T_FLOAT;
@@ -709,7 +749,7 @@ static int getnumber(CsCompiler *c,int ch)
             *p++ = ch;
             ch = getch(c);
         }
-        while (ch != EOF && isdigit(ch)) {
+        while (ch != EOF && is_digit(ch)) {
             *p++ = ch;
             ch = getch(c);
         }
@@ -785,10 +825,17 @@ static int isidchar(int ch)
 {
     return isupper(ch)
         || islower(ch)
-        || isdigit(ch)
+        || is_digit(ch)
         || ch == '_'
         || ch == '$'
         || ch == '@';
+}
+
+int scan_lookahead(CsCompiler *c)
+{
+  int ch = getch(c);
+  c->savedChar = ch;
+  return ch;
 }
 
 /* getch - get the next character */
@@ -839,11 +886,12 @@ void CsParseError(CsCompiler *c,char *msg)
 
     tool::array<char> buf; //___^
     buf.size( pos + 2 );
+      if( pos >= 0 )
+      {
     memset(buf.head(),'_', pos);
     buf[pos] = '^';
+      }
     buf[pos+1] = 0;
-
-
     CsThrowKnownError(c->ic,CsErrSyntaxError,msg,c->line.head(),buf.head());
     //c->linePtr
 }

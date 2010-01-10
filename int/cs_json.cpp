@@ -1,5 +1,4 @@
 #include "cs_json.h"
-#include "cs_async_stream.h"
 
 namespace tis 
 {
@@ -289,7 +288,7 @@ namespace tis
         {
           tool::value t = value_to_value(c, CsVectorElement(c,v,i));
           t.isolate();
-          vout[i] = t;
+          vout.set_element(i,t);
         }
         return true;
       }
@@ -301,7 +300,7 @@ namespace tis
         {
           tool::value t = value_to_value(c, val);
           t.isolate();
-          vout[tool::value(value_to_string(key))] = t;
+          vout.set_prop(tool::value(value_to_string(key)),t);
         }
         return true;
       }
@@ -346,7 +345,7 @@ namespace tis
           value vo = CsMakeVector(c, sz);
           CsPush(c,vo);
           for(int i=0; i < sz; ++i)
-            CsSetVectorElement(c,CsTop(c),i,value_to_value(c,v[i]));
+            CsSetVectorElement(c,CsTop(c),i,value_to_value(c,v.get_element(i)));
           vo = CsPop(c);
           return vo;
         }
@@ -359,7 +358,7 @@ namespace tis
           {
             value key,val;
             CsPush(c, value_to_value(c, v.key(n)));
-            val = value_to_value(c, v[n]);
+            val = value_to_value(c, v.get_element(n));
             key = CsPop(c);
             CsSetObjectProperty(c,CsTop(c),key,val);
           }
@@ -393,6 +392,7 @@ namespace tis
       case tool::value::t_resource:
         {
           tool::handle<tool::resource> pt = v.get_resource();
+          //if( pt->is_of_type<async_stream>() )
           if( pt->type_id() == async_stream::class_id())
           {
             async_stream* s = (async_stream*)pt.ptr();

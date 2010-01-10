@@ -30,6 +30,9 @@ static value CSF_removeByValue(VM *c);
 
 
 #define FETCH(c,obj) if( _CsIsPersistent(obj) ) obj = CsFetchVectorData(c, obj);
+#define FETCH_P(c,obj,p1) if( _CsIsPersistent(obj) ) { CsPush(c,p1); obj = CsFetchVectorData(c, obj); p1 = CsPop(c); }
+#define FETCH_PP(c,obj,p1,p2) if( _CsIsPersistent(obj) ) { CsPush(c,p2); CsPush(c,p1); obj = CsFetchVectorData(c, obj); p1 = CsPop(c); p2 = CsPop(c); }
+
 
 /* virtual property methods */
 static value CSF_length(VM *c,value obj);
@@ -114,59 +117,60 @@ static value CSF_clone(VM *c)
 /* CSF_Push - built-in method 'Push' */
 static value CSF_push(VM *c)
 {
-    value obj,val;
+    value obj;
     int_t size;
-    CsParseArguments(c,"V=*V",&obj,&CsVectorDispatch,&val);
+    int_t argc = CsArgCnt(c);
+    if( argc < 3)  
+      CsTooFewArguments(c);
+    CsCheckType(c,1,CsVectorP);
+    obj = CsGetArg(c,1);
     FETCH(c, obj);
     CsSetModified(obj,true);
     size = CsVectorSize(c,obj);
-    CsCPush(c,val);
-    obj = CsResizeVector(c,obj,size + 1);
+    int new_size = size + argc - 2;
+    obj = CsResizeVector(c,obj,new_size);
     if (CsMovedVectorP(obj))
         obj = CsVectorForwardingAddr(obj);
-    CsSetVectorElementI(obj,size,CsTop(c));
-    return CsPop(c);
+    value *parr = CsVectorAddressI(obj);
+    value v = UNDEFINED_VALUE;
+    for( int n = 3; n <= argc; ++n)
+      parr[size + n - 3] = (v = CsGetArg(c,n));
+    return v;
 }
 
 value ThisVector(VM *c)
 {
-    value obj;
-    CsParseArguments(c,"V=*",&obj,&CsVectorDispatch);
-    return obj;
+    CsCheckType(c,1,CsVectorP);
+    return CsGetArg(c,1);
 }
 
 
-/* CSF_PushFront - built-in method 'PushFront' */
+/* CSF_PushFront - built-in method 'pushFront' */
 static value CSF_pushFront(VM *c)
 {
-    value obj,val,*p;
+    value obj;
     int_t size;
-    CsParseArguments(c,"V=*V",&obj,&CsVectorDispatch,&val);
+    int_t argc = CsArgCnt(c);
+    if( argc < 3)  
+      CsTooFewArguments(c);
+    CsCheckType(c,1,CsVectorP);
+    obj = CsGetArg(c,1);
     FETCH(c, obj);
     CsSetModified(obj,true);
     size = CsVectorSize(c,obj);
-    CsCPush(c,val);
-    obj = CsResizeVector(c,obj,size + 1);
+    int new_size = size + argc - 2;
+    obj = CsResizeVector(c,obj,new_size);
     if (CsMovedVectorP(obj))
         obj = CsVectorForwardingAddr(obj);
-    for (p = CsVectorAddressI(obj) + size; --size >= 0; --p)
-        *p = p[-1];
-    CsSetVectorElementI(obj,0,CsTop(c));
-    return CsPop(c);
-
-    /*
-    value vector = ThisVector(c);
-    int n = c->argc - 3 + 1;
-    if( n == 0)
-      return vector;
-
-    int_t d = CsVectorSize(vector);
-    vector = CsResizeVector(c,vector,d+n);
-    value last;
-    for( int i = 3; i <= c->argc; ++i )
-       CsSetVectorElementI(vector,d+i-3,last = CsGetArg(c,i));
-    return last;
-    */
+    value *parr = CsVectorAddressI(obj);
+    value *dst = parr + new_size;
+    value *src = parr + size;
+    while( --size >= 0)
+      *--dst = *--src;
+    value v = UNDEFINED_VALUE;
+    for( int n = 3; n <= argc; ++n)
+      parr[n - 3] = (v = CsGetArg(c,n));
+    return v;
 }
 
 
@@ -240,10 +244,8 @@ static value CSF_removeByValue(VM *c)
     value vector;
     value element;
     CsParseArguments(c,"V=*V",&vector,&CsVectorDispatch,&element);
-    CsPush(c,element);
-      FETCH(c, vector);
+    FETCH_P(c, vector,element);
       CsSetModified(vector,true);
-    element = CsPop(c);
 
     if (CsMovedVectorP(vector))
         vector = CsVectorForwardingAddr(vector);
@@ -298,7 +300,7 @@ static value CSF_first(VM *c,value obj)
 /* CSF_set_first - built-in property 'size' */
 static void CSF_set_first(VM *c,value obj,value val)
 {
-    FETCH(c, obj);
+    FETCH_P(c, obj,val);
     CsSetModified(obj,true);
     if( CsVectorSize(c,obj) == 0 )
       obj = CsResizeVector(c,obj,1);
@@ -317,7 +319,7 @@ static value CSF_last(VM *c,value obj)
 /* CSF_set_first - built-in property 'size' */
 static void CSF_set_last(VM *c,value obj, value val)
 {
-    FETCH(c, obj);
+    FETCH_P(c, obj, val);
     CsSetModified(obj,true);
     if( CsVectorSize(c,obj) == 0 )
       obj = CsResizeVector(c,obj,1);
@@ -383,16 +385,17 @@ static value CSF_join(VM *c)
     int i;
     for( i = 0; i < n-1; ++i )
     {
-       CsDisplay(c,CsVectorElement(c,vector,i),&s);
+       CsToString(c,CsVectorElement(c,vector,i), s);
        s.put_str(dlm);
     }
     if( i < n )
-      CsDisplay(c,CsVectorElement(c,vector,i),&s);
+      CsToString(c,CsVectorElement(c,vector,i), s);
 
     r = s.string_o(c);
     s.close();
     return r;
 }
+
 
 
 static value CSF_reverse(VM *c)
@@ -614,7 +617,7 @@ static value CSF_sort(VM *c)
 
     CsParseArguments(c,"V=*|V",&vector,&CsVectorDispatch,&cmpf);
     //vector = CsMovedVectorP(vector)? CsVectorForwardingAddr(vector): vector;
-    FETCH(c, vector);
+    FETCH_P(c, vector, cmpf);
     CsSetModified(vector,true);
 
     int_t d = CsVectorSize(c,vector);
@@ -645,7 +648,8 @@ static value CSF_indexOf(VM *c)
 
     CsParseArguments(c,"V=*V|V",&vector,&CsVectorDispatch,&v, &dv);
 
-    FETCH(c, vector);
+    FETCH_P(c, vector,v);
+
     int_t d = CsVectorSize(c,vector);
     value *p = CsVectorAddress(c,vector);
 
@@ -656,11 +660,12 @@ static value CSF_indexOf(VM *c)
     return dv;
 }
 
-
 bool CsVectorsEqual(VM *c, value v1, value v2)
 {
   if( CsVectorSize(c,v1) != CsVectorSize(c,v2) )
     return false;
+  FETCH(c,v1);
+  FETCH_P(c,v2,v1);
   value* p1 = CsVectorAddress(c,v1);
   value* p1_end = p1 + CsVectorSize(c,v1);
   value* p2 = CsVectorAddress(c,v2);
@@ -674,6 +679,8 @@ bool CsVectorsEqual(VM *c, value v1, value v2)
 
 int CsCompareVectors(VM* c, value v1, value v2, bool suppressError)
 {
+  FETCH(c,v1);
+  FETCH_P(c,v2,v1);
   value* p1 = CsVectorAddress(c,v1);
   value* p1_end = p1 + CsVectorSize(c,v1);
   value* p2 = CsVectorAddress(c,v2);
@@ -738,6 +745,7 @@ value VectorNextElement(VM *c, value* index, value collection, int nr)
 {
     if(*index == NOTHING_VALUE) // first
     {
+      FETCH(c,collection);
       if(CsVectorSize(c,collection))
       {
         *index = CsMakeInteger(0);
@@ -781,7 +789,7 @@ dispatch CsVectorDispatch = {
 
 static value CsVectorGetItem(VM *c,value obj,value tag)
 {
-  FETCH(c, obj);
+    FETCH_P(c, obj,tag);
     if (CsIntegerP(tag))
     {
         int_t i;
@@ -793,8 +801,7 @@ static value CsVectorGetItem(VM *c,value obj,value tag)
 }
 static void     CsVectorSetItem(VM *c,value obj,value tag,value value)
 {
-    FETCH(c, obj);
-    
+    FETCH_PP(c, obj,tag, value);
     if (CsIntegerP(tag))
     {
         CsSetModified(obj,true);
@@ -1214,8 +1221,7 @@ value CsResizeVectorNoLoad(VM *c,value obj,int_t newSize)
             /* copy the data from the old to the new vector */
             src = CsVectorAddressI(resizeVector);
             dst = CsVectorAddressI(newVector);
-            while (--size >= 0)
-                *dst++ = *src++;
+            memcpy(dst, src, size * sizeof(tis::value));
 
             /* set the forwarding address of the old vector */
             CsSetDispatch(obj,&CsMovedVectorDispatch);

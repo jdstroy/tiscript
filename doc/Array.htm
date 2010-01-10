@@ -1,146 +1,118 @@
-<HTML>
-  <HEAD>
-    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <META name="GENERATOR" content="BLOCKNOTE.NET">
-    <META name="source">
-    <BASEFONT face="Verdana" size="2">
-    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-</STYLE>
-  </HEAD>
-<BODY>
-<H1>Array object</H1>
-<P>Represents indexed vector (array) of values.</P><DIV align="left">
-<TABLE border="0" cellpadding="4" cellspacing="0" width="100%">
-  <TR>
-    <TD colspan="2"><STRONG><FONT size="4">Properties</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>length</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">- <EM>integer</EM>, number of items in the array. Read/write property.</TD>
-  </TR>
-  <TR>
-    <TD width="117" bgcolor=#ffffff valign="top" align="right"><STRONG><EM>[index]</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle"><STRONG>- </STRONG><EM>value</EM>, element of the array at the <EM>index</EM> position, Read-write index accessor. Zero-based index.</TD>
-  </TR>
-  <TR>
-    <TD width="117" bgcolor=#ffffff valign="top" align="right"><STRONG><EM>[begin..end]</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle"><STRONG>- </STRONG><EM>integers</EM>, zero-based indexes of first and last element of the range. Returns slice of vector contains elements from <EM>start</EM> index and up to but not included <EM>end</EM> index. <EM>Begin</EM> or/and <EM>end</EM> are optional. If begin is ommited then it is assumed to be 0, if end - <EM>length</EM> is used as an end value.</TD>
-  </TR>
-  <TR>
-    <TD colspan="2" valign="top"><STRONG><FONT size="4">Methods</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>Array</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="top">
-<STRONG>([value1 [, value2 [, ... valueN ]]])</STRONG>
-<P>Creates new array object from arguments provided. Use as <BR>var a = new Array(...);</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>toLocaleString</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>()</STRONG> returns: string</DIV>
-<P>Returns string - comma separated list of values</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>toString</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>()</STRONG> returns: string</DIV>
-<P>Returns string - comma separated list of values</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>valueOf</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>()</STRONG> returns: string</DIV>
-<P>Same as <EM>toString</EM>.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>clone</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>() </STRONG>returns: array</DIV>
-<P>Returns brand new copy of the array.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>push</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>([value1 [, value2 [, ... valueN ]]])</STRONG> returns: value</DIV>
-<P>Appends array by <EM>values</EM>. Returns last inserted element.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>shift</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>()</STRONG> returns: value | undefined</DIV>
-<P>Removes first element of the array. Returns removed element.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>pop</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>()</STRONG> returns: value | undefined</DIV>
-<P>Removes last element of the array. Returns removed element.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>unshift</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>(value)</STRONG> returns: value | undefined</DIV>
-<P>Inserts value at first array position. Returns the value.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>concat</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>([value1 [, value2 [, ... valueN ]]]) </STRONG>returns: array</DIV>
-<P>Appends array by <EM>values</EM>. Returns the array.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>join</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>([delimeter])</STRONG> returns: string</DIV>
-<P>Returns string with all elements of the array separated by the <EM>delimeter</EM> or comma</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>reverse</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>()</STRONG> returns: array</DIV>
-<P>Reverses order of elements in the array in-place. Returns the array.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>slice</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>(start[, end])</STRONG> returns: array | undefined</DIV>
-<P>Returns new array consisting from elements of the array from <EM>start</EM> up to but not including <EM>end</EM> index.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>splice</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>(start[, end])</STRONG> returns: array | undefined</DIV>
-<P>Moves range of elements from <EM>start</EM> to <EM>end</EM> (not including) from the array into new array and returns this new array.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>sort</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>( [compareFunction] )</STRONG> returns: array</DIV>
-<P>Sorts elements of the array in ascending order. If the <EM>compareFunction</EM> provided it is used for comparing elements during sort. &nbsp;<EM>compareFunction</EM> shall accept two values in parameters and return -1, 0 or +1 as a result.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>indexOf</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>( </STRONG><EM>value</EM> [, <EM>notfound</EM> = -1] <STRONG>)</STRONG> returns: int | <EM>notfound</EM></DIV>
-<P>Get index of the <EM>value</EM> in array. If the <EM>value</EM> is not found returns the <EM>notfound</EM> value (-1 by default).</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>remove</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>( </STRONG><EM>index</EM>:int <STRONG>) </STRONG>returns: value | nothing</DIV>
-<P>Removes element at <EM>index</EM>. Returns removed element.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>removeByValue</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>( </STRONG><EM>value</EM> <STRONG>) </STRONG>returns: value | nothing</DIV>
-<P>Tries to locate element by value in the array and removes it. Returns removed element.</P></TD>
-  </TR>
-</TABLE>
-</DIV>
-</BODY>
-</HTML>
+<html>
+  <head>
+    <meta name="GENERATOR" content="BLOCKNOTE.NET"/>
+    <meta name="source"/>
+    <basefont face="Verdana" size="2"/>
+    <meta name="generator" content="h-smile:richtext"/>
+  </head>
+<body>
+  <h1>Array object</h1>
+  <p>Represents indexed vector (array) of values.</p>
+  <div align="left">
+    <table border="0" cellpadding="4" cellspacing="0" width="100%">
+      <tr>
+        <td colspan="2">
+          <h2>Properties</h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>length</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- <em>integer</em>, number of items in the array. Read/write property.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>[index]</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle"><strong>- </strong><em>value</em>, element of the array at the <em>index</em> position, Read-write index accessor. Zero-based index.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>[begin..end]</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle"><strong>- </strong><em>integers</em>, zero-based indexes of first and last element of the range. Returns slice of vector contains elements from <em>start</em> index and up to but not included <em>end</em> index. <em>Begin</em> or/and <em>end</em> are optional. If begin is ommited then it is assumed to be 0, if end - <em>length</em> is used as an end value.</td></tr>
+      <tr>
+        <td colspan="2" valign="top">
+          <h2>Methods</h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>Array</em></strong></td>
+        <td bgcolor="#fffff0" valign="top"><strong>([value1 [, value2 [, ... valueN ]]])</strong>
+          <p>Creates new array object from arguments provided. Use as <br/>var a = new Array(...);</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>toLocaleString</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>()</strong> returns: string</div>
+          <p>Returns string - comma separated list of values</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>toString</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>()</strong> returns: string</div>
+          <p>Returns string - comma separated list of values</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>valueOf</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>()</strong> returns: string</div>
+          <p>Same as <em>toString</em>.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>clone</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>() </strong>returns: array</div>
+          <p>Returns brand new copy of the array.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>push</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>([value1 [, value2 [, ... valueN ]]])</strong> returns: value</div>
+          <p>Appends array by <em>values</em>. Returns last inserted element.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>shift</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>()</strong> returns: value | undefined</div>
+          <p>Removes first element of the array. Returns removed element.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>pop</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>()</strong> returns: value | undefined</div>
+          <p>Removes last element of the array. Returns removed element.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>unshift</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>(value)</strong> returns: value | undefined</div>
+          <p>Inserts value at first array position. Returns the value.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>concat</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>([value1 [, value2 [, ... valueN ]]]) </strong>returns: array</div>
+          <p>Appends array by <em>values</em>. Returns the array.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>join</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>([delimeter])</strong> returns: string</div>
+          <p>Returns string with all elements of the array separated by the <em>delimeter</em> or comma</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>reverse</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>()</strong> returns: array</div>
+          <p>Reverses order of elements in the array in-place. Returns the array.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>slice</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>(start[, end])</strong> returns: array | undefined</div>
+          <p>Returns new array consisting from elements of the array from <em>start</em> up to but not including <em>end</em> index.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>splice</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>(start[, end])</strong> returns: array | undefined</div>
+          <p>Moves range of elements from <em>start</em> to <em>end</em> (not including) from the array into new array and returns this new array.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>sort</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( [compareFunction] )</strong> returns: array</div>
+          <p>Sorts elements of the array in ascending order. If the <em>compareFunction</em> provided it is used for comparing elements during sort. &nbsp;<em>compareFunction</em> shall accept two values in parameters and return -1, 0 or +1 as a result.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>indexOf</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>value</em> [, <em>notfound</em> = -1] <strong>)</strong> returns: int | <em>notfound</em></div>
+          <p>Get index of the <em>value</em> in array. If the <em>value</em> is not found returns the <em>notfound</em> value (-1 by default).</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>remove</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>index</em>:int <strong>) </strong>returns: value | nothing</div>
+          <p>Removes element at <em>index</em>. Returns removed element.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>removeByValue</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>value</em> <strong>) </strong>returns: value | nothing</div>
+          <p>Tries to locate element by value in the array and removes it. Returns removed element.</p></td></tr></table></div>
+</body>
+</html>

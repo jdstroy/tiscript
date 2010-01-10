@@ -275,6 +275,10 @@ thread_alloc_dir* thread_dir()
       global_cs().enter();
       dir->next = thread_list;
       thread_list = dir;
+#ifdef _WIN32_WCE
+      // id == handle without access rights, as wince does not have access rights id and handle are equal
+      dir->thread = (HANDLE) GetCurrentThreadId();
+#else
       int succeed = DuplicateHandle(GetCurrentProcess(), 
             GetCurrentThread(),
             GetCurrentProcess(),  
@@ -283,6 +287,7 @@ thread_alloc_dir* thread_dir()
             FALSE,
             DUPLICATE_SAME_ACCESS);
       assert(succeed);
+#endif
       global_cs().leave();
 #endif
   } else {

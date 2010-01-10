@@ -8,11 +8,17 @@
 
 namespace tis
 {
+  typedef tool::wchars wchars;
+
   static int codeaddr(CsCompiler *c);
   static int putcbyte(CsCompiler *c,int b);
   static int putcword(CsCompiler *c,int w);
   static void discard_codes(CsCompiler *c,int codeaddr);
   static void fixup(CsCompiler *c,int chn,int val);
+
+  // return last char read, level - level of '(',')' brackets. Has to be eq 1 initially.
+  int scan_lookahead(CsCompiler *c);
+  int scan_stringizer_string(CsCompiler *c, int& level);
 
   // local constants 
   #define NIL     0       /* fixup list terminator */
@@ -74,6 +80,18 @@ namespace tis
           (*fcn)(c,LOAD,this); fcn = NULL; 
         }
       }
+
+      void r_valuate_single(CsCompiler *c)
+      {
+        if (prev) 
+          CsParseError(c,"only simple expressions in lists");  
+        if (fcn) 
+        { 
+          (*fcn)(c,LOAD,this); fcn = NULL; 
+        }
+      }
+
+
       bool is_lvalue() const
       {
         return (fcn != 0) && 
@@ -155,11 +173,12 @@ static void do_init_expr(CsCompiler *c);
 static void do_class_ref_expr(CsCompiler *c);
 static void do_right_side_expr(CsCompiler *c,PVAL *pv);
 static void do_call_param_expr(CsCompiler *c,PVAL *pv);
-//static void do_right_side_expr_list(CsCompiler *c,PVAL *pv); // <right_side_expr> [, <right_side_expr>]*
 static void rvalue(CsCompiler *c,PVAL *pv);
 static void chklvalue(CsCompiler *c,PVAL *pv);
 static void do_expr1(CsCompiler *c,PVAL *pv, bool handle_in = true);
-static void do_expr_list(CsCompiler *c,PVAL *pv, bool handle_in = true);
+static void do_right_side_expr_list(CsCompiler *c,PVAL *pv); // <right_side_expr> [, <right_side_expr>]*
+static void do_expr_list(CsCompiler *c,PVAL *pv); // <expr2> [, <expr2>]*
+
 static int  do_expr2(CsCompiler *c,PVAL *pv, bool handle_in);
 static void do_assignment(CsCompiler *c,PVAL *pv,int op);
 static void do_expr3(CsCompiler *c,PVAL *pv,bool handle_in);
@@ -192,9 +211,11 @@ static void do_literal_obj(CsCompiler *c,PVAL *pv);
 //static void do_output_string(CsCompiler *c, const wchar* str);
 static void do_new_obj(CsCompiler *c,PVAL *pv);
 static void do_call(CsCompiler *c,PVAL *pv); // name( param list )
+static void do_$_call(CsCompiler *c,PVAL *pv); // name( param list )
 static void do_call_object(CsCompiler *c,PVAL *pv); // name object literal. name { field1: value, field2: value, ... }
 static void do_super(CsCompiler *c,PVAL *pv);
 static void do_method_call(CsCompiler *c,PVAL *pv);
+static void do_$_method_call(CsCompiler *c,PVAL *pv);
 static void do_method_call_object(CsCompiler *c,PVAL *pv);
 static void do_index(CsCompiler *c,PVAL *pv);
 static void do_symbol_index(CsCompiler *c,PVAL *pv);
@@ -208,7 +229,8 @@ static void PushArgFrame(CsCompiler *c,ATABLE *atable);
 static void PushNewArgFrame(CsCompiler *c);
 static void PopArgFrame(CsCompiler *c);
 static void FreeArguments(CsCompiler *c);
-static bool FindArgument(CsCompiler *c,const char *name,int *plev,int *poff, bool* pimmutable);
+static bool FindArgument(CsCompiler *c,const char *name,int& lev,int& off, bool& pimmutable);
+static bool FindThis(CsCompiler *c,int& lev,int &off, int level = 0);
 static void CloseArgFrame(CsCompiler *c, ATABLE *atable, int ptr /* BC_FRAME arg offset */);
 
 static int   addliteral(CsCompiler *c,value lit, bool unique = false);
@@ -224,8 +246,8 @@ static void require(CsCompiler *c,int tkn,int rtkn);
 static void require_or(CsCompiler *c,int tkn,int rtkn1,int rtkn2);
 static void do_lit_integer(CsCompiler *c,int_t n);
 static void do_lit_float(CsCompiler *c,float_t n);
-static void do_lit_string(CsCompiler *c,const wchar *str);
-static void do_lit_string(CsCompiler *c,const wchar *str, int sz);
+//static void do_lit_string(CsCompiler *c,const wchar *str);
+static void do_lit_string(CsCompiler *c,tool::wchars str);
 static void do_lit_symbol(CsCompiler *c,const char *pname);
 static int  make_lit_string(CsCompiler *c,const wchar *str);
 static int  make_lit_string(CsCompiler *c,const wchar *str, int sz);
@@ -328,6 +350,7 @@ CsCompiler *CsMakeCompiler(VM *ic,long csize,long lsize)
     c->emitLineNumbersP = true;
 
     c->JSONonly = false;
+    c->atRightSide = false;
 
     c->cDOMcb = &dummy_cDOMcb;
 
@@ -385,12 +408,12 @@ value CsCompileExpr(CsScope *scope, bool add_this, tool::slice< tool::ustring > 
 
       CsSaveToken(c,tkn);
       
-
       if(add_this) /* the first arguments are always 'this' and '_next' */
       {
         AddArgument(c,c->arguments,"this", true);
         AddArgument(c,c->arguments,"_next", true);
       }
+     
       for(uint an = 0; an < argnames.length; ++an)
         AddArgument(c,c->arguments,tool::string(argnames[an]), true);
 
@@ -453,8 +476,8 @@ value CsCompileExpressions(CsScope *scope, bool serverScript, int line_no)
 
     if ( serverScript && (getoutputstring(c) == T_OUTPUT_STRING) )
     {
-        const wchar* s = c->get_wtoken_string();
-        if( *s )
+      tool::wchars s = c->get_wtoken_string();
+      if( s.length )
           CsSaveToken(c,T_OUTPUT_STRING);
     }
 
@@ -602,8 +625,6 @@ value CsCompileDataExpr(CsScope *scope)
     return ic->val[0];
 }
 
-
-
 /* do_statement - compile a single statement */
 static void do_statement(CsCompiler *c )
 {
@@ -655,11 +676,15 @@ DEBUG_PARSE_ERROR:
         putcbyte(c,BC_OUTPUT);
       } break;
 
-    default:  CsSaveToken(c,tkn);
+    default:  
+      {
+        tool::auto_state<bool> _(c->atRightSide,false);
+        CsSaveToken(c,tkn);
               do_expr(c);
               //frequire(c,';');
               break;
     }
+}
 }
 
 /* compile_code - compile a function or method */
@@ -2036,16 +2061,17 @@ static DECORATOR_OF do_decorator_parameter(CsCompiler *c,PVAL *pv, tool::string&
           tool::array<wchar> buf;
           do
           {
-            const wchar* str = c->get_wtoken_string();
-            size_t sz = wcslen(str);
-            buf.push(str, sz);
+            tool::wchars str = c->get_wtoken_string();
+            //size_t sz = wcslen(str);
+            buf.push(str);
             if((tkn = CsToken(c)) == T_STRING)
               continue;
             CsSaveToken(c,tkn);
             break;
           } while( tkn != T_EOF );
           buf.push(0);
-          do_lit_string(c,buf.head());
+          buf.pop();
+          do_lit_string(c,buf());
         }
         pv->fcn = NULL;
         break;
@@ -2189,6 +2215,8 @@ static void do_const_global(CsCompiler *c)
     //require(c,tkn,';');
 }
 
+static void do_class_decl(CsCompiler *c, int decl_type, bool store, qualified_name& qn);
+
 static void do_class_decl(CsCompiler *c, int decl_type, bool store)
 {
     int   tkn; PVAL pv;
@@ -2198,6 +2226,27 @@ static void do_class_decl(CsCompiler *c, int decl_type, bool store)
 
     qualified_name qn(c);
     qn.append(c->t_token);
+
+    if((tkn = CsToken(c)) == '.')
+    {
+      findvariable(c,qn.local_name,&pv);
+      rvalue(c,&pv);
+      putcbyte(c,BC_PUSH_NS);
+      do_class_decl(c, decl_type, store);
+      putcbyte(c,BC_POP_NS);
+    }
+    else
+    {
+      CsSaveToken(c,tkn);
+      do_class_decl(c, decl_type, store, qn);
+    }
+}
+    
+
+static void do_class_decl(CsCompiler *c, int decl_type, bool store, qualified_name& qn)
+{
+    int   tkn; PVAL pv;
+    int   decl_line_no = c->lineNumber;
 
     //putcbyte(c,BC_DEBUG);
 
@@ -2235,10 +2284,9 @@ static void do_class_decl(CsCompiler *c, int decl_type, bool store)
     putcbyte(c,BC_PUSH);
 
     do_lit_symbol(c, qn.name);
-    //putcbyte(c,BC_GSETC);
-    //putcword(c,make_lit_symbol(c,".className"));
 
     putcbyte(c,BC_NEWCLASS);
+    putcbyte(c,decl_type == T_CLASS);
     putcbyte(c,BC_PUSH);
 
     frequire(c,'{');
@@ -2469,7 +2517,8 @@ static void do_assert(CsCompiler *c)
   putcbyte(c,BC_PUSH);
   const wchar* expr_end = c->linePtr - 1;
   int tkn = CsToken(c);
-  do_lit_string(c, expr_start,max(0,expr_end - expr_start));
+  wchars str(expr_start, max(0,expr_end - expr_start));
+  do_lit_string(c,str);
   putcbyte(c,BC_PUSH);
   if(tkn == ':')
   {
@@ -2520,6 +2569,26 @@ static void do_right_side_expr(CsCompiler *c,PVAL *pv)
 {
     int tkn;
     tkn = CsToken(c);
+
+    tool::auto_state<bool> _(c->atRightSide,true);
+
+    CsSaveToken(c,tkn);
+    if(tkn == '[' || tkn == '{')
+      do_literal(c,pv);
+    else if(tkn == '/' || tkn == T_DIVEQ)
+      do_literal(c,pv);
+    else if(c->JSONonly)
+      do_primary_json(c,pv);
+    else
+      //do_right_side_expr_list(c,pv);
+      do_expr2(c,pv,false);
+}
+
+static void do_call_param_expr(CsCompiler *c,PVAL *pv)
+{
+    tool::auto_state<bool> _(c->atRightSide,true);    
+    int tkn;
+    tkn = CsToken(c);
     CsSaveToken(c,tkn);
     if(tkn == '[' || tkn == '{')
       do_literal(c,pv);
@@ -2531,21 +2600,33 @@ static void do_right_side_expr(CsCompiler *c,PVAL *pv)
       do_expr2(c,pv,false);
 }
 
-/*static void do_right_side_expr_list(CsCompiler *c,PVAL *pv)
-{
-  do_expr1(c,pv,false);
-}*/
-
-static void do_call_param_expr(CsCompiler *c,PVAL *pv)
-{
-  do_right_side_expr(c,pv);
-}
-
 static void do_class_ref_expr(CsCompiler *c)
 {
     PVAL pv;
-    do_expr15(c,&pv, false /* no call object expressions */);
+
+    int tkn = CsToken(c);
+    if( tkn == '.' )
+    {
+      putcbyte(c,BC_ROOT_NS);
+      CsSaveToken(c,tkn);
+    }
+    else if( tkn == T_IDENTIFIER )
+      findvariable(c,c->t_token,&pv);
+    else 
+      require_or(c,tkn,T_IDENTIFIER, '.');
+
+    while(tkn = CsToken(c))
+    {
     rvalue(c,&pv);
+       if( tkn != '.' )
+       {
+         CsSaveToken(c,tkn);
+         break;
+       }
+       putcbyte(c,BC_PUSH);
+       do_selector(c);
+       pv.fcn = code_property;
+    }
 }
 
 
@@ -2576,21 +2657,37 @@ static void do_expr1(CsCompiler *c,PVAL *pv, bool handle_in)
     CsSaveToken(c,tkn);
 }
 
-/* do_expr_list - handle the ',' operator inside '(' and ')' */
-static void do_expr_list(CsCompiler *c,PVAL *pv, bool handle_in)
+/* do_right_side_expr_list - handle the ',' operator in right side expressions like return <rs-list>; */
+
+static void do_right_side_expr_list(CsCompiler *c,PVAL *pv)
 {
     int tkn;
-    do_expr2(c,pv,handle_in);
+    do_expr2(c,pv,true);
+    int n = 0;
     while ((tkn = CsToken(c)) == ',') 
     {
-        //rvalue(c,pv);
-        pv->push(c);
-        //putcbyte(c,BC_PUSH_RVAL);
-        do_expr_list(c,pv, handle_in); 
+       pv->r_valuate(c);
+       if( ++n == 1 )
+         putcbyte(c,BC_RESET_RVAL);
+       putcbyte(c,BC_PUSH_RVAL);
+       do_expr2(c,pv,true);
     }
-    //rvalue(c,pv);
+        //rvalue(c,pv);
     CsSaveToken(c,tkn);
 }
+
+static void do_expr_list(CsCompiler *c,PVAL *pv)
+{
+    int tkn;
+    do_expr2(c,pv,true);
+    while ((tkn = CsToken(c)) == ',') 
+    {
+        pv->push(c);
+        do_expr2(c,pv,true);
+    }
+    CsSaveToken(c,tkn);
+}
+
 
 /* do_for_initialization - handle the initialization of for statement */
 static void do_for_initialization(CsCompiler *c, PVAL* pv,
@@ -2606,8 +2703,6 @@ static void do_for_initialization(CsCompiler *c, PVAL* pv,
        do_expr2(c,pv, false);
     }
 }
-
-
 
 /* do_expr2 - handle the assignment operators
    returns addr of the 'next' statement if handle_in==true and was 'in'
@@ -2677,6 +2772,7 @@ static int do_expr2(CsCompiler *c,PVAL *pv, bool handle_in)
 /* do_assignment - handle assignment operations */
 static void do_assignment(CsCompiler *c,PVAL *pv,int op)
 {
+    tool::auto_state<bool> _(c->atRightSide,true);
     PVAL pv2;
     (*pv->fcn)(c,DUP,0);
     (*pv->fcn)(c,LOAD,pv);
@@ -3097,6 +3193,9 @@ static void do_expr15(CsCompiler *c,PVAL *pv, bool allow_call_objects)
 {
     int tkn;
     do_primary(c,pv);
+    bool is_$_name = (pv->fcn == code_variable || 
+                      pv->fcn == code_argument ||
+                      pv->fcn == code_immutable_argument) && c->t_token[0] == '$';
     while ((tkn = CsToken(c)) == '('
     ||     tkn == '['
     ||     (allow_call_objects && (tkn == '{'))
@@ -3106,6 +3205,9 @@ static void do_expr15(CsCompiler *c,PVAL *pv, bool allow_call_objects)
     ||     tkn == T_DEC)
         switch (tkn) {
         case '(':
+            if(is_$_name)
+              do_$_call(c,pv);
+            else
             do_call(c,pv);
             break;
         case '{':
@@ -3137,17 +3239,21 @@ static void do_prop_reference(CsCompiler *c,PVAL *pv)
     int tkn;
 
     /* push the obj reference */
-    rvalue(c,pv);
+    pv->r_valuate_single(c);
     putcbyte(c,BC_PUSH);
 
     /* get the selector */
     do_selector(c);
+    bool is$ = c->t_token[0] == '$';
 
     /* check for a method call */
     if ((tkn = CsToken(c)) == '(')
     {
         putcbyte(c,BC_PUSH);
         putcbyte(c,BC_OVER);
+        if(is$)
+          do_$_method_call(c,pv);
+        else
         do_method_call(c,pv);
     }
     else if (tkn == '{')
@@ -3183,6 +3289,15 @@ static void do_selector(CsCompiler *c)
     case T_IDENTIFIER:
         emit_literal(c,addliteral(c,CsInternCString(c->ic,c->t_token)));
         break;
+    case T_SET:
+        emit_literal(c,addliteral(c,CsInternCString(c->ic,"set")));
+        break;
+    case T_GET:
+        emit_literal(c,addliteral(c,CsInternCString(c->ic,"get")));
+        break;
+    case T_THIS:
+        emit_literal(c,addliteral(c,CsInternCString(c->ic,"this")));
+        break;
     case '(':
         do_expr(c);
         frequire(c,')');
@@ -3208,7 +3323,11 @@ static void do_primary(CsCompiler *c,PVAL *pv)
         do_literal(c,pv);
         break;
     case '(':
-        do_expr_list(c,pv,true);
+        if( c->atRightSide )
+          do_right_side_expr_list(c,pv);
+        else
+          do_expr_list(c,pv);
+        //               do_expr1(c,pv,true);
         frequire(c,')');
         break;
     case T_INTEGER:
@@ -3229,16 +3348,14 @@ static void do_primary(CsCompiler *c,PVAL *pv)
           tool::array<wchar> buf;
           do
           {
-            const wchar* str = c->get_wtoken_string();
-            size_t sz = wcslen(str);
-            buf.push(str, sz);
+            wchars str = c->get_wtoken_string();
+            buf.push(str);
             if((tkn = CsToken(c)) == T_STRING)
               continue;
             CsSaveToken(c,tkn);
             break;
           } while( tkn != T_EOF );
-          buf.push(0);
-          do_lit_string(c,buf.head());
+          do_lit_string(c,buf());
         }
         pv->fcn = NULL;
         break;
@@ -3247,12 +3364,54 @@ static void do_primary(CsCompiler *c,PVAL *pv)
         pv->fcn = NULL;
         break;
     case T_IDENTIFIER:
+#ifdef _DEBUG
+        if( c->t_token[0] == '$' )
+          c = c;
+#endif
         findvariable(c,c->t_token,pv);
         break;
     case T_TYPE: // "type" can be used as an identifier here. Such dualism is not so good but "type" as a name is quite popular.
         findvariable(c,"type",pv);
         break;
 
+    case T_THIS:
+        tkn = CsToken(c);
+        if( tkn == T_FUNCTION )
+        {
+          putcbyte(c,BC_THIS_FUNCTION);
+          pv->fcn = NULL;
+        }
+        else if( tkn == T_SUPER )
+        {
+           int level = 1;
+           while( (tkn = CsToken(c)) == T_SUPER)
+             ++level;     
+           CsSaveToken(c,tkn);
+           int lev,off;
+           if(!FindThis(c,lev,off, level))
+             CsParseError(c, "no 'this' at this level");
+
+           pv->fcn = code_immutable_argument;
+           pv->val = lev;
+           pv->val2 = off;
+
+          //putcbyte(c,BC_THIS_FUNCTION);
+          //pv->fcn = NULL;
+        }
+        else
+        {
+          CsSaveToken(c,tkn);
+          int lev,off;
+          if(FindThis(c,lev,off)) 
+          {
+            pv->fcn = code_immutable_argument;
+            pv->val = lev;
+            pv->val2 = off;
+          }
+          else
+            CsParseError(c, " 'this' is available only inside function body");
+        }
+        break;
     case T_SUPER:
         do_super(c,pv);
         break;
@@ -3314,16 +3473,14 @@ static void do_primary_json(CsCompiler *c,PVAL *pv)
           tool::array<wchar> buf;
           do
           {
-            const wchar* str = c->get_wtoken_string();
-            size_t sz = wcslen(str);
-            buf.push(str, sz);
+            wchars str = c->get_wtoken_string();
+            buf.push(str);
             if((tkn = CsToken(c)) == T_STRING)
               continue;
             CsSaveToken(c,tkn);
             break;
           } while( tkn != T_EOF );
-          buf.push(0);
-          do_lit_string(c,buf.head());
+          do_lit_string(c,buf());
         }
         pv->fcn = NULL;
         break;
@@ -3410,7 +3567,7 @@ static void do_function_local(CsCompiler *c, ATABLE **patable, int *pptr)
     /* store the function as the value of the local variable */
 
     int lev,off; bool dummy;
-    dummy = FindArgument(c,qn.local_name,&lev,&off,&dummy);
+    dummy = FindArgument(c,qn.local_name,lev,off,dummy);
     assert(dummy);
 
     putcbyte(c,BC_ESET);
@@ -3437,7 +3594,8 @@ static void do_function(CsCompiler *c, FUNCTION_TYPE fct, bool store)
     qualified_name qn(c);
 
     /* check for a function name */
-    frequire(c,T_IDENTIFIER);
+    //frequire(c,T_IDENTIFIER);
+    frequire_or(c,T_IDENTIFIER, T_THIS);
     if( strcmp(c->t_token, "undefined") == 0 )
        fct = UNDEFINED_PROPERTY;
     qn.append(c->t_token);
@@ -3693,7 +3851,7 @@ static void do_literal_regexp(CsCompiler *c,PVAL *pv, int tkn)
   tool::ustring us;
   tool::string flags;
   if(tkn == T_DIVEQ)
-    us = L"*";
+    us = L"=";
 
   getregexp(c);
 
@@ -3896,6 +4054,53 @@ static void do_call(CsCompiler *c,PVAL *pv)
     pv->fcn = NULL;
 }
 
+/* do_call - compile "stringizer" function call */
+static void do_$_call(CsCompiler *c,PVAL *pv)
+{
+    if( scan_lookahead(c) == '"' ) // legacy case: self.$("something")
+    {
+      do_call(c,pv);
+      return;
+    }
+
+    // get the value of the function 
+    rvalue(c,pv);
+    putcbyte(c,BC_PUSH);
+    putcbyte(c,BC_PUSHSCOPE);
+
+    int n = 2; // 
+
+    int bracket_level = 1;
+    
+    int lastc = scan_stringizer_string(c, bracket_level);
+    do_lit_string(c, c->t_wtoken() );
+    putcbyte(c,BC_PUSH);
+    ++n;
+    
+    while( lastc == '{' )
+    {
+      do_call_param_expr(c,pv);
+      frequire(c,'}');
+      rvalue(c,pv);
+      putcbyte(c,BC_PUSH);
+      ++n;
+      lastc = scan_stringizer_string(c, bracket_level);
+      do_lit_string(c, c->t_wtoken());
+      putcbyte(c,BC_PUSH);
+      ++n;
+    }
+    if(lastc != ')')
+      CsParseError(c,"expecting ')'");
+
+    // call the function
+    putcbyte(c,BC_CALL);
+    putcbyte(c,n);
+
+    // we've got an rvalue now 
+    pv->fcn = NULL;
+}
+
+
 /* do_call_object - compile a function call with single parameter - object literal */
 static void do_call_object(CsCompiler *c,PVAL *pv)
 {
@@ -4027,6 +4232,73 @@ static void do_method_call(CsCompiler *c,PVAL *pv)
     pv->fcn = NULL;
 }
 
+static void do_$_method_call(CsCompiler *c,PVAL *pv)
+{
+    if( scan_lookahead(c) == '"' ) // legacy case: self.$("something")
+    {
+      do_method_call(c,pv);
+      return;
+    }
+
+    /*int n = 3; // 2 - preambula + 1 collected param
+
+    int bracket_level = 1;
+    
+    int lastc = scan_stringizer_string(c, bracket_level);
+    do_lit_string(c,c->t_wtoken.head());
+    
+    while( lastc == '{' )
+    {
+      putcbyte(c,BC_PUSH);
+      do_call_param_expr(c,pv);
+      frequire(c,'}');
+      rvalue(c,pv);
+      putcbyte(c,BC_ADD);
+      lastc = scan_stringizer_string(c, bracket_level);
+      if(c->t_wtoken.size() && c->t_wtoken[0] != 0)
+      {
+        putcbyte(c,BC_PUSH);
+        do_lit_string(c,c->t_wtoken.head());
+        putcbyte(c,BC_ADD);
+      }
+    }
+    if(lastc != ')')
+      CsParseError(c,"expecting ')'");
+
+    putcbyte(c,BC_PUSH);*/
+
+    int n = 2; // 
+
+    int bracket_level = 1;
+    
+    int lastc = scan_stringizer_string(c, bracket_level);
+    do_lit_string(c, c->t_wtoken());
+    putcbyte(c,BC_PUSH);
+    ++n;
+    
+    while( lastc == '{' )
+    {
+      do_call_param_expr(c,pv);
+      frequire(c,'}');
+      rvalue(c,pv);
+      putcbyte(c,BC_PUSH);
+      ++n;
+      lastc = scan_stringizer_string(c, bracket_level);
+      do_lit_string(c, c->t_wtoken());
+      putcbyte(c,BC_PUSH);
+      ++n;
+    }
+    if(lastc != ')')
+      CsParseError(c,"expecting ')'");
+
+
+    /* call the method */
+    putcbyte(c,BC_SEND);
+    putcbyte(c,n);
+    pv->fcn = NULL;
+}
+
+
 /* do_method_call_object - compile a method call expression
    obj.method { prm1: val,prm2: val }
  */
@@ -4052,7 +4324,8 @@ static void do_method_call_object(CsCompiler *c,PVAL *pv)
 /* do_index - compile an indexing operation */
 static void do_index(CsCompiler *c,PVAL *pv)
 {
-    rvalue(c,pv);
+    //rvalue(c,pv);
+    pv->r_valuate_single(c);
     putcbyte(c,BC_PUSH);
 
     int tkn;
@@ -4248,19 +4521,20 @@ static void FreeArguments(CsCompiler *c)
 }
 
 /* FindArgument - find an argument offset */
-static bool FindArgument(CsCompiler *c,const char *name,int *plev,int *poff,bool* pimmutable)
+static bool FindArgument(CsCompiler *c,const char *name,int& plev,int& poff,bool& pimmutable)
 {
     ATABLE *table;
     ARGUMENT *arg;
     int lev,off;
     lev = 0;
-    for (table = c->arguments; table != NULL; table = table->at_next) {
+    for (table = c->arguments; table != NULL; table = table->at_next) 
+    {
         off = 1;
         for (arg = table->at_arguments; arg != NULL; arg = arg->arg_next) {
             if (strcmp(name,arg->arg_name) == 0) {
-                *plev = lev;
-                *poff = off;
-                *pimmutable = arg->immutable;
+                plev = lev;
+                poff = off;
+                pimmutable = arg->immutable;
                 return true;
             }
             ++off;
@@ -4269,6 +4543,34 @@ static bool FindArgument(CsCompiler *c,const char *name,int *plev,int *poff,bool
     }
     return false;
 }
+
+static bool FindThis(CsCompiler *c,int& plev,int& poff, int level)
+{
+    ATABLE *table;
+    ARGUMENT *arg;
+    int lev,off;
+    lev = 0;
+    for (table = c->arguments; table != NULL; table = table->at_next) 
+    {
+        off = 1; 
+        for (arg = table->at_arguments; arg != NULL; arg = arg->arg_next) {
+            if (strcmp("this",arg->arg_name) == 0) 
+            {
+                if( level-- == 0 )
+                {
+                  plev = lev;
+                  poff = off;
+                  return true;
+                }
+                break; // not at this level, got to the next level
+            }
+            ++off;
+        }
+        ++lev;
+    }
+    return false;
+}
+
 
 /* addliteral - add a literal to the literal vector */
 static int addliteral(CsCompiler *c,value lit, bool unique)
@@ -4347,15 +4649,15 @@ static void do_lit_float(CsCompiler *c,float_t n)
 }
 
 /* do_lit_string - compile a literal string */
-static void do_lit_string(CsCompiler *c,const wchar *str)
+/*static void do_lit_string(CsCompiler *c,const wchar *str)
 {
     emit_literal(c,make_lit_string(c,str));
-}
+}*/
 
 /* do_lit_string - compile a literal string */
-static void do_lit_string(CsCompiler *c,const wchar *str, int sz)
+static void do_lit_string(CsCompiler *c, tool::wchars str)
 {
-    emit_literal(c,make_lit_string(c,str,sz));
+    emit_literal(c,make_lit_string(c,str.start,str.length));
 }
 
 /* do_lit_symbol - compile a literal symbol */
@@ -4380,6 +4682,7 @@ static int make_lit_symbol(CsCompiler *c, const char *pname)
 {
     return addliteral(c,CsInternCString(c->ic,pname));
 }
+
 
 /* variable_ref - compile a variable reference */
 static void variable_ref(CsCompiler *c,const char *name)
@@ -4409,12 +4712,13 @@ static void findvariable(CsCompiler *c,const char *id,PVAL *pv)
         pv->fcn = code_constant;
         pv->val = BC_UNDEFINED;
     }
-    else if (FindArgument(c,id,&lev,&off, &immutable)) {
+    else if (FindArgument(c,id,lev,off,immutable)) {
         pv->fcn = immutable? code_immutable_argument: code_argument;
         pv->val = lev;
         pv->val2 = off;
     }
     else {
+        assert(strcmp(id,"this") != 0);
         pv->fcn = code_variable;
         pv->val = make_lit_symbol(c,id);
     }
@@ -4436,7 +4740,7 @@ static void code_constant(CsCompiler *c,int fcn,PVAL *pv)
 static bool load_argument(CsCompiler *c,const char *name)
 {
     int lev,off; bool dummy;
-    if (!FindArgument(c,name,&lev,&off,&dummy))
+    if (!FindArgument(c,name,lev,off,dummy))
         return false;
     putcbyte(c,BC_EREF);
     putcbyte(c,lev);

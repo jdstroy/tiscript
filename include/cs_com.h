@@ -89,7 +89,9 @@ namespace tis
 #define T_CLASS         323     /* class */
 #define T_NAMESPACE     324     /* namespace */
 #define T_ASSERT        325
-#define T_DEBUG         326
+#define T_THIS          326
+#define T_DEBUG         327
+
 
 #define _TMAX           T_DEBUG
 
@@ -215,6 +217,7 @@ struct CsCompiler {
     int  functionLevel;                 /* scanner - function level */
     const char* qualifiedName;          /* scanner - full name of object being parsed: class and function */
     bool  JSONonly;                     /* parse only data declarations - JSON data literals */
+    bool  atRightSide;                  /* parser is on the right of the eq sign */
 
     CsCompilerCallback* cDOMcb;         /* code DOM events callback */
 
@@ -228,13 +231,13 @@ struct CsCompiler {
 
     TryCatchDef *tcStack;               /* current try/catch stack */    
 
-    const wchar* get_wtoken_string()
+    tool::wchars get_wtoken_string()
     {
-      if( t_wtoken.size() == 0 )
+      /*if( t_wtoken.size() == 0 )
         t_wtoken.push(0);
       else if (t_wtoken.last() != 0)
-        t_wtoken.push(0);
-      return t_wtoken.head();
+        t_wtoken.push(0);*/
+      return t_wtoken();
     }
 };
 

@@ -84,14 +84,15 @@
 #define BC_GSETC      0x48    /* set the value of a global constant */
 #define BC_PUSH_NS    0x49    /* push currentScope.globals on stack */
 #define BC_POP_NS     0x50    /* pops currentScope.globals from stack */
-#define BC_PROTO      0x51    /* c->val = CsObjectClass(c->val) */
+//#define BC_PROTO      0x51    /* c->val = CsObjectClass(c->val) */
+#define BC_THIS_FUNCTION 0x51 /* c->val = <this method ref> */
 #define BC_BRUNDEF    0x52    /* branch on c->val == nothingValue */
 #define BC_INCLUDE    0x53    /* include instruction */
 #define BC_LIKE       0x54    /* val <- true/false if left matches right */
 #define BC_DEBUG      0x55
 #define BC_S_CALL     0x56    /* push current PC of next instruction on top of the stack and jump to instruction given by arg.  */
 #define BC_S_RETURN   0x57    /* pop value of PC from top of the stack. */
-#define BC_NEWCLASS   0x58    /* pop value of PC from top of the stack. */
+#define BC_NEWCLASS   0x58    /* pop value of PC from top of the stack. bc[1] != 0 is class, otherwise - namespace */
 #define BC_USHL       0x59    /* shift left top two stack entries, signed int */
 #define BC_USHR       0x5a    /* shift right top two stack entries, signed int */
 #define BC_NS         0x5b    /* c->val = c->currentNS */
@@ -112,5 +113,8 @@
 #define BC_EQ_STRONG_M  0x69  /* identical multiple */
 #define BC_NE_STRONG_M  0x6a  /* not identical multiple */
 #define BC_STACK_RVAL   0x6b  /* all c-vals -> push to stack multiple */
+
+#define BC_ROOT_NS       0x6c  /* c->val = c->currentScope->global */
+
 
 #endif

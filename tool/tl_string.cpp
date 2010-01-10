@@ -342,8 +342,16 @@ namespace tool
     else
     {
       int prev_len = length();
+      if( s_len > len )
+      {
       set_length ( prev_len - len + s_len, true );
       ::memmove ( &head() [ index + s_len ], &head() [ index + len ], prev_len - len - index );
+      }
+      else
+      {
+        ::memmove ( &head() [ index + s_len ], &head() [ index + len ], prev_len - len - index );
+        set_length ( prev_len - len + s_len, true );
+      }
       if ( s_len > 0 )
       {
         ::memcpy ( &head() [ index ], s, s_len );
@@ -726,7 +734,7 @@ namespace tool
       if ( idx < 0 )
         break;
       if ( to_length )
-        replace_substr ( to, idx, from_length );
+        replace_substr ( to, to_length, idx, from_length );
       else
         cut ( idx, from_length );
       ++count;

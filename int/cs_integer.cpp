@@ -18,14 +18,18 @@ static value CSF_toInteger(VM *c);
 static value CSF_toString(VM *c);
 static value CSF_min(VM *c);
 static value CSF_max(VM *c);
+static value CSF_limit(VM *c);
 
 /* Integer methods */
 static c_method methods[] = {
 C_METHOD_ENTRY( "toFloat",          CSF_toFloat         ),
 C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
 C_METHOD_ENTRY( "toString",         CSF_toString        ),
+C_METHOD_ENTRY( "toHtmlString",     CSF_toString        ),
+C_METHOD_ENTRY( "toUrlString",      CSF_toString        ),
 C_METHOD_ENTRY( "min",              CSF_min             ),
 C_METHOD_ENTRY( "max",              CSF_max             ),
+C_METHOD_ENTRY( "limit",            CSF_limit           ),
 C_METHOD_ENTRY( 0,                  0                   )
 };
 
@@ -149,6 +153,17 @@ static value CSF_toString(VM *c)
     return CsMakeCString(c,buf);
 }
 
+/* CSF_limit - built-in method 'limit' */
+static value CSF_limit(VM *c)
+{
+    int v, minv, maxv;
+    CsParseArguments(c,"i*ii",&v,&minv,&maxv);
+    if( minv > maxv ) return UNDEFINED_VALUE;
+    if( v < minv ) return CsMakeInteger(minv);
+    if( v > maxv ) return CsMakeInteger(maxv);
+    return CsMakeInteger(v);
+}
+
 
 static bool GetIntegerProperty(VM *c,value& obj,value tag,value *pValue);
 static bool SetIntegerProperty(VM *c,value obj,value tag,value value);
@@ -156,6 +171,29 @@ static bool IntegerPrint(VM *c,value obj,stream *s, bool toLocale);
 static long IntegerSize(value obj);
 static value IntegerCopy(VM *c,value obj);
 static int_t IntegerHash(value obj);
+static value IntegerNextElement(VM *c, value* index, value obj, int nr)
+{
+  int_t idx = 0; 
+  if( *index != NOTHING_VALUE )
+    idx = CsIntegerValue(*index) + 1; // not first
+  if( idx >= CsIntegerValue(obj))
+    return NOTHING_VALUE;
+  return (*index = CsMakeInteger(idx)); 
+}
+
+// returns true/false if bit is set
+value IntegerGetItem(VM *c,value obj,value tag)
+{
+  if (!CsIntegerP(tag) )
+    return UNDEFINED_VALUE;
+
+  int_t bit = CsIntegerValue(tag);
+  if( bit < 0 || bit >= 32 )
+    return UNDEFINED_VALUE;
+
+  return tool::getbit((uint)(1 << bit), (uint)CsIntegerValue(obj))? TRUE_VALUE: FALSE_VALUE;
+}
+
 
 dispatch CsIntegerDispatch = {
     "Integer",
@@ -168,8 +206,9 @@ dispatch CsIntegerDispatch = {
     IntegerCopy,
     CsDefaultScan,
     IntegerHash,
-    CsDefaultGetItem,
-    CsDefaultSetItem
+    IntegerGetItem,
+    CsDefaultSetItem,
+    IntegerNextElement,
 };
 
 /* GetIntegerProperty - Integer get property handler */

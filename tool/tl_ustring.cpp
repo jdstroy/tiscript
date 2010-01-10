@@ -12,8 +12,10 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include "tl_ustring.h"
+#include "tl_streams.h"
 #include "snprintf.h"
 #include "wctype.h"
+
 
 #include <stdio.h>
 
@@ -768,14 +770,18 @@ void from_utf8(const char *src, size_t len, array<wchar>& buf)
     }
 }
 
-wchar getc_utf8(FILE *f)
+/*wchar getc_utf8(FILE *f)
+{
+}*/
+
+int getc_utf8(stream *f)
 {
     unsigned int b1;
     bool isSurrogate = false;
 
-    int t = getc(f);
-    if( t == EOF )
-      return WEOF;
+    int t = f->read();
+    if( t == stream::EOS )
+      return t;
     b1 = (unsigned int) t;
     isSurrogate = false;
 
@@ -791,15 +797,15 @@ wchar getc_utf8(FILE *f)
     {
       // 2-byte sequence: 00000yyyyyxxxxxx = 110yyyyy 10xxxxxx
       uint r = (b1 & 0x1f) << 6;
-           r |= get_next_utf8(getc(f));
+           r |= get_next_utf8(f->read());
       return (wchar) r;
     }
     else if ((b1 & 0xf0) == 0xe0)
     {
       // 3-byte sequence: zzzzyyyyyyxxxxxx = 1110zzzz 10yyyyyy 10xxxxxx
       uint r = (b1 & 0x0f) << 12;
-           r |= get_next_utf8(getc(f)) << 6;
-           r |= get_next_utf8(getc(f));
+           r |= get_next_utf8(f->read()) << 6;
+           r |= get_next_utf8(f->read());
       return (wchar) r;
     }
     else if ((b1 & 0xf8) == 0xf0)
@@ -911,6 +917,14 @@ string ustring::utf8(wchars wc)
   memcpy(s.buffer(),bf.head(),bf.size());
   return s;
 }
+
+void ustring::utf8(wchars wc, array<byte>& out, bool emit_bom )
+{
+  static byte utf8_bom[] = { 0xef, 0xbb, 0xbf };
+  if(emit_bom) out.push(utf8_bom,3);
+  to_utf8(wc.start,wc.length,out);
+}
+
 
 ustring ustring::xml_escape() const
 {

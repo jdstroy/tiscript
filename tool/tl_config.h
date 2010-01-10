@@ -160,6 +160,13 @@ typedef uint32                ucode;   // unicode code point
   typedef int                 int_ptr;
 #endif
 
+template <typename V> struct unsigned_t { typedef unsigned type; };
+template <> struct unsigned_t<int> { typedef unsigned int type; };
+template <> struct unsigned_t<int64> { typedef uint type; };
+template <> struct unsigned_t<char> { typedef unsigned char type; };
+template <> struct unsigned_t<short> { typedef unsigned short type; };
+
+
 #if defined(UNDER_CE)
   typedef float               real;
 # define REAL_MIN             FLT_MIN
@@ -180,6 +187,16 @@ typedef uint32                ucode;   // unicode code point
   assert_static( sizeof(int16) == 2 );
 }*/
 
+#if !defined(OBSOLETE)
+  /* obsolete API marker*/ 
+  #if defined(__GNUC__)
+    #define OBSOLETE __attribute__((deprecated))
+  #elif defined(_MSC_VER) && MSC_VER > 1200
+    #define OBSOLETE __declspec(deprecated)
+  #else
+    #define OBSOLETE
+  #endif
+#endif  
 
 namespace locked
 {
@@ -191,7 +208,7 @@ namespace locked
   inline long dec(counter& v)               {    return InterlockedDecrement(&v);  }
   inline long set(counter &v, long nv)      {    return InterlockedExchange(&v, nv);  }
 
-#elif defined(WINDOWS)
+#elif defined(WINDOWS) && !defined(_WIN32_WCE) // lets try to keep things for wince simple as much as we can
 
   typedef volatile long counter;
   inline long inc(counter& v)               {    return InterlockedIncrement((LPLONG)&v);  }

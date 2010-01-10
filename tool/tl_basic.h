@@ -139,7 +139,7 @@ template <typename T>
     {
       assert ( _ref_cntr == 0 );
     }
-    int      get_ref_count() { return _ref_cntr; }
+    int      get_ref_count() const { return _ref_cntr; }
     virtual long release()
     {
         assert(_ref_cntr > 0);
@@ -157,9 +157,9 @@ template <typename T>
     }
 
     virtual uint_ptr  type_id() const { return 0; }
-
     template <typename OT>
       bool is_of_type() const { return type_id() == OT::class_id(); } 
+
   };
 
   template <typename T>
@@ -182,7 +182,7 @@ template <typename T>
     {
       assert ( _ext_ref_cntr == 0 );
     }
-    int ext_get_ref_count() { return _ext_ref_cntr; }
+    int ext_get_ref_count()  const { return _ext_ref_cntr; }
     virtual long ext_release()
     { 
         assert(_ext_ref_cntr > 0); 
@@ -508,13 +508,13 @@ template <typename TC, typename TV>
       TC buffer[86];
       uint buffer_length;
     public:
-      itostr(TV n, int radix = 10, int width = 0)
+      itostr(TV n, uint radix = 10, uint width = 0, TC padding_char = '0')
       {
         buffer[0] = 0;
         if(radix < 2 || radix > 36) return;
 
         static char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
-        int i=0, sign = n;
+        uint i=0; TV sign = n;
 
         if (sign < 0)
           n = -n;
@@ -525,7 +525,7 @@ template <typename TC, typename TV>
         if ( width && i < width)
         {
           while(i < width)
-            buffer[i++] = TC('0');
+            buffer[i++] = padding_char;
         }
         if (sign < 0)
           buffer[i++] = TC('-');
@@ -541,6 +541,7 @@ template <typename TC, typename TV>
 
       }
       operator const TC*() const { return buffer; }
+      const TC* elements() const { return buffer; }
       uint length() const { return buffer_length; }
     };
 
@@ -603,6 +604,13 @@ template <typename TC, typename TV>
   inline word hiword(dword dw) { return (word)(dw >> 16); }
   inline word loword(dword dw) { return (word) dw; }
 
+  inline short hishort(dword dw) { return (short)(dw >> 16); }
+  inline short loshort(dword dw) { return (short) dw; }
+
+  inline dword hidword(uint64 dw) { return (dword)(dw >> 32); }
+  inline dword lodword(uint64 dw) { return (dword) dw; }
+
+
   enum os_versions
   {
     WIN_32S       = 0x100,
@@ -619,18 +627,24 @@ template <typename TC, typename TV>
     WIN_2003      = 0x114,
 
     WIN_VISTA     = 0x120,
-    WIN_7_OR_ABOVE= 0x130,
+    WIN_7         = 0x130,
+    ABOVE_WIN_7   = 0x140,
 
     SOME_LINUX    = 0, // :-p
 
   };
+
   int get_os_version();
+  const char* get_os_version_name();
 
   inline bool getbit(uint32 MASK, uint32 v) { return (v & MASK) != 0; }
   inline void setbit(uint32 MASK, uint32& v, bool on) { if(on) v |= MASK; else v &= ~MASK; }
 
   inline bool getbit(uint64 MASK, uint64 v) { return (v & MASK) != 0; }
   inline void setbit(uint64 MASK, uint64& v, bool on) { if(on) v |= MASK; else v &= ~MASK; }
+
+  inline bool get_nth_bit(uint32 v, int n) { return getbit(1 << n,v); }
+  inline void set_nth_bit(uint32& v, int n, bool on) {  setbit(1 << n,v,on);  }
 
 
   template<typename T, class CMP>
@@ -836,19 +850,35 @@ inline const char *strnstr(const char *src, size_t src_length, const char *searc
   return (const char *)mem_lookup(src, src_length, search, strlen(search) );
 }
 
-inline void memzero( void *p, size_t sz )
-{
-  memset(p,0,sz);
-}
+inline void memzero( void *p, size_t sz ) { memset(p,0,sz); }
 
-inline bool is_space( char c ) { return isspace(c) != 0; }
+template <typename T> 
+  inline void memzero( T& t ) {  memzero(&t,sizeof(T)); }
+
+inline bool is_space( char c ) { return isspace(c & 0xff) != 0; }
 inline bool is_space( wchar c ) { return iswspace(c) != 0; }
-inline bool is_digit( char c ) { return isdigit(c) != 0; }
+inline bool is_space( ucode c ) { return iswspace(c) != 0; }
+inline bool is_space( int c ) { return is_space((ucode)c); }
+
+inline bool is_digit( char c ) { return isdigit(c & 0xff) != 0; }
 inline bool is_digit( wchar c ) { return iswdigit(c) != 0; }
-inline bool is_alpha( char c ) { return isalpha(c) != 0; }
+inline bool is_digit( ucode c ) { return iswdigit(c) != 0; }
+inline bool is_digit( int c )   { return is_digit((ucode)c); }
+
+inline bool is_xdigit( char c ) { return isxdigit(c & 0xff) != 0; }
+inline bool is_xdigit( wchar c ) { return iswxdigit(c) != 0; }
+inline bool is_xdigit( ucode c ) { return iswxdigit(c) != 0; }
+inline bool is_xdigit( int c ) { return is_xdigit((ucode)c); }
+
+inline bool is_alpha( char c ) { return isalpha(c & 0xff) != 0; }
 inline bool is_alpha( wchar c ) { return iswalpha(c) != 0; }
-inline bool is_alnum( char c ) { return isalnum(c) != 0; }
+inline bool is_alpha( ucode c ) { return iswalpha(c) != 0; }
+inline bool is_alpha( int c ) { return is_alpha((ucode)c); }
+
+inline bool is_alnum( char c ) { return isalnum(c & 0xff) != 0; }
 inline bool is_alnum( wchar c ) { return iswalnum(c) != 0; }
+inline bool is_alnum( ucode c ) { return iswalnum(c) != 0; }
+inline bool is_alnum( int c ) { return is_alnum((ucode)c); }
 
 // strtod, modified version of http://www.jbox.dk/sanos/source/lib/strtod.c.html
 // reason: strtod is locale dependent.
@@ -966,12 +996,6 @@ NO_EXPONENT:
     return number;
   }
 
-
-template <typename T>
-  inline void memzero( T& t )
-  {
-    memset(&t,0,sizeof(T));
-  }
 
 unsigned int crc32( const unsigned char *buffer, unsigned int count);
 unsigned hashlittle( const void *key, size_t length, unsigned initval);

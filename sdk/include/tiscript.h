@@ -117,6 +117,7 @@ struct tiscript_class_def
    tiscript_finalizer*    finalizer; // destructor of native objects
    tiscript_iterator*     iterator;  // for(var el in collecton) handler
    tiscript_on_gc_copy*   on_gc_copy; // called by GC to notify that 'self' is moved to new location  
+   tiscript_value         prototype;  // superclass, prototype for the class (or 0)
 };
 
 struct tiscript_native_interface

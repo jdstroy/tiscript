@@ -81,7 +81,8 @@ namespace tool
     bool operator<= ( const date_time& date ) const;
     bool operator>= ( const date_time& date ) const;
 
-    
+    static bool is_leap_year(int year);
+    static int  days_in_month(int year, int month);
     
     string  format(const char *fmt) const;
     ustring format(const wchar *fmt) const;
@@ -126,6 +127,9 @@ namespace tool
     int nanos   () const;     // nanosecond in minute (0-999), step of 100ns
     int day_of_week () const; // (mon=0...sun=6)
     int day_of_year () const; // days since start of year, Jan 1 = 1
+
+    bool has_date() const;
+    bool has_time() const;
 
     // setters
     void nanos   ( int nv );

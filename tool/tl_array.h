@@ -51,9 +51,9 @@ public:
   int       insert ( int index, const element& elem );
   void      insert ( int index, const element* elems, int count );
 
-  void      set_all_to ( const element &element_val );
-
   int       get_index(const element &e) const;
+
+  bool      remove_by_value ( const element &el );
 
   bool      operator == (const array<element> &rs) const;
   bool      operator != (const array<element> &rs) const;
@@ -65,6 +65,7 @@ public:
   int		    push ( const element& elem );
   void		  push ( const element* elems, int count );
   void		  push ( const slice<element>& elems );
+  void      push ( const element& elem, int count );
   element   pop ();
   bool      pop (element& el);
   void      drop (int n);
@@ -103,6 +104,22 @@ public:
   slice<element>  operator()(int s) const { return slice<element>(head()+s,size()-s); }
   slice<element>  operator()(int s, int e) const { return slice<element>(head()+s,e-s); }
 
+  void set( int from, int to, const element& v )
+  {
+    int s = limit(from,0,size());
+    int e = limit(to,0,size());
+    for(;s < e; ++s ) (*this)[s] = v;
+  }
+
+  void set( int from, slice<element> by )
+  {
+    int s = limit(from,0,size());
+    int e = limit(s + int(by.length),0,size());
+    for(int i = 0; s < e; ++s ) (*this)[s] = by[i++];
+  }
+
+  void set_all_to ( const element &element_val );
+
   void swap( array<element> &the_array )
   {
     if(this == &the_array)
@@ -137,7 +154,7 @@ protected:
     assert( _elements );
     *(((int*)_elements) - 1) = new_size;
   }
-  inline int get_size() const
+  INLINE int get_size() const
   {
     assert( _elements );
     return *(((int*)_elements) - 1);
@@ -328,6 +345,15 @@ inline void
   //  *dst = * ( dst + length );
 }
 
+template <typename element>
+inline bool
+  array<element>::remove_by_value ( const element& el )
+{
+  int idx = get_index(el);
+  if( idx < 0 ) return false;
+  (void)remove(idx);
+  return true;
+}
 
 template <typename element>
 inline int
@@ -430,7 +456,7 @@ inline const element &
 
 
 template <typename element>
-inline int
+INLINE int
   array<element>::size () const
 {
   return _elements? get_size(): 0;
@@ -591,6 +617,15 @@ inline void
       push ( elems [ i ] );*/
   }
 
+template <typename element>
+inline void
+  array<element>::push ( const element& elem, int count )
+  {
+    int psz = size();
+    size( size() + count );
+    element* pdst = head() + psz;
+    for ( int i = 0; i < count; i++ ) pdst[ i ] = elem;
+  }
 
 
 template <typename element>
@@ -705,7 +740,268 @@ inline void
 
 #define foreach(I,A) for(int I = A.size() - 1; I >= 0; I-- )
 
+template<typename T>
+  class circular_buffer : private array<T>
+  {
+  private:
+	  typedef typename array<T> super;
 
+  public:
+
+    // ctor
+	  circular_buffer(const int capacity = 0, const T &def = T()) :_size(0), _full(false)
+	  {
+			  super::size(capacity,def);
+			  _begin = _end = super::head();
+	  }
+  		
+	  ~circular_buffer() {}
+  	
+	  // get the buffer capacity (maximim size)
+	  int capacity() const { return super::size(); }
+
+	  // get number of items stored
+	  int size() const { return _size; }
+
+	  // is the buffer empty?
+    bool is_empty () const { return !_full && _begin == _end;	}
+
+	  // is the buffer full?
+	  bool full() const {	return _full;	}
+
+	  // push an item to the front of the buffer, \param x is item to push to the front.
+    // because the buffer is circular, the last item will be overwritten if the buffer is already full.
+	  void push_front(const T &x) 
+	  {
+		  if (super::size())
+		  {
+			  decrement(_begin);
+			  *_begin = x;
+			  if (_full)
+				  decrement(_end);
+			  else
+			  {
+				  if (++_size == super::size())
+					  _full = true;
+			  }
+		  }
+	  }
+  	
+	  // push an item to the back of the buffer, \param x is item to push to the back.
+	  // because the buffer is circular, the first item will be overwritten if the buffer is already full.
+	  void push(const T &x)
+	  {
+		  if (super::size())
+		  {
+			  *_end = x;
+			  increment(_end);
+			  if (_full)
+				  increment(_begin);
+			  else
+			  {
+				  if (++_size == super::size())
+					  _full = true;
+			  }
+		  }
+	  }
+  	
+	  // pop item from the front of the buffer, returns the item
+	  T pop_front()
+	  {
+		  assert(super::size());
+		  assert(_size > 0);
+		  if (_size > 0)
+		  {
+        T t;
+        tool::swap(t,*_begin);
+			  increment(_begin);
+			  _size--;
+			  _full = false;
+        return t;
+		  }
+      return T();
+	  }
+  	
+	  // pop item from the back of the buffer, returns the item
+	  T pop()
+	  {
+		  assert(super::size());
+		  assert(_size > 0);
+		  if (_size > 0)
+		  {
+        T t;
+        tool::swap(t,*_end);
+			  decrement(_end);
+			  _size--;
+			  _full = false;
+        return t;
+		  }
+      return T();
+	  }
+
+	  // access the front item
+	  T &first()       
+	  {
+		  assert(super::size());
+		  assert(_size>0); 
+		  return *_begin; 
+	  }
+
+	  // access the front item
+	  const T &first() const 
+	  { 
+		  assert(super::size());
+		  assert(_size>0); 
+		  return *_begin; 
+	  }
+
+	  // access the back item
+	  T &last()
+	  { 
+		  assert(super::size());
+		  assert(_size>0); 
+		  T* pe = _end; 
+		  decrement(pe); 
+		  return *pe; 
+	  }
+
+	  // access the back item
+	  const T &last() const
+	  { 
+		  assert(super::size());
+		  assert(_size>0); 
+		  T* pe = _end; 
+		  decrement(pe); 
+		  return *pe; 
+	  }
+
+	  // access the i'th item in the buffer
+	  T &operator[](const int i)
+	  {
+		  if (_begin < _end)
+			  return *(_begin + i);
+		  else
+		  {
+        const int s1 = super::head() + super::size() - _begin;
+			  if ( i < s1)
+				  return *(_begin+i);
+			  else
+				  return *(super::head() + i - s1);
+		  }
+	  }
+
+	  // access the i'th item in the buffer
+	  const T &operator[](const int i) const
+	  {
+		  if (_begin < _end)
+			  return *(_begin + i);
+		  else
+		  {
+        const int s1 = super::head() + super::size() - _begin;
+			  if ( i < s1)
+				  return *(_begin+i);
+			  else
+				  return *(super::head() + i - s1);
+		  }
+	  }
+
+	  // shift the contents left
+	  void left_shift()
+	  {
+		  decrement(_begin);
+		  decrement(_end);
+	  }
+
+	  // shift the contents right
+	  void right_shift()
+	  {
+		  decrement(_begin);
+		  decrement(_end);
+	  }
+
+	  // clear the buffer
+	  void clear()
+	  {
+		  _begin = _end = super::head();
+		  _size = 0;
+		  _full = false;
+	  }
+
+	  // swap the contents of this buffer with another
+	  void swap(circular_buffer<T> &buffer)
+	  {
+		  super::swap(buffer);
+		  tool::swap(_begin,buffer._begin);
+		  tool::swap(_end  ,buffer._end  );
+		  tool::swap(_size ,buffer._size );
+		  tool::swap(_full ,buffer._full );
+	  }
+
+	  // resize the (capacity) of the buffer, \param capacity new capacity.
+    // if the new buffer capacity is too small for the existing contents, only the front-most items will remain.
+	  void size(const int cap)
+	  {
+		  if (cap==capacity())
+			  return;
+
+		  circular_buffer<T> tmp(cap);
+		  swap(tmp);
+
+		  T*  i = tmp._begin;
+		  T*  j = _begin;
+		  int k = 0;
+  	
+		  for (; k < cap && k < capacity() && k < tmp.size(); j++,k++)
+		  {
+			  *j = *i;
+			  tmp.increment(i);
+		  }
+		  _end = j;
+		  _size = k;
+		  _full = (_size == cap);
+	  }
+
+  private:
+	  T*    _begin;
+	  T*    _end;
+	  int   _size;
+	  bool  _full;
+  	
+	  // increment an item ptr, checking for wrap-around
+	  void increment(const T* &i) const
+	  {
+		  i++;
+		  if (i == super::tail())
+			  i = super::head();
+	  }
+
+	  // decrement an item ptr, checking for wrap-around
+	  void decrement(const T* &i) const
+	  {
+		  if ( i == super::head() )
+			  i += super::size() - 1;
+		  else
+			  i--;
+	  }
+
+	  /// Increment an iterator, checking for wrap-around
+	  void increment(T* &i) 
+	  {
+		  i++;
+		  if (i == super::tail())
+			  i = super::head();
+	  }
+
+	  /// Decrement an iterator, checking for wrap-around
+	  void decrement(T* &i) 
+	  {
+		  if ( i == super::head() )
+			  i += super::size() - 1;
+		  else
+			  i--;
+	  }
 };
+
+}
 
 #endif

@@ -59,6 +59,7 @@ struct CallFrame: CsFrame
     value globals;
     value ns;
     value code;
+    value method;
     int   pcOffset;
     int   argc;
 
@@ -678,10 +679,10 @@ bool Execute(VM *c,value gen)
         case BC_ADD:
             if (CsStringP(c->val[0]))
             {
-                p1 = CsPop(c);
-                if (!CsStringP(p1))
-                  p1 = CsToString(c,p1);
-                c->val[0] = ConcatenateStrings(c,p1,c->val[0]);
+	        tool::swap(CsTop(c),c->val[0]);
+                if (!CsStringP(c->val[0]))
+                  c->val[0] = CsToString(c,c->val[0]);  
+                c->val[0] = ConcatenateStrings(c,c->val[0],CsPop(c));
             }
             else if (CsStringP(CsTop(c)))
             {
@@ -897,6 +898,10 @@ bool Execute(VM *c,value gen)
         case BC_NS:
             c->val[0] = c->getCurrentNS();
             break;
+        case BC_ROOT_NS:
+            c->val[0] = CsCurrentScope(c)->globals;
+            break;
+
         case BC_DEBUG:
             //c->val[0] = c->val[0];
             //c->standardOutput->put_str("|");
@@ -930,6 +935,7 @@ bool Execute(VM *c,value gen)
             break;
         case BC_NEWCLASS:
             {
+              bool is_class = *c->pc++ != 0;
               value parentClass = CsPop(c);
               if( parentClass == UNDEFINED_VALUE )
                   parentClass = c->currentScope.globals;
@@ -938,7 +944,9 @@ bool Execute(VM *c,value gen)
               dispatch* pd = CsGetDispatch(parentClass);
               const char* n = CsSymbolPrintName(classNameSymbol);
 #endif
-              c->val[0] = CsNewClassInstance(c,parentClass, classNameSymbol);
+              c->val[0] = is_class? 
+                CsNewClassInstance(c,parentClass, classNameSymbol):
+                CsNewNamespaceInstance(c,parentClass, classNameSymbol);
             }
             break;
 
@@ -1011,16 +1019,21 @@ bool Execute(VM *c,value gen)
             c->val[0] = GetNextMember(c,&c->sp[0],c->sp[1], n);
             break;
 
-        case BC_PROTO:
-            if(CsObjectOrMethodP(c->val[0]))
+        case BC_THIS_FUNCTION:
             {
-#ifdef _DEBUG
-              dispatch* pd1 = CsGetDispatch(c->sp[0]);
-#endif
-              c->val[0] = CsObjectClass(c->val[0]);
-#ifdef _DEBUG
-              dispatch* pd2 = CsGetDispatch(c->sp[2]);
-#endif
+              c->val[0] = NULL_VALUE;
+              CsFrame *fp = c->fp;
+              while (fp) 
+              {
+                if(fp->pdispatch == &CsTopCDispatch)
+                  break;
+                if(fp->pdispatch == &CsCallCDispatch)
+                {
+                  c->val[0] = ((CallFrame*)fp)->method;
+                  break;
+                }
+                fp = fp->next.get(c);
+              }
             }
             break;
 
@@ -1443,6 +1456,7 @@ int Send(VM *c,FrameDispatch *d,int argc)
 #ifdef _DEBUG
     dispatch* pdd = CsGetDispatch(next);
     dispatch* pdt = CsGetDispatch(_this);
+    dispatch* pds = CsGetDispatch(selector);
 #endif
 
     /* setup the 'this' parameter */
@@ -1553,7 +1567,8 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     int rflag,rargc,oargc,targc,n;
     value method = c->sp[argc];
     byte *cbase,*pc;
-    int oldArgC = c->argc;
+    int    old_argc = c->argc;
+    value* old_argv = c->argv;
     CallFrame *frame;
     value code;
 
@@ -1565,12 +1580,21 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     if (CsCMethodP(method)) {
         c->val[0] = CsCMethodPtr(method)->call(c, CsGetArg(c,1));
         CsDrop(c,argc + 1);
+        c->argv = old_argv;
+        c->argc = old_argc;
         check_thrown_error(c);
         return true;
     }
 
+    if( CsNamespaceP(method) )
+    {
+      value obj = method;
+      if(!CsGetProperty1(c, obj, THIS_SYM, &method))
+        CsUnexpectedTypeError(c,method, "this namespace is not callable");
+    }
+
     /* otherwise, it had better be a bytecode method */
-    else if (!CsMethodP(method) && !CsPropertyMethodP(method))
+    if (!CsMethodP(method) && !CsPropertyMethodP(method))
         CsUnexpectedTypeError(c,method, "function");
 
     /* get the code obj */
@@ -1648,7 +1672,9 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     frame->env = c->env;
     frame->code = c->code;
     frame->pcOffset = c->pc - c->cbase;
-    frame->argc = oldArgC;
+    frame->argc = old_argc;
+    frame->method = method;
+
     CsSetDispatch(ptr_value(&frame->stackEnv),&CsStackEnvironmentDispatch);
     CsSetEnvSize(ptr_value(&frame->stackEnv),CsFirstEnvElement + targc);
 
@@ -1714,6 +1740,7 @@ static value *CallCopy(VM *c,CsFrame *frame)
     call->env = CsCopyValue(c,call->env);
     call->ns = CsCopyValue(c,call->ns);
     call->globals = CsCopyValue(c,call->globals);
+    call->method = CsCopyValue(c,call->method);
     if (call->code)
         call->code = CsCopyValue(c,call->code);
     if (CsStackEnvironmentP(env)) {
@@ -1943,26 +1970,39 @@ bool CsEql(value obj1,value obj2)
 }
 
 
-value CsToBoolean(VM* c, value obj)
+value CsToBoolean(VM* c, value v)
 {
-  if(CsSymbolP(obj))
+START:
+  if(CsSymbolP(v))
   {
-    if(obj == FALSE_VALUE)
-      return obj;
-    if(obj == UNDEFINED_VALUE || obj == NULL_VALUE  || obj == NOTHING_VALUE )
+    if(v == FALSE_VALUE)
+      return v;
+    if(v == UNDEFINED_VALUE || v == NULL_VALUE  || v == NOTHING_VALUE )
       return FALSE_VALUE;
     return TRUE_VALUE;
   }
-  if (CsIntegerP(obj))
-    return CsIntegerValue(obj) != 0? TRUE_VALUE: FALSE_VALUE;
-  if (CsFloatP(obj))
-    return CsFloatValue(obj) != 0.0? TRUE_VALUE: FALSE_VALUE;
-  if (CsStringP(obj))
-    return CsStringSize(obj) != 0? TRUE_VALUE: FALSE_VALUE;
-  if (CsVectorP(obj))
-    return CsVectorSize(c,obj) != 0? TRUE_VALUE: FALSE_VALUE;
-  if (CsByteVectorP(obj))
-    return CsByteVectorSize(obj) != 0? TRUE_VALUE: FALSE_VALUE;
+  if (CsIntegerP(v))
+    return CsIntegerValue(v) != 0? TRUE_VALUE: FALSE_VALUE;
+  if (CsFloatP(v))
+    return CsFloatValue(v) != 0.0? TRUE_VALUE: FALSE_VALUE;
+  if (CsStringP(v))
+    return CsStringSize(v) != 0? TRUE_VALUE: FALSE_VALUE;
+  if (CsVectorP(v))
+    return CsVectorSize(c,v) != 0? TRUE_VALUE: FALSE_VALUE;
+  if (CsByteVectorP(v))
+    return CsByteVectorSize(v) != 0? TRUE_VALUE: FALSE_VALUE;
+  if( CsObjectP(v) )
+    {
+      value r;
+      value obj = v;
+      if(CsGetProperty1(c, obj, VALUE_OF_SYM, &r) && (CsMethodP(r) || CsCMethodP(r)))
+      {
+        v = CsSendMessage(CsCurrentScope(c),v,r, 0);
+        if( !CsObjectP(v) )
+          goto START;
+      }
+    }
+
   return TRUE_VALUE;
 
 }
@@ -1970,19 +2010,117 @@ value CsToBoolean(VM* c, value obj)
 /* CsEql - compare two objects for equality */
 bool CsEqualOp(VM* c, value obj1,value obj2)
 {
-    // Too restrictive?
-    // if (obj1 == UNDEFINED_VALUE || obj2 == UNDEFINED_VALUE)
-    //  CsWarning(c,"comparison with undefined value!");
+    //// Too restrictive?
+    //// if (obj1 == UNDEFINED_VALUE || obj2 == UNDEFINED_VALUE)
+    ////  CsWarning(c,"comparison with undefined value!");
 
-    if (CsFloatP(obj1) || CsFloatP(obj2))
-        return CsToFloat(c,obj1) == CsToFloat(c,obj2);
-    else if ( CsIntegerP(obj1) || CsIntegerP(obj2))
-        return CsToInteger(c,obj1) == CsToInteger(c,obj2);
-    else if (CsStringP(obj1) || CsStringP(obj2))
-        return CompareStrings(CsToString(c,obj1),CsToString(c,obj2)) == 0;
-    else if (CsBooleanP(c,obj1) || CsBooleanP(c,obj2))
-        return CsToBoolean(c,obj1) == CsToBoolean(c,obj2);
-    else if (CsVectorP(obj1) && CsVectorP(obj2))
+    //if (CsFloatP(obj1) || CsFloatP(obj2))
+    //    return CsToFloat(c,obj1) == CsToFloat(c,obj2);
+
+#ifdef _DEBUG
+   dispatch *pd1 = CsGetDispatch(obj1); 
+   dispatch *pd2 = CsGetDispatch(obj2);
+#endif
+
+/* ECMA spec for this:
+
+1. If Type(x) is different from Type(y), go to step 14.
+2. If Type(x) is Undefined, return true.
+3. If Type(x) is Null, return true.
+4. If Type(x) is not Number, go to step 11.
+5. If x is NaN, return false.
+6. If y is NaN, return false.
+7. If x is the same number value as y, return true.
+8. If x is +0 and y is −0, return true.
+9. If x is −0 and y is +0, return true.
+10. Return false.
+11.If Type(x) is String, then return true if x and y are exactly the same sequence of characters (same
+length and same characters in corresponding positions). Otherwise, return false.
+12. If Type(x) is Boolean, return true if x and y are both true or both false. Otherwise, return false.
+13.Return true if x and y refer to the same object or if they refer to objects joined to each other (see
+13.1.2). Otherwise, return false.
+14. If x is null and y is undefined, return true.
+15. If x is undefined and y is null, return true.
+- page 56 -
+16.If Type(x) is Number and Type(y) is String,
+return the result of the comparison x == ToNumber(y).
+17.If Type(x) is String and Type(y) is Number,
+return the result of the comparison ToNumber(x) == y.
+18. If Type(x) is Boolean, return the result of the comparison ToNumber(x) == y.
+19. If Type(y) is Boolean, return the result of the comparison x == ToNumber(y).
+20.If Type(x) is either String or Number and Type(y) is Object,
+return the result of the comparison x == ToPrimitive(y).
+21.If Type(x) is Object and Type(y) is either String or Number,
+return the result of the comparison ToPrimitive(x) == y.
+22. Return false.
+*/
+
+  // this implementation is close to the canonic text above but not exact.
+
+  if (CsFloatP(obj1))
+	{
+      CsPush(c,obj1);
+	    obj2 = CsToFloat(c,obj2);
+      return CsPop(c) == obj2;
+	}
+  else if (CsFloatP(obj2))
+	{
+      CsPush(c,obj2);
+	    obj1 = CsToFloat(c,obj1);
+      return obj1 == CsPop(c);
+	}
+
+  if (CsIntegerP(obj1))
+	{
+      CsPush(c,obj1);
+	    obj2 = CsToInteger(c,obj2);
+      return CsPop(c) == obj2;
+	}
+  else if (CsIntegerP(obj2))
+	{
+      CsPush(c,obj2);
+	    obj1 = CsToInteger(c,obj1);
+      return obj1 == CsPop(c);
+	}
+	 
+	if (CsStringP(obj1))
+	{
+      CsPush(c,obj1);
+	    obj2 = CsToString(c,obj2);
+      return CompareStrings(CsPop(c), obj2) == 0;
+	}
+  else if (CsStringP(obj2))
+	{
+      CsPush(c,obj2);
+	    obj1 = CsToString(c,obj1);
+      return CompareStrings(obj1, CsPop(c)) == 0;
+	}
+    
+  if (CsBooleanP(c,obj1))
+	{
+      CsPush(c,obj1);
+	    obj2 = CsToBoolean(c,obj2);
+      return CsPop(c) == obj2;
+	}
+  else if (CsBooleanP(c,obj2))
+	{
+      CsPush(c,obj2);
+	    obj1 = CsToBoolean(c,obj1);
+      return obj1 == CsPop(c);
+	}
+  
+  if( obj1 == UNDEFINED_VALUE || obj1 == NULL_VALUE) 
+  {
+     if( obj2 == UNDEFINED_VALUE || obj2 == NULL_VALUE )
+       return true;
+     return false;
+  }
+  if( obj2 == UNDEFINED_VALUE || obj2 == NULL_VALUE)
+  {
+     return false;
+  }
+
+  if (CsVectorP(obj1) && CsVectorP(obj2))
         return CsVectorsEqual(c,obj1,obj2);
     else
         return value_to_set(obj1) == value_to_set(obj2);
@@ -2195,7 +2333,8 @@ value GetNextMember(VM *c, value* index, value collection, int nr)
   dispatch *pd = CsGetDispatch(collection);
   if(pd->getNextElement)
     return (*(pd->getNextElement))(c,index,collection, nr);
-  else if(collection != NOTHING_VALUE)
+  else if(collection == NOTHING_VALUE || collection == UNDEFINED_VALUE || collection == NULL_VALUE)
+    return NOTHING_VALUE;
     CsThrowKnownError(c,CsErrNoSuchFeature,collection, "enumeration");
   return NOTHING_VALUE;
 }

@@ -36,6 +36,7 @@ enum dybase_type {
     dybase_string_type  = 7, // literal string
     dybase_array_type   = 8, // literal array
     dybase_map_type     = 9, // literal key/value pairs map
+    dybase_color_type   = 10,// alias of dybase_int_type 
 
 };
 

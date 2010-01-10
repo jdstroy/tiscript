@@ -59,7 +59,9 @@ namespace tool
            return WIN_2003;
          if ( osvi.dwMajorVersion == 6 && osvi.dwMinorVersion == 0 )
            return WIN_VISTA;
-         return WIN_7_OR_ABOVE;
+         if ( osvi.dwMajorVersion == 6 && osvi.dwMinorVersion == 1 )
+           return WIN_7;
+         return ABOVE_WIN_7;
 
       case VER_PLATFORM_WIN32_WINDOWS:
 
@@ -107,6 +109,30 @@ namespace tool
 #endif
 
   }
+
+  const char* get_os_version_name()
+  {
+      const char* osname = "Unknown";
+      switch(get_os_version())
+      {
+        case WIN_32S:         osname = "Windows-3.11"; break;
+        case WIN_95:          osname = "Windows-95"; break;
+        case WIN_95_OSR2:     osname = "Windows-95-OSR2"; break;
+        case WIN_98:          osname = "Windows-98"; break;
+        case WIN_98_SE:       osname = "Windows-98-SE"; break;
+        case WIN_ME:          osname = "Windows-ME"; break;
+        case WIN_CE:          osname = "Windows-CE"; break;
+        case WIN_NT4:         osname = "Windows-NT4"; break;
+        case WIN_2000:        osname = "Windows-2000"; break;
+        case WIN_2003:        osname = "Windows-2003"; break;
+        case WIN_XP:          osname = "Windows-XP"; break;
+        case WIN_VISTA:       osname = "Windows-Vista"; break;
+        case WIN_7:           osname = "Windows-7"; break;
+        case ABOVE_WIN_7:     osname = "above-Windows-7"; break;
+      }
+      return osname;
+  }
+
 
 };
 

@@ -34,6 +34,8 @@ static c_method methods[] = {
 C_METHOD_ENTRY( "toFloat",          CSF_toFloat         ),
 C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
 C_METHOD_ENTRY( "toString",         CSF_toString        ),
+C_METHOD_ENTRY( "toHtmlString",     CSF_toString        ),
+C_METHOD_ENTRY( "toUrlString",      CSF_toString        ),
 C_METHOD_ENTRY( "isFinite",         CSF_isFinite        ),
 C_METHOD_ENTRY( "isNaN",            CSF_isNaN           ),
 C_METHOD_ENTRY( "min",              CSF_min             ),

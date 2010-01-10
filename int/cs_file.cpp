@@ -16,6 +16,8 @@ namespace tis
 static value CSF_close(VM *c);
 static value CSF_print(VM *c);
 static value CSF_println(VM *c);
+static value CSF_$print(VM *c);
+static value CSF_$println(VM *c);
 static value CSF_printf(VM *c);
 static value CSF_scanf(VM *c);
 static value CSF_getc(VM *c);
@@ -46,6 +48,8 @@ C_METHOD_ENTRY( "openPipe",         CSF_openPipe        ),
 C_METHOD_ENTRY( "close",            CSF_close           ),
 C_METHOD_ENTRY( "print",            CSF_print           ),
 C_METHOD_ENTRY( "println",          CSF_println         ),
+C_METHOD_ENTRY( "$",                CSF_$print          ),
+C_METHOD_ENTRY( "$n",               CSF_$println        ),
 C_METHOD_ENTRY( "printf",           CSF_printf          ),
 C_METHOD_ENTRY( "scanf",            CSF_scanf           ),
 C_METHOD_ENTRY( "toString",         CSF_toString        ),
@@ -317,7 +321,39 @@ static value CSF_println(VM *c)
     s->put_str("\r\n");
 
     return TRUE_VALUE;
+}
 
+/* CSF_println - built-in function '$n' */
+static value CSF_$println(VM *c)
+{
+    stream *s;
+
+    CsCheckArgType(c,1,c->fileDispatch);
+    if (!(s = CsFileStream(CsGetArg(c,1))))
+        return FALSE_VALUE;
+
+    int i, argc = CsArgCnt(c);
+    for( i = 3; i <= argc; ++i )
+       CsToString(c,CsGetArg(c,i),*s);
+
+    //r = CSF_print(c);
+    return s->put_str("\r\n")? TRUE_VALUE : FALSE_VALUE;
+}
+
+/* CSF_println - built-in function '$' */
+static value CSF_$print(VM *c)
+{
+    stream *s;
+
+    CsCheckArgType(c,1,c->fileDispatch);
+    if (!(s = CsFileStream(CsGetArg(c,1))))
+        return FALSE_VALUE;
+
+    int i, argc = CsArgCnt(c);
+    for( i = 3; i <= argc; ++i )
+       CsToString(c,CsGetArg(c,i),*s);
+
+    return TRUE_VALUE;
 }
 
 /* CSF_printf - built-in function 'printf' */
@@ -325,6 +361,7 @@ static value CSF_printf(VM *c)
 {
     stream *s;
     CsCheckArgMin(c,3);
+    bool r = CsFileP(c, CsGetArg(c,1));
     CsCheckArgType(c,1,c->fileDispatch);
     if (!(s = CsFileStream(CsGetArg(c,1))))
         return FALSE_VALUE;
