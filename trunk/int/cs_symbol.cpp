@@ -26,6 +26,9 @@ static const char* well_known_symbols[] =
   "true",
   "false",
   "prototype",
+  "toString",
+  "valueOf",
+  "this",
   "boolean",
   "integer",
   "float",
@@ -139,11 +142,11 @@ value CSF_toString(VM *c)
     //value obj, r;
     int_t sym;
 
+    value vsym = CsGetArg(c,1);
+    assert(CsSymbolP(vsym));
     /* parse the arguments */
-    CsParseArguments(c,"L*",&sym);
-
-    sym &= 0x0FFFFFFF;
-
+    //CsParseArguments(c,"L*",&sym);
+    sym = to_symbol(vsym);
     tool::string s = get_symbol( sym );
     tool::ustring us = tool::ustring::utf8(s,s.length());
     return string_to_value(c,us);
@@ -358,11 +361,12 @@ value CsGetGlobalValueByPath(VM *c,const char* path)
 {
   tool::atokens tz(tool::chars_of(path),".");
   tool::chars s;
-  value obj = CsCurrentScope(c)->globals;
+  value obj = 0;
   while( tz.next(s) )
   {
     value v = 0;
-    if( CsGetProperty1(c,obj,CsMakeSymbol(c,s.start,s.length),&v) )
+    value sym = CsMakeSymbol(c,s.start,s.length);
+    if( obj == 0? CsGetGlobalValue(c,sym,&v) : CsGetProperty1(c,obj,sym,&v) )
     {
       if( v /*&& CsObjectP(v)*/ )
       {
@@ -373,8 +377,32 @@ value CsGetGlobalValueByPath(VM *c,const char* path)
     obj = UNDEFINED_VALUE;
     break;
   }
-  return obj;
+  return obj?obj:UNDEFINED_VALUE;
 }
+
+value CsGetGlobalValueByPath(VM *c,value ns, const char* path)
+{
+  tool::atokens tz(tool::chars_of(path),".");
+  tool::chars s;
+  value obj = ns;
+  while( tz.next(s) )
+  {
+    value v = 0;
+    value sym = CsMakeSymbol(c,s.start,s.length);
+    if( CsGetProperty1(c,obj,sym,&v) )
+    {
+      if( v /*&& CsObjectP(v)*/ )
+      {
+        obj = v;
+        continue;
+      }
+    }
+    obj = UNDEFINED_VALUE;
+    break;
+  }
+  return obj == ns? UNDEFINED_VALUE: obj;
+}
+
 
 /*
 bool CsGlobalValue(CsScope *scope,value sym,value *pValue)
@@ -451,6 +479,9 @@ bool CsGetGlobalOrNamespaceValue(VM *c,value tag,value *pValue)
           *pValue = propValue;
         return true;
       }
+      if(CsClassP(obj))
+        obj = CsClassNamespace(obj);
+      else
       obj = CsObjectClass(obj);
     }
 

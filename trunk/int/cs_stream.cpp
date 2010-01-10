@@ -15,6 +15,38 @@
 namespace tis
 {
 
+  encoder* stream::null_encoder()
+  {
+    // null, binary encoder
+    struct n_encoder: encoder
+    {
+      inline virtual void attach(stream* s) { }
+      inline virtual int  decode(stream* s) { return s->read(); }
+      inline virtual bool encode(stream* s, int ch) { return s->write(ch); }
+    };
+    static n_encoder ne;
+    return &ne;
+  }
+  encoder* stream::utf8_encoder()
+  {
+    struct n_encoder: encoder
+    {
+      inline virtual void attach(stream* s) 
+      { 
+        if(s->is_input_stream())
+        {
+          if(tool::getc_utf8(s) != 0xFEFF) 
+            s->rewind(); 
+        }
+      }
+      inline virtual int  decode(stream* s) { return tool::getc_utf8(s); }
+      inline virtual bool encode(stream* s, int ch) { return tool::putc_utf8(s,ch); }
+    };
+    static n_encoder ne;
+    return &ne;
+  }
+
+
 stream null_stream; /* aka /dev/null */
 
 /* prototypes */
@@ -190,6 +222,13 @@ string_stream::string_stream(size_t len)
   pos = 0;
 }
 
+void string_stream::clear()
+{
+  buf.size(0);
+  buf.push(BOM,3);
+  pos = 0;
+}
+
 bool string_stream::put(int ch)
 {
   wchar c = (wchar)ch;
@@ -233,66 +272,58 @@ stream *CsMakeIndirectStream(VM *c,stream **pStream)
 stream *OpenFileStream(VM *c,const wchar *fname, const wchar *mode)
 {
     stream *s = 0;
+    bool utf = wcschr(mode,'u') != 0;
+    bool append = wcschr(mode,'a') != 0;
+    bool write = wcschr(mode,'w') != 0;
+    bool binary = wcschr(mode,'b') != 0;
+
+    if( !append && !write && c->ploader != c) 
+    {
+      s = c->ploader->open(tool::url::escape(fname), wcschr(mode,'b') == 0);
+    }
+    else
+    {
     if((c->features & FEATURE_FILE_IO) == 0)
       return 0;
-
-    s = c->ploader->open(fname);
-    if( s ) 
-      return s;
 
     if( wcsncmp(fname,L"file://",7) == 0)
       fname = fname + 7;
 
-    wchar buf[11] = {0};
-    wcsncpy(buf,mode,9);
-    bool utfstream = false;
+      wchar buf[3] = {0};
+      if( append ) buf[0] = 'a';
+      else if( write ) buf[0] = 'w';
+      else buf[0] = 'r';
 
-    wchar* pu = 0;
-
-    if( (pu = wcschr(buf,'u')) != 0)
-    {
-      utfstream = true;
-      *pu = ' ';
-      wcscat(buf,L"b");
-    }
-    else if(wcschr(buf,'b') == 0)
-      wcscat(buf,L"b");
-
-    bool writeable = wcschr(buf,'w') || wcschr(buf,'a');
+      if( utf ) buf[1] = 'b';
+      if( binary ) buf[1] = 'b';
+      else buf[1] = 't';
 
     FILE *fp = _wfopen(fname, buf);
     if (fp)
     {
-      if(utfstream)
-        s = new file_utf8_stream(fp,fname, writeable);
-      else
-        s = new file_stream(fp, fname, writeable);
+        s = new file_stream(fp, fname, append || write);
       if(!s)
          fclose(fp);
     }
     else
       return 0;
+    }
       //CsThrowKnownError(c,CsErrIOError,fname);
+
+    if( s && utf)
+      s->set_encoder( stream::utf8_encoder() );
+
     return s;
+
 }
 
 
-int file_stream::get_utf8()
-{
-    int c = tool::getc_utf8(fp);
-    /* invalid character */
-    //else
-    //    CsParseError(c,"invalid UTF-8 character");
-    if(c == int(WEOF))
-      return EOS;
-    return c;
-}
-
+/*
 bool file_stream::put_utf8(int c)
 {
     bool r = tool::putc_utf8((wchar)c,fp);
     return r;
-}
+}*/
 
 
 bool file_stream::finalize()
@@ -303,18 +334,13 @@ bool file_stream::finalize()
     return true;
 }
 
-int file_stream::get()
+int file_stream::read()
 {
     int c = getc(fp);
-    /* invalid character */
-    //else
-    //    CsParseError(c,"invalid UTF-8 character");
-    if(c == int(WEOF))
-      return EOS;
-    return c;
+    return (c == int(WEOF))? EOS : c;
 }
 
-bool file_stream::put(int c)
+bool file_stream::write(int c)
 {
     int r = putc((byte)c,fp);
     return ferror( fp ) == 0;
@@ -342,8 +368,6 @@ struct socket_stream: public stream
       char c = ch;
       return sock->write(&c, 1);
     }
-
-    virtual bool is_file_stream() const { return false; }
 
     /* ATTN: don't create file_streams on stack! */
     virtual bool delete_on_close() { return true; }

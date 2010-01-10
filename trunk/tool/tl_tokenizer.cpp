@@ -1101,9 +1101,9 @@ DATE_LITERAL:
       }
       {
         value arr = value::make_array(3);
-        arr[0] = value::make_currency( 12340100L );
-        arr[1] = value(L"Hello world!");
-        arr[2] = value("hi");
+        arr.set_element(0, value::make_currency( 12340100L ));
+        arr.set_element(1, value(L"Hello world!"));
+        arr.set_element(2, value("hi"));
         array<wchar> out;
         emit(arr,out, false);
         value arr1 = parse(out(), false);
@@ -1111,10 +1111,10 @@ DATE_LITERAL:
       }
       {
         value map = value::make_map();
-        map[value("first")] = value::make_currency( 12340100L );
-        map[value("second")] = value(L"Hello world!");
-        map[value("third")] = value("hi");
-        map[value("fourth")] = value(true);
+        map.set_prop(value("first"), value::make_currency( 12340100L ));
+        map.set_prop(value("second"), value(L"Hello world!"));
+        map.set_prop(value("third"), value("hi"));
+        map.set_prop(value("fourth"),value(true));
         array<wchar> out;
         emit(map,out, false);
         value map1 = parse(out(), false);

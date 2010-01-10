@@ -14,10 +14,14 @@
 #pragma warning(disable:4996) // 'wcstombs' was declared deprecated
 #pragma warning(disable:4345) // behavior change: an object of POD type constructed with an initializer of the form () will be default-initialized
 
+#define _CRT_SECURE_NO_WARNINGS
 
 //#include <new.h>
 
 #include "assert.h"
+
+#include <wchar.h>
+#include <ctype.h>
 
 #include "tl_config.h" // OS dependent
 #include "tl_basic.h" // OS dependent
@@ -41,11 +45,13 @@
 #include "tl_ternary_tree.h"
 #include "tl_tokenizer.h"
 #include "tl_markup.h"
+//#include "tl_mem_pool.h"
 //#include "tl_file_monitor.h" // OS dependent
 #include "tl_slice.h"
 #include "tl_filesystem.h" // OS dependent
 #include "tl_streams.h" 
 #include "tl_generator.h" 
+//#include "eval/tl_eval.h"
 
 #include "snprintf.h"
 #include "snscanf.h"
@@ -90,6 +96,41 @@ namespace tool
 #ifdef WIN32
   inline void alert(const char* msg) { ::MessageBoxA(NULL,msg, "alert", MB_OK); }
 #endif
+
+  /*enum USER_PREFERENCES
+  {
+    UP_MENU_SHOW_DELAY,     // ms     , SPI_GETMENUSHOWDELAY
+    UP_MENU_ANIMATION,      // 0/1/2  , no/fade/slide, SPI_GETMENUFADE
+    UP_TOOLTIP_ANIMATION,   // 0/1/2  , no/fade/slide, SPI_GETTOOLTIPFADE & Co.
+    UP_COMBOBOX_ANIMATION,  // 0/1/2  , no/fade/slide, SPI_SETCOMBOBOXANIMATION
+  };
+  uint get_user_preference(USER_PREFERENCES up);*/
+
+  template <typename TC>
+    void expand_tabs(array<TC>& dst, slice<TC> text, int spaces_per_tab = 4)
+  {
+      TC splitter[2] = {0}; splitter[0] = '\n';
+      tokens<TC> tz(text,splitter);
+      while( tz.next(text) )
+      {
+         array<TC> buf;
+         for(int n = 0; n < int(text.length); ++n)
+         {
+           wchar c = text[n];
+           if( c == '\t' )
+           {
+             int r = buf.size() % spaces_per_tab;
+             buf.push( ' ', r? r : spaces_per_tab );
+           }
+           else
+             buf.push( c );
+         }
+         if( dst.is_empty() )
+           dst.swap(buf);
+         else
+           dst.push(buf());
+      }
+  }
 
 }
 

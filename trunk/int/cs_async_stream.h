@@ -24,7 +24,7 @@ namespace tis
       tool::array<wchar>   in_buf; 
       tool::array<wchar>   out_buf;
 
-      async_stream( VM* c, value received, value proxy ): is_in(false), is_out (false) 
+      async_stream( VM* c, value received, value proxy ): is_in(false), is_out (false), pending(0)
       {
         if( received )
         {
@@ -178,7 +178,7 @@ namespace tis
         }
         virtual value nth(int n) 
         { 
-          return value_to_value(call_vm, data[n+1]); 
+          return value_to_value(call_vm, data.get_element(n+1)); 
         }
 
         virtual void operator()() 
@@ -188,7 +188,7 @@ namespace tis
             TRY 
             {
               call_vm = strm->request_cb.pvm;
-              value sym = value_to_value(call_vm, data[0]);
+              value sym = value_to_value(call_vm, data.get_element(0));
               value func = NULL_VALUE;
               if(CsGetProperty(call_vm,strm->request_cb,sym,&func) && CsMethodP(func))
               {              
@@ -232,8 +232,9 @@ namespace tis
         tool::value argv = tool::value::make_array(CsArgCnt(c)-2);
         for(int i = 3; i <= CsArgCnt(c); ++i)
         {
-          argv[i-3] = value_to_value(c,CsGetArg(c,i));
-          argv[i-3].isolate();
+          tool::value t = value_to_value(c,CsGetArg(c,i));
+          t.isolate();
+          argv.set_element(i-3,t); 
         }
         tool::handle<request> p = new request(this, argv);
         locked::inc( pending );
@@ -253,8 +254,9 @@ namespace tis
         tool::value argv = tool::value::make_array(CsArgCnt(c)-2);
         for(int i = 3; i <= CsArgCnt(c); ++i)
         {
-          argv[i-3] = value_to_value(c,CsGetArg(c,i));
-          argv[i-3].isolate();
+          tool::value t = value_to_value(c,CsGetArg(c,i));
+          t.isolate();
+          argv.set_element(i-3,t); 
         }
         tool::handle<request> p = new request(this, argv, true);
         locked::inc( pending );

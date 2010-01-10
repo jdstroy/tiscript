@@ -107,8 +107,6 @@ namespace tool
           }
     }
 
-
-
     uint  operator[] ( const CHARTYPE* s ) 
     {
       return insert(s);

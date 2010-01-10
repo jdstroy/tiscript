@@ -13,17 +13,30 @@
 namespace tis
 {
   /* stream */
-  struct stream
+
+  struct stream;
+
+  struct encoder
   {
-      enum constants {
-        EOS = -1,
-        TIMEOUT = -2,
+      virtual void attach(stream* s) {}
+      virtual int  decode(stream* s) = 0;
+      virtual bool encode(stream* s, int ch) = 0;
       };
-      virtual int  get() { return EOS; }
-      virtual bool put(int ch) { return false; }
+
+  struct stream: public tool::stream
+  {
+      //virtual int  read() { return tool::stream::read(); }
+      //virtual bool write(int ch) { return tool::stream::write(ch); }
+      encoder* _encoder;   
+
+      stream() { _encoder = null_encoder(); }
+      void set_encoder( encoder* pe ) { _encoder = pe? pe : null_encoder(); _encoder->attach(this); }
+
+      virtual int  get() { return _encoder->decode(this); }
+      virtual bool put(int ch) { return _encoder->encode(this,ch); }
+
       virtual ~stream() { finalize(); }
 
-      virtual bool is_file_stream() const { return false; }
       virtual bool is_string_stream() const { return false; }
       virtual bool is_output_stream() const { return false; }
       virtual bool is_input_stream() const { return false; }
@@ -78,14 +91,18 @@ namespace tis
       virtual bool send(VM* c, value& retval) { return false; }
       virtual bool post(VM* c)                { return false; }
 
+      static encoder* null_encoder();
+      static encoder* utf8_encoder();
 
   };
+
+
 
 
   /* string stream structure */
   struct string_stream : public stream
   {
-      tool::array<byte> buf;
+      tool::array<byte> buf; // the buf contains utf-8 bom in first three bytes
       int  pos;
       mutable tool::ustring     name;
 
@@ -96,6 +113,8 @@ namespace tis
       virtual bool is_string_stream() const { return true; }
       virtual bool is_input_stream() const { return true; }
       virtual bool is_output_stream() const { return true; }
+
+      void clear();
 
       tool::ustring to_ustring() const;
 
@@ -120,14 +139,16 @@ namespace tis
   {
       tool::wchars  str;
       uint          pos;
+      tool::ustring name;
 
-      string_i_stream(tool::wchars s): str(s) , pos(0) {}
-      string_i_stream(const wchar* s, int l): str(s,l) , pos(0) {}
+      string_i_stream(tool::wchars s, tool::ustring n = ""): str(s) , pos(0), name(n) {}
 
       virtual bool is_string_stream() const { return true; }
       virtual bool is_input_stream() const { return true; }
 
-      virtual int  get() { if( pos < str.length ) return str[pos++]; return 0; }
+      virtual int  get() { if( pos < str.length ) return str[pos++]; return EOS; }
+      virtual const wchar* stream_name() const  { return name; }
+
 
   };
 
@@ -151,7 +172,6 @@ namespace tis
       virtual int   get() { if(pp_stream) return (*pp_stream)->get();  return EOS; }
       virtual bool  put(int ch) { if(pp_stream) return (*pp_stream)->put(ch); return false;  }
 
-      virtual bool is_file_stream() const { if(pp_stream) return (*pp_stream)->is_file_stream(); return false; }
       virtual bool is_output_stream() const { if(pp_stream) return (*pp_stream)->is_output_stream(); return false; }
       virtual bool is_input_stream() const { if(pp_stream) return (*pp_stream)->is_input_stream(); return false; }
       virtual bool is_async_stream() const { if(pp_stream) return (*pp_stream)->is_async_stream(); return false; }
@@ -182,35 +202,39 @@ namespace tis
       virtual bool is_output_stream() const { return writeable; }
 
       virtual bool finalize();
-      virtual int  get();
-      virtual bool put(int ch);
+      virtual int  read();
+      virtual bool write(int ch);
 
       virtual const wchar* stream_name() const { return fn; }
       virtual void         stream_name(const wchar* nn) { }
 
-      virtual bool is_file_stream() const { return true; }
-
       virtual void rewind() { if( fp )  fseek( fp, 0L, SEEK_SET ); /*rewind(fp);*/ }
-
-      int  get_utf8();
-      bool put_utf8(int ch);
 
       /* ATTN: don't create file_streams on stack! */
       virtual bool delete_on_close() { return true; }
   };
 
-  /* text file stream structure */
-  struct file_utf8_stream: public file_stream
+  struct  binary_i_stream: public stream
   {
-      file_utf8_stream(FILE *f, const wchar* name, bool w ): file_stream(f, name, w)
+    tool::array<byte> buffer;
+    bool  auto_delete;
+    const byte*   start;
+    const byte*   ptr;
+    const byte*   end;
+    tool::ustring name;
+    binary_i_stream(tool::array<byte> data, const tool::ustring& fname, bool auto_del = true): 
+      name(fname), auto_delete(auto_del)
       {
-        int t = (unsigned int)get_utf8();
-        if( t != 0xFEFF )
-          rewind();
+      buffer.swap(data);
+      start = ptr = buffer.head();
+      end = ptr + buffer.size();
       }
-      virtual int  get() { return get_utf8(); }
-      virtual bool put(int ch) { return put_utf8(ch); }
+    virtual void rewind() { ptr = start; }
+    virtual int read() {  if( ptr >= end ) return EOS; else return *ptr++;  }
+    virtual const wchar* stream_name() const { return name; }
+    virtual bool delete_on_close() { return auto_delete; }
   };
+
 
   /* globals */
   extern stream null_stream;

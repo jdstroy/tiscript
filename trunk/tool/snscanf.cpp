@@ -96,10 +96,10 @@ static CTYPE *
         else if (type == 'i') base = 10;
 
         while (width) {
-                if (((base == 10) && isdigit(c))
+                if (((base == 10) && is_digit(c))
                     || ((base == 16) && isxdigit(c))
-                    || ((base == 8) && isdigit(c) && (c < '8'))
-                    || ((base == 2) && isdigit(c) && (c < '2'))) {
+                    || ((base == 8) && is_digit(c) && (c < '8'))
+                    || ((base == 2) && is_digit(c) && (c < '2'))) {
                         *bufp++ = c;
                         if (--width)
                                 c = stream->get();
@@ -136,7 +136,7 @@ f_collect(CTYPE* inp_buf, int c, scanf_input_stream* stream, unsigned int width,
                         c = stream->get();
         }
 
-        while (width && isdigit(c)) {
+        while (width && is_digit(c)) {
                 digit_seen++;
                 *bufp++ = c;
                 if (--width)
@@ -147,7 +147,7 @@ f_collect(CTYPE* inp_buf, int c, scanf_input_stream* stream, unsigned int width,
                 if(float_seen) *float_seen = true;
                 if(--width)
                         c = stream->get();
-                while (width && isdigit(c)) {
+                while (width && is_digit(c)) {
                         digit_seen++;
                         *bufp++ = c;
                         if (--width)
@@ -171,7 +171,7 @@ f_collect(CTYPE* inp_buf, int c, scanf_input_stream* stream, unsigned int width,
                         if (--width)
                                 c = stream->get();
                 }
-                while (width && isdigit(c)) {
+                while (width && is_digit(c)) {
                         digit_seen++;
                         *bufp++ = c;
                         if (--width)
@@ -251,9 +251,9 @@ int
                         format++;
                         flags |= FL_NOASSIGN;
                 }
-                if (isdigit (*format)) {
+                if (is_digit (*format)) {
                         flags |= FL_WIDTHSPEC;
-                        for (width = 0; isdigit (*format);)
+                        for (width = 0; is_digit (*format);)
                                 width = width * 10 + *format++ - '0';
                 }
 

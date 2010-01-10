@@ -16,6 +16,7 @@ namespace tis
 
 /* method handlers */
 static value CSF_ctor(VM *c);
+static value CSF_now(VM *c);
 
 /*static value CSF_getYear(VM *c);
 static value CSF_getFullYear(VM *c);
@@ -65,6 +66,7 @@ static value CSF_valueOf(VM *c);
 static value CSF_parse(VM *c);
 static value CSF_UTC(VM *c);
 static value CSF_setTime(VM *c);
+static value CSF_ticks(VM *c);
 
 static value CSF_day(VM *c,value obj); static void CSF_set_day(VM *c,value obj,value value);
 static value CSF_dayOfWeek(VM *c,value obj); 
@@ -149,6 +151,9 @@ C_METHOD_ENTRY( "dayOfWeekName",    CSF_dayOfWeekName   ),
 C_METHOD_ENTRY( "timeZoneOffset",  CSF_localOffset      ),
 C_METHOD_ENTRY( "timeZoneName",    CSF_localTimeZone    ),
 C_METHOD_ENTRY( "isDaylight",      CSF_isDaylight   ),
+C_METHOD_ENTRY( "ticks",           CSF_ticks   ),
+C_METHOD_ENTRY( "now",             CSF_now   ),
+
 
 
 C_METHOD_ENTRY( 0,                  0                  )
@@ -226,6 +231,17 @@ static int64 ms1970()
   return v;
 }
 
+/* CSF_ticks - built-in method 'ticks' */
+static value CSF_ticks(VM *c)
+{
+#ifdef WINDOWS
+  return int_value(GetTickCount());
+#else
+  tms tm;
+  return int_value(times(&tm));
+#endif
+}
+
 
 /* CSF_ctor - built-in method 'initialize' */
 static value CSF_ctor(VM *c)
@@ -246,9 +262,6 @@ static value CSF_ctor(VM *c)
     {
     case 0: 
   {
-  //SYSTEMTIME st;
-  //::GetSystemTime( &st ); 
-  //::SystemTimeToFileTime(&st,&t);
     t = tool::date_time::now().time();
   } break;
     case 1: 
@@ -303,6 +316,29 @@ static value CSF_ctor(VM *c)
     CsCtorRes(c) = val;
     return val;
 }
+
+/* CSF_now - built-in method 'now' */
+static value CSF_now(VM *c)
+{
+    bool  sequential = false;
+
+    CsParseArguments(c,"**|B",&sequential);
+
+    tool::datetime_t t = tool::date_time::now().time();
+    if( sequential )
+    {
+      // this ensures that two consequtive calls of Date.now(true) return distinct values.
+      static tool::mutex guard;
+      static tool::datetime_t last_t = 0;
+      tool::critical_section _(guard);
+      if( t <= last_t )
+        t = last_t + 1;
+      last_t = t;
+    }
+    return CsMakeDate(c,t);
+}
+
+
 
 /* CSF_UTC - built-in method 'UTC' */
 static value CSF_UTC(VM *c)
@@ -374,7 +410,7 @@ static value CSF_UTC(VM *c)
     
 }
 
-/* CSF_ctor - built-in method 'initialize' */
+/* CSF_setTime - built-in method 'initialize' */
 static value CSF_setTime(VM *c)
 {
     value val;
@@ -784,7 +820,7 @@ static void CSF_set_hour(VM *c,value obj,value val)
 static void CSF_set_minute(VM *c,value obj,value val)
 {
     tool::date_time st = get_local(c,obj);
-    st.hours(toInt(c,val));
+    st.minutes(toInt(c,val));
     set_local(c,obj,st);
 }
 static void CSF_set_second(VM *c,value obj,value val)
@@ -1034,10 +1070,12 @@ static value CSF_toUTCString(VM *c)
 bool CsPrintDate(VM *c,value v, stream* s)
 {
     tool::date_time st = get_utc(c,v); 
-    tool::string ds = st.emit_iso(tool::date_time::DT_HAS_DATE | 
-                                  tool::date_time::DT_HAS_TIME | 
-                                  tool::date_time::DT_HAS_SECONDS |
-                                  tool::date_time::DT_UTC );  
+    uint flags = 0;//tool::date_time::DT_UTC;
+    if( st.has_date() )
+      flags |= tool::date_time::DT_HAS_DATE;
+    if( st.has_time() )
+      flags |= tool::date_time::DT_HAS_TIME | tool::date_time::DT_HAS_SECONDS;
+    tool::string ds = st.emit_iso(flags);  
     return s->put_str(ds);
 
     //return s->printf(L"%d-%d-%d %02d:%02d:%02d UTC",
@@ -1047,17 +1085,18 @@ bool CsPrintDate(VM *c,value v, stream* s)
 
 static value CSF_toLocaleString(VM *c)
 {
+#ifndef WINDOWS
     #pragma TODO("need porting")
     return CSF_toUTCString(c);
-/*
+#else
     bool longFmt = false;
     
     value d;
     CsParseArguments(c,"V=*|B",&d,c->dateDispatch,&longFmt);
     tool::datetime_t ft = CsDateValue(c,d);
-    FileTimeToLocalFileTime(&ft,&ft);
+    //FileTimeToLocalFileTime((FILETIME*)&ft,(FILETIME*)&ft);
     SYSTEMTIME st;
-    FileTimeToSystemTime(&ft,&st);
+    FileTimeToSystemTime((FILETIME*)&ft,&st);
 
     wchar str[64];
    
@@ -1084,13 +1123,13 @@ static value CSF_toLocaleString(VM *c)
       str + n,            // formatted string buffer
       64 - n              // size of string buffer
     );
-
     return CsMakeCString(c,str);
-*/
+#endif
 }
 
 static value CSF_monthName(VM *c)
 {
+#ifndef WINDOWS
     #pragma TODO("need porting")
     value d;
     CsParseArguments(c,"V=*",&d,c->dateDispatch);
@@ -1098,16 +1137,15 @@ static value CSF_monthName(VM *c)
     tool::date_time st = get_utc(c,d); 
 
     return CsMakeCString(c,short_months[st.month() - 1]);
-
-/*
+#else
     bool longFmt = false;
     
     value d;
     CsParseArguments(c,"V=*|B",&d,c->dateDispatch,&longFmt);
     tool::datetime_t ft = CsDateValue(c,d);
-    FileTimeToLocalFileTime(&ft,&ft);
+    //FileTimeToLocalFileTime(&ft,&ft);
     SYSTEMTIME st;
-    FileTimeToSystemTime(&ft,&st);
+    FileTimeToSystemTime((FILETIME*)&ft,&st);
 
     wchar str[64];
    
@@ -1124,11 +1162,12 @@ static value CSF_monthName(VM *c)
       return CsMakeCString(c,"");
 
     return CsMakeCString(c,str);
-*/
+#endif
 }
 
 static value CSF_dayOfWeekName(VM *c)
 {
+#ifndef WINDOWS
     #pragma TODO("need porting")
     value d;
     CsParseArguments(c,"V=*",&d,c->dateDispatch);
@@ -1136,15 +1175,15 @@ static value CSF_dayOfWeekName(VM *c)
     tool::date_time st = get_utc(c,d); 
 
     return CsMakeCString(c,week_days[st.day_of_week()]);
-/*
+#else
     bool longFmt = false;
     
     value d;
     CsParseArguments(c,"V=*|B",&d,c->dateDispatch,&longFmt);
     tool::datetime_t ft = CsDateValue(c,d);
-    FileTimeToLocalFileTime(&ft,&ft);
+    //FileTimeToLocalFileTime(&ft,&ft);
     SYSTEMTIME st;
-    FileTimeToSystemTime(&ft,&st);
+    FileTimeToSystemTime((FILETIME*)&ft,&st);
 
     wchar str[64];
    
@@ -1161,7 +1200,7 @@ static value CSF_dayOfWeekName(VM *c)
       return CsMakeCString(c,"");
 
     return CsMakeCString(c,str);
-*/
+#endif
 }
 
 
@@ -1205,14 +1244,14 @@ static value CSF_localOffset(VM *c)
 
 static value CSF_localTimeZone(VM *c)
 {
+#ifndef WINDOWS
   #pragma TODO("need porting")
 
 // WHAT A HECK, why SUSE does not have it?
   /*::tzset();
   tool::string tzn(tzname,2);
   return CsMakeCString(c,tzn); */
-
-/*
+#else
   TIME_ZONE_INFORMATION tzi;
   memset(&tzi,0, sizeof(tzi));
   switch( GetTimeZoneInformation( &tzi ))
@@ -1222,13 +1261,12 @@ static value CSF_localTimeZone(VM *c)
     case TIME_ZONE_ID_DAYLIGHT:
       return CsMakeCString(c, tzi.DaylightName);
   }
-*/
+#endif
   return UNDEFINED_VALUE;
 }
 
 static value CSF_isDaylight(VM *c)
 {
-  #pragma TODO("need porting")
 
 // WHAT A HECK, why SUSE does not have it?
 /*
@@ -1236,17 +1274,15 @@ static value CSF_isDaylight(VM *c)
   return daylight? c->trueValue: c->falseValue;
 */
 
-  /*
   TIME_ZONE_INFORMATION tzi;
   memset(&tzi,0, sizeof(tzi));
   switch( GetTimeZoneInformation( &tzi ))
   {
     case TIME_ZONE_ID_STANDARD:
-      return c->falseValue;
+      return FALSE_VALUE;
     case TIME_ZONE_ID_DAYLIGHT:
-      return c->trueValue;
+      return TRUE_VALUE;
   }
-  */
   return UNDEFINED_VALUE;
 }
 

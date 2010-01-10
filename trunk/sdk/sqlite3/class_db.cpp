@@ -43,10 +43,29 @@ value DB_close(VM* vm)
   int result = 0;
   if( pdb )
   {
-    result = sqlite3_close( self(obj) );
+    result = sqlite3_close( pdb );
     set_native_data(obj,0);
   }
   return v_int(result);
+}
+
+value DB_last(VM *vm)
+{
+  pinned      obj;
+  args(vm) >> obj         // 'this' is the DB here, instance method. 
+           >> args::skip; // skip 'super'
+
+  sqlite3 *pdb = self(obj);
+  int result = 0;
+  if( pdb )
+  {
+    result = sqlite3_last_insert_rowid( pdb );
+    return v_int(result);
+  } else
+  {
+    throw_error(vm, L"DB is already closed");
+    return v_undefined();
+  }
 }
 
 bool bind_value(VM* vm, sqlite3_stmt *pst, int &n, value arg)
@@ -208,6 +227,7 @@ void init_db_class( VM *vm )
     method_def("open",  DB_open),
     method_def("close", DB_close),
     method_def("exec",  DB_exec),
+    method_def("lastInsertedID",  DB_last),
     method_def()
   };
 

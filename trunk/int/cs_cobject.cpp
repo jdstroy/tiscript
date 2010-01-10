@@ -77,7 +77,7 @@ void CsCObjectSetItem(VM *c,value obj,value tag,value val)
 {
   int_t hashValue = 0,i;
   value p;
-  if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
+  if( tag == PROTOTYPE_SYM )
   {
     CsThrowKnownError(c,CsErrReadOnlyProperty,tag);
   }
@@ -96,7 +96,7 @@ bool CsGetCObjectProperty(VM *c,value& obj,value tag,value *pValue)
     value self = obj;
     value p;
     dispatch *d = CsGetDispatch(obj);
-    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
+    if( tag == PROTOTYPE_SYM )
     {
       *pValue = d->obj;
       return true;
@@ -177,7 +177,6 @@ bool CsSetCObjectProperty(VM *c,value obj,value tag,value val)
 {
     int_t hashValue = 0,i;
     value p;
-
 
     /* look for a local property */
     if ((p = CsFindProperty(c,obj,tag,&hashValue,&i)) != 0) {

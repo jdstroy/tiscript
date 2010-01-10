@@ -98,6 +98,7 @@ enum dybase_type {
     dybase_string_type  = 7, // literal string
     dybase_array_type   = 8, // literal array
     dybase_map_type     = 9, // literal key/value pairs map
+    dybase_color_type   = 10,
 */
 
 static const int dbSizeofType[] = {
@@ -297,6 +298,7 @@ class dbLoadHandle {
           case dybase_bool_type:
             u.bval = *curr++;
             break;
+          case dybase_color_type:
           case dybase_int_type:
             memcpy(&u, curr, sizeof(db_int4));
             curr += sizeof(db_int4);
@@ -391,6 +393,7 @@ class dbStoreHandle {
             *body.append(1) = type;
             *body.append(1) = *(byte*)value;
             break;
+          case dybase_color_type:
           case dybase_int_type:
             *body.append(1) = type;
             memcpy(body.append(sizeof(db_int4)), value, sizeof(db_int4));

@@ -36,7 +36,32 @@ namespace tool
     212, 243, 273, 304, 334, 365
   };
 
+  bool date_time::is_leap_year(int year)
+  {
+    return ( ( year & 3 )   == 0 ) &&
+           ( ( year % 100 ) != 0 ||
+             ( year % 400 ) == 0 );
+  }
 
+  int date_time::days_in_month(int year, int month)
+  {
+    switch( month )
+    {
+      case 1: return 31;
+      case 2: return is_leap_year(year)? 29:28;
+      case 3: return 31;
+      case 4: return 30;
+      case 5: return 31;
+      case 6: return 30;
+      case 7: return 31;
+      case 8: return 31;
+      case 9: return 30;
+      case 10: return 31;
+      case 11: return 30;
+      case 12: return 31;
+    }
+    return 0;
+  }
 
   // Static member for getting the current time
   date_time
@@ -44,13 +69,16 @@ namespace tool
   {
     date_time dt;
 #ifdef WIN32
-    SYSTEMTIME st;
     if(utc)
-      GetSystemTime(&st);
+    {
+      GetSystemTimeAsFileTime((FILETIME*)&dt._time);
+    }
     else
+    {
+      SYSTEMTIME st;
       GetLocalTime(&st);
-    
     SystemTimeToFileTime( &st, (FILETIME*)&dt._time);
+    }
     
 #else
     struct timeval tv;
@@ -149,9 +177,9 @@ namespace tool
     if ( src.year > 29000 || src.year < -29000 )
       return false;
 
-    bool is_leap_year = ( ( src.year & 3 )   == 0 ) &&
-                        ( ( src.year % 100 ) != 0 ||
-                          ( src.year % 400 ) == 0 );
+    //bool is_leap_year = ( ( src.year & 3 )   == 0 ) &&
+    //                    ( ( src.year % 100 ) != 0 ||
+    //                      ( src.year % 400 ) == 0 );
 
     /*int nDaysInMonth =
     anMonthDayInYear[SrcTime.nMonth] - anMonthDayInYear[SrcTime.nMonth-1] +
@@ -178,7 +206,7 @@ namespace tool
     if(src.month)
     {
       //  If leap year and it's before March, subtract 1:
-      if ( month <= 2 && is_leap_year )
+      if ( month <= 2 && is_leap_year(src.year) )
         --date;
 
       //  Offset so that 01/01/1601 is 0
@@ -196,6 +224,18 @@ namespace tool
     dst = date;
 
     return true;
+  }
+
+
+  bool date_time::has_date() const
+  {
+    static date_time z(1601,01,02);
+    return _time >= z._time || _time <= - z._time;
+  }
+  bool date_time::has_time() const
+  {
+    static date_time z(1601,01,02);
+    return uint64( _time % z._time ) != 0;
   }
 
 
@@ -835,7 +875,7 @@ OK:
       case DT_HAS_TIME:
         return utc? format("%H:%MZ"):format("%H:%M");
       case DT_HAS_TIME | DT_HAS_SECONDS:
-        return utc? format("%H:%M:%SZ"):format("%%H:%M:%S");
+        return utc? format("%H:%M:%SZ"):format("%H:%M:%S");
     }
     assert(false);
     return string();

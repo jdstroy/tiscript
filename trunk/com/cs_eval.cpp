@@ -41,8 +41,8 @@ void CsUseEval(VM *c)
 {
     c_method *method;
 
-    /* create a compiler context         64k      16k  */      
-    if ((c->compiler = CsMakeCompiler(c,0x10000,0x4000)) == NULL) /* 4096,1024 */
+    /* create a compiler context         1mb      16k  */      
+    if ((c->compiler = CsMakeCompiler(c,0x100000,0x4000)) == NULL) /* 4096,1024 */
         CsInsufficientMemory(c);
 
     /* enter the eval functions */
@@ -214,12 +214,43 @@ static value CSF_emit(VM *c)
 /* CSF_CompileFile - built-in function 'CompileFile' */
 static value CSF_compile(VM *c)
 {
-    CsCheckArgCnt(c,4);
-    CsCheckType(c,3,CsStringP);
-    CsCheckType(c,4,CsStringP);
-    tool::ustring iname = value_to_string(CsGetArg(c,3));
-    tool::ustring oname = value_to_string(CsGetArg(c,4));
-    return CsCompileFile(CsCurrentScope(c),iname,oname, false) ? TRUE_VALUE : FALSE_VALUE;
+
+    value inp;
+    value outp;
+    bool  server_script = false;
+    CsParseArguments(c,"**VV|B",&inp,&outp,&server_script);
+
+    stream *is = 0, *os = 0;
+    bool close_in = false;
+    bool close_out = false;
+
+    if( CsStringP(inp) )
+    {
+      is = OpenFileStream(c,CsStringAddress(inp),L"ru");
+      if( !is ) CsThrowKnownError(c, CsErrFileNotFound, CsStringAddress(inp));
+      close_in = true;
+    }
+    else if( CsFileP(c,inp) )
+      is = CsFileStream(inp);
+    else
+      CsTypeError(c, inp);
+
+    if( CsStringP(outp) )
+    {
+      os = OpenFileStream(c,CsStringAddress(outp),L"wb");
+      if( !os ) CsThrowKnownError(c, CsErrFileNotFound, CsStringAddress(outp));
+      if(!os->is_output_stream()) CsThrowKnownError(c, CsErrWrite);
+      close_out = true;
+    }
+    else if( CsFileP(c,inp) )
+      os = CsFileStream(outp);
+    else
+      CsTypeError(c, outp);
+
+    value r = CsCompileStream(CsCurrentScope(c),is,os, server_script) ? TRUE_VALUE : FALSE_VALUE;
+    if( close_in && is ) is->close();
+    if( close_out && os ) os->close();
+    return r;
 }
 
 value CsInspectStream(VM *c, stream *s, bool isServerScript, CsCompilerCallback* cb);
@@ -384,11 +415,11 @@ tool::ustring
 }
 
 stream*
-  VM::open( const tool::ustring& url )
+  VM::open( const tool::ustring& url, bool as_text )
 {
   //if( url.like(L"file://*") )
   //  return OpenFileStream(this,( const wchar*)url + 7,L"r");
-  return OpenFileStream(this, url, L"r");
+  return OpenFileStream(this, url, as_text? L"ru":L"rb");
 }
 
 
@@ -401,7 +432,7 @@ value CsLoadFile(CsScope *scope,const wchar *fname, stream* os)
     value r = NOTHING_VALUE;
 
     // open the source file
-    is = c->ploader->open(fname);
+    is = c->ploader->open(fname, true);
 
     if (!is)
        CsThrowKnownError(c,CsErrFileNotFound,fname);
@@ -430,11 +461,26 @@ value CsInclude(CsScope *scope, const tool::ustring& path)
   //if(CsGlobalValue( scope, sym, &val)) - appears to be wrong!
   if( CsGetProperty(scope->c, scope->globals, sym, &sym) )
     return FALSE_VALUE;
-  stream *s = scope->c->ploader->open(path);
+  stream *s = scope->c->ploader->open(path, true);
   if( !s )
     CsThrowKnownError(scope->c,CsErrFileNotFound, path.c_str());
+
   CsSetGlobalValue(scope, sym, TRUE_VALUE);
+
+  bool r = CsReadBytecodePreamble(scope->c,s,false);
+  s->rewind();
+  if( r )
+  {
+    // this is bytecode stream.
+    s->set_encoder( stream::null_encoder() ); 
+    val = CsLoadObjectStream(scope, s);
+  }
+  else
+  {
+    // this is source stream.
+    s->set_encoder( stream::utf8_encoder() );
   val = CsLoadStream(scope, s, 0);
+  }
   s->close();
   return val;
 }
@@ -516,8 +562,6 @@ value CsLoadDataStream(CsScope *scope,stream *is)
         return CsCallFunction(scope,expr,0);
     return r;
 }
-
-
 
 /* CSF_loadBytecodes - built-in function 'loadBytecodes' */
 static value CSF_loadBytecodes(VM *c)

@@ -96,7 +96,7 @@ OTDEF otab[] = {
 {       BC_GSETC,     "GSETC",        FMT_LIT         },
 {       BC_PUSH_NS,   "PUSH_NS",      FMT_NONE        },
 {       BC_POP_NS,    "POP_NS",       FMT_NONE        },
-{       BC_PROTO,     "PROTO",        FMT_NONE        },
+{       BC_THIS_FUNCTION,     "THIS_FUNCTION",   FMT_NONE        },
 {       BC_BRUNDEF,   "BRUNDEF",      FMT_WORD        },
 {       BC_INCLUDE,   "INCLUDE",      FMT_NONE        },
 {       BC_LIKE,      "LIKE",         FMT_NONE        },
@@ -104,7 +104,7 @@ OTDEF otab[] = {
 
 {       BC_S_CALL,    "BC_S_CALL",    FMT_WORD        },
 {       BC_S_RETURN,  "BC_S_RETURN",  FMT_NONE        },
-{       BC_NEWCLASS,  "NEWCLASS",     FMT_NONE        },
+{       BC_NEWCLASS,  "NEWCLASS",     FMT_BYTE        }, 
 {       BC_USHL,       "USHL",        FMT_NONE        },
 {       BC_USHR,       "USHR",        FMT_NONE        },
 {       BC_NS,         "NS",          FMT_NONE        },
@@ -129,6 +129,8 @@ OTDEF otab[] = {
 {       BC_EQ_STRONG_M,      "EQ_STRONG_M",         FMT_2BYTE  }, 
 {       BC_NE_STRONG_M,      "NE_STRONG_M",         FMT_2BYTE  }, 
 {       BC_STACK_RVAL,       "STACK_RVAL",          FMT_NONE   }, 
+
+{       BC_ROOT_NS,  "ROOT_NS",   FMT_NONE        },
 
 {0,0,0}
 };

@@ -125,9 +125,9 @@ namespace tool
       return slice();
     }
 
-    int index_of( T e ) const
+    int index_of( T e, uint from = 0 ) const
     {
-      for( uint i = 0; i < length; ++i ) if( start[i] == e ) return i;
+      for( uint i = from; i < length; ++i ) if( start[i] == e ) return i;
       return -1;
     }
 
@@ -358,10 +358,10 @@ template <typename T>
   inline slice<T> trim(slice<T> str)
 {
   for( unsigned i = 0; i < str.length; ++i )
-    if( isspace(str[0]) ) { ++str.start; --str.length; }
+    if( is_space(str[0]) ) { ++str.start; --str.length; }
     else break;
-  for( unsigned j = str.length - 1; j >= 0; --j )
-    if( isspace(str[j]) ) --str.length;
+  for( int j = str.length - 1; j >= 0; --j )
+    if( is_space(str[j]) ) --str.length;
     else break;
   return str;
 }
@@ -542,116 +542,110 @@ bool slice<T>::like(const T* pattern) const
 // chars to uint
 // chars to int
 
+template <typename T, typename V>
+    inline bool parse_uint(slice<T>& span, V& rv, unsigned int base = 10)
+{
+   V result = 0,value;
+   const T *cp = span.start;
+   const T *pend = span.end();
+
+   while ( cp < pend && is_space(*cp) ) ++cp;
+
+   int ndigits = 0;
+
+   if (!base)
+   {
+       base = 10;
+       if (*cp == '0') 
+       {
+           base = 8;
+           cp++; ++ndigits;
+           if ((to_upper(cp[0]) == 'X') && is_xdigit(cp[1])) 
+           {
+                   cp++;
+                   base = 16;
+           }
+       }
+   }
+   else if (base == 16)
+   {
+       if (cp[0] == '0' && to_upper(cp[1]) == 'X')
+           cp += 2;
+   }
+   while ( cp < pend && is_xdigit(*cp) &&
+          (value = is_digit(*cp) ? *cp-'0' : to_upper(*cp)-'A'+10) < base) 
+   {
+           result = result*base + value;
+           ++ndigits;
+           cp++;
+   }
+   span.length = cp - span.start;
+   if(ndigits) { rv = result; return true; }
+   return false;
+}
+
 template <typename T>
     inline unsigned int to_uint(slice<T>& span, unsigned int base = 10)
 {
-   unsigned int result = 0,value;
-   const T *cp = span.start;
-   const T *pend = span.end();
-
-   while ( cp < pend && isspace(*cp) ) ++cp;
-
-   if (!base)
-   {
-       base = 10;
-       if (*cp == '0') {
-           base = 8;
-           cp++;
-           if ((toupper(*cp) == 'X') && isxdigit(cp[1])) {
-                   cp++;
-                   base = 16;
-           }
-       }
-   }
-   else if (base == 16)
-   {
-       if (cp[0] == '0' && toupper(cp[1]) == 'X')
-           cp += 2;
-   }
-   while ( cp < pend && isxdigit(*cp) &&
-          (value = isdigit(*cp) ? *cp-'0' : toupper(*cp)-'A'+10) < base) {
-           result = result*base + value;
-           cp++;
-   }
-   span.length = cp - span.start;
-   return result;
-}
+      uint r = 0;
+      parse_uint(span,r,base);
+      return r;
+    }
 
 template <typename T>
     inline uint64 to_uint64(slice<T>& span, unsigned int base = 10)
-{
-   uint64 result = 0,value;
-   const T *cp = span.start;
-   const T *pend = span.end();
-
-   while ( cp < pend && isspace(*cp) ) ++cp;
-
-   if (!base)
    {
-       base = 10;
-       if (*cp == '0') {
-           base = 8;
-           cp++;
-           if ((toupper(*cp) == 'X') && isxdigit(cp[1])) {
-                   cp++;
-                   base = 16;
-           }
-       }
-   }
-   else if (base == 16)
-   {
-       if (cp[0] == '0' && toupper(cp[1]) == 'X')
-           cp += 2;
-   }
-   while ( cp < pend && isxdigit(*cp) &&
-          (value = isdigit(*cp) ? *cp-'0' : toupper(*cp)-'A'+10) < base) {
-           result = result*base + value;
-           cp++;
-   }
-   span.length = cp - span.start;
-   return result;
+     uint64 r = 0;
+     parse_uint(span,r,base);
+     return r;
 }
 
 
-template <typename T>
-    int to_int(slice<T>& span, unsigned int base = 10)
+template <typename T, typename V>
+    inline bool parse_int(slice<T>& span, V& rv, unsigned int base = 10)
 {
-
-   while (span.length > 0 && isspace(span[0]) ) { ++span.start; --span.length; }
+   while (span.length > 0 && is_space(span[0]) ) { ++span.start; --span.length; }
+   if( span.length == 0 )
+     return false;
+   unsigned_t<V>::type uv = 0;
    if(span[0] == '-')
    {
       ++span.start; --span.length;
-      return - int(to_uint(span,base));
+      if(!parse_uint(span,uv,base))
+        return false;
+      rv = -int(uv);
+      return true;
    }
    if(span[0] == '+')
    {
       ++span.start; --span.length;
-      return int(to_uint(span,base));
    }
-   return to_uint(span,base);
+   if(!parse_uint(span,uv,base))
+     return false;
+   rv = int(uv);
+   return true;
 }
 
 template <typename T>
-    int64 to_int64(slice<T>& span, unsigned int base = 10)
+    inline int to_int(slice<T>& span, unsigned int base = 10)
 {
-   while (span.length > 0 && isspace(span[0]) ) { ++span.start; --span.length; }
-   if(span[0] == '-')
-   {
-      ++span.start; --span.length;
-      return - int64(to_uint(span,base));
+   int rv = 0;
+   parse_int(span, rv, base);
+   return rv;
    }
-   if(span[0] == '+')
+
+template <typename T>
+    inline int64 to_int64(slice<T>& span, unsigned int base = 10)
    {
-      ++span.start; --span.length;
-      return int64(to_uint(span,base));
-   }
-   return to_uint64(span,base);
+   int64 rv = 0;
+   parse_int(span, rv, base);
+   return rv;
 }
 
 }
 
 template <typename T>
-    int str_to_i(const T* start, T** pend)
+    inline int str_to_i(const T* start, T** pend)
     {
       tool::slice<T> span = tool::chars_of(start);
       int n = tool::to_int(span);

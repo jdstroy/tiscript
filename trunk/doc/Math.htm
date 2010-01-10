@@ -1,119 +1,95 @@
-<HTML>
-  <HEAD>
-    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <META name="GENERATOR" content="BLOCKNOTE.NET">
-    <META name="source">
-    <BASEFONT face="Verdana" size=2>
-    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-</STYLE>
-  </HEAD>
-<BODY>
-<H1>Math object</H1>
-<P>Math object has no constructor thus you cannot create instances of it. Consider Math as a namespace - collection of static methods and constants.</P><DIV align=left>
-<TABLE border=0 cellpadding=4 cellspacing=0 width=100%>
-  <TR>
-    <TD colspan=2><STRONG><FONT size=4>Properties (constants)</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>E</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>- float, <EM>e</EM> - Euler's constant, the base of natural logarithms.</TD>
-  </TR>
-  <TR>
-    <TD width=117 bgcolor=#ffffff valign=top align=right><STRONG><EM>LN2</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>- float, value of natural logarithm of 2.</TD>
-  </TR>
-  <TR>
-    <TD width=117 bgcolor=#ffffff valign=top align=right><STRONG><EM>LN10</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>- float, value of natural logarithm of 10.</TD>
-  </TR>
-  <TR>
-    <TD width=117 bgcolor=#ffffff valign=top align=right><STRONG><EM>LOG2E</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>- float, value of base 2 logarithm of <EM>e</EM> constant.</TD>
-  </TR>
-  <TR>
-    <TD width=117 bgcolor=#ffffff valign=top align=right><STRONG><EM>LOG10E</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>- float, value of base 10 logarithm of <EM>e</EM> constant.</TD>
-  </TR>
-  <TR>
-    <TD width=117 bgcolor=#ffffff valign=top align=right><STRONG><EM>PI</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>- float, <EM>Pi</EM> constant - the ratio of the circumference of a circle to its diameter.</TD>
-  </TR>
-  <TR>
-    <TD width=117 bgcolor=#ffffff valign=top align=right><STRONG><EM>SQRT1_2</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>- float, value of square root of 0.5.</TD>
-  </TR>
-  <TR>
-    <TD width=117 bgcolor=#ffffff valign=top align=right><STRONG><EM>SQRT2</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>- float, value of square root of 2.0.</TD>
-  </TR>
-  <TR>
-    <TD colspan=2 valign=top><STRONG><FONT size=4>Methods</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>abs</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<P><STRONG>( </STRONG><EM>integer</EM> | <EM>float</EM><STRONG> )</STRONG></P>
-<P>Returns abs (positive) value of integer or float argument.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>sin<BR>cos</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<P><STRONG>( </STRONG><EM>integer</EM><STRONG> </STRONG>| <EM>float</EM><STRONG> )</STRONG> returns: <EM>float</EM></P>
-<P>Returns value of sine or cosine of its argument.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>tan<BR>atan</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<DIV><STRONG>( </STRONG><EM>integer</EM><STRONG> </STRONG>| <EM>float</EM><STRONG> )</STRONG> returns: <EM>float</EM></DIV>
-<P>Returns tangent or arctangent if its argument.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>asin<BR>acos</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<DIV><STRONG>( </STRONG><EM>integer</EM><STRONG> </STRONG>| <EM>float</EM><STRONG> )</STRONG> returns: <EM>float</EM></DIV>
-<P>Returns arcsine or arccosine if its argument.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>sqrt</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<P><STRONG>(</STRONG><EM> integer</EM><STRONG> </STRONG>| <EM>float</EM><STRONG> ) </STRONG>returns: <EM>float</EM></P>
-<DIV>Returns the square root of the argument.</DIV></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>ceil</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<P><STRONG>( </STRONG><EM>float</EM><STRONG> )</STRONG> returns: <EM>integer</EM></P>
-<P>Returns the smallest integer greater than or equal to the argument.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>floor</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<P><STRONG>(</STRONG><EM> float</EM><STRONG> )</STRONG> returns: integer</P>
-<P>Returns the largest integer that is less than or equal to the argument</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>exp</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<P><STRONG>(</STRONG><EM> integer</EM><STRONG> </STRONG>| <EM>float</EM><STRONG> )</STRONG> returns: <EM>float</EM></P>
-<P>Returns the exponential value of the argument, if successful. On overflow, the function returns INF (infinite) and on underflow, <EM>exp</EM> returns 0.0. To test number on infinity use <EM>Float.isFinite(value)</EM> method.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>log<BR>log2<BR>log10</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<DIV><STRONG>( </STRONG><EM>integer</EM><STRONG> </STRONG>| <EM>float</EM><STRONG> )</STRONG> returns: <EM>float</EM></DIV>
-<P>The log functions return logarithms of the argument if successful. If argument is negative, these functions return an indefinite (NaN). If argument is 0, they return INF (infinite). To test number on infinity use <EM>Float.isFinite(value)</EM> method.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign=top align=right><STRONG><EM>pow</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign=middle>
-<P><STRONG>( </STRONG><EM>number</EM><STRONG>, </STRONG><EM>exponent</EM><STRONG> ) </STRONG>returns: float | integer</P>
-<P>Calculates <EM>number</EM> raised to the power of <EM>exponent:</EM> result = number<SUP>exponent</SUP></P></TD>
-  </TR>
-</TABLE>
-</DIV>
-<DIV>&nbsp;</DIV>
-</BODY>
-</HTML>
+<html>
+  <head>
+    <meta name="GENERATOR" content="BLOCKNOTE.NET"/>
+    <meta name="source"/>
+    <basefont face="Verdana" size="2"/>
+    <meta name="generator" content="h-smile:richtext"/>
+  </head>
+<body>
+  <h1>Math object</h1>
+  <p>Math object has no constructor thus you cannot create instances of it. Consider Math as a namespace - collection of static methods and constants.</p>
+  <div align="left">
+    <table border="0" cellpadding="4" cellspacing="0" width="100%">
+      <tr>
+        <td colspan="2">
+          <h2>Properties (constants)</h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>E</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- float, <em>e</em> - Euler's constant, the base of natural logarithms.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>LN2</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- float, value of natural logarithm of 2.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>LN10</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- float, value of natural logarithm of 10.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>LOG2E</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- float, value of base 2 logarithm of <em>e</em> constant.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>LOG10E</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- float, value of base 10 logarithm of <em>e</em> constant.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>PI</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- float, <em>Pi</em> constant - the ratio of the circumference of a circle to its diameter.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>SQRT1_2</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- float, value of square root of 0.5.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>SQRT2</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- float, value of square root of 2.0.</td></tr>
+      <tr>
+        <td colspan="2" valign="top">
+          <h2>Methods</h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>abs</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>( </strong><em>integer</em> | <em>float</em><strong> )</strong></p>
+          <p>Returns abs (positive) value of integer or float argument.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>sin<br/>cos</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>( </strong><em>integer</em><strong> </strong>| <em>float</em><strong> )</strong> returns: <em>float</em></p>
+          <p>Returns value of sine or cosine of its argument.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>tan<br/>atan</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>integer</em><strong> </strong>| <em>float</em><strong> )</strong> returns: <em>float</em></div>
+          <p>Returns tangent or arctangent if its argument.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>asin<br/>acos</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>integer</em><strong> </strong>| <em>float</em><strong> )</strong> returns: <em>float</em></div>
+          <p>Returns arcsine or arccosine if its argument.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>sqrt</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>(</strong><em> integer</em><strong> </strong>| <em>float</em><strong> ) </strong>returns: <em>float</em></p>
+          <div>Returns the square root of the argument.</div></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>ceil</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>( </strong><em>float</em><strong> )</strong> returns: <em>integer</em></p>
+          <p>Returns the smallest integer greater than or equal to the argument.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>floor</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>(</strong><em> float</em><strong> )</strong> returns: integer</p>
+          <p>Returns the largest integer that is less than or equal to the argument</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>exp</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>(</strong><em> integer</em><strong> </strong>| <em>float</em><strong> )</strong> returns: <em>float</em></p>
+          <p>Returns the exponential value of the argument, if successful. On overflow, the function returns INF (infinite) and on underflow, <em>exp</em> returns 0.0. To test number on infinity use <em>Float.isFinite(value)</em> method.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>log<br/>log2<br/>log10</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>integer</em><strong> </strong>| <em>float</em><strong> )</strong> returns: <em>float</em></div>
+          <p>The log functions return logarithms of the argument if successful. If argument is negative, these functions return an indefinite (NaN). If argument is 0, they return INF (infinite). To test number on infinity use <em>Float.isFinite(value)</em> method.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>pow</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>( </strong><em>number</em><strong>, </strong><em>exponent</em><strong> ) </strong>returns: float | integer</p>
+          <p>Calculates <em>number</em> raised to the power of <em>exponent:</em> result = number<sup>exponent</sup></p></td></tr></table></div>
+  <div></div>
+</body>
+</html>

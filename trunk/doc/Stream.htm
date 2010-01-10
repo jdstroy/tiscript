@@ -13,11 +13,12 @@
   <div align="left">
     <table border="0" cellpadding="4" cellspacing="0" width="100%">
       <tr>
-        <td colspan="2" valign="middle"><strong><font size="4">Properties</font></strong></td></tr>
+        <td colspan="2" valign="middle">
+          <h2>Properties</h2></td></tr>
       <tr>
         <td width="117" bgcolor="#ffffff" align="right"><em><strong>isInput</strong></em></td>
         <td bgcolor="#fffff0" valign="middle">read only, <em>true</em> | <em>false</em>
-          <p>reports if this is an input stream or not. </p></td></tr>
+          <p>reports if this is an input stream or not.</p></td></tr>
       <tr>
         <td width="117" bgcolor="#ffffff" align="right"><em><strong>isInput</strong></em></td>
         <td bgcolor="#fffff0" valign="middle">read only, <em>true</em> | <em>false</em>
@@ -35,9 +36,10 @@
         <td width="117" bgcolor="#ffffff" align="right"><strong><em>pending</em></strong></td>
         <td bgcolor="#fffff0" valign="middle">read only, <em>integer</em>
           <p>(Pipe only)</p>
-          <p>Returns number of pending requests (not processed at the moment) issued by <em>post()</em> and <em>print**()</em> methods. </p></td></tr>
+          <p>Returns number of pending requests (not processed at the moment) issued by <em>post()</em> and <em>print**()</em> methods.</p></td></tr>
       <tr>
-        <td colspan="2" valign="middle"><strong><font size="4">Methods</font></strong></td></tr>
+        <td colspan="2" valign="middle">
+          <h2>Methods</h2></td></tr>
       <tr>
         <td colspan="2" bgcolor="#ffffff" valign="top" align="center"><font color="#cc0033">Stream object has no public constructors so it is impossible to create it using <em>new</em> operator.<br/>To create streams use static open*** methods.</font></td></tr>
       <tr>
@@ -75,26 +77,25 @@ sock.println(&quot;&quot;);
         <td bgcolor="#ffffff" valign="top" align="right"><em><strong>openPipe</strong></em></td>
         <td bgcolor="#fffff0" valign="middle">
           <div>( [<em>receiver</em>: function [, <em>proxy</em>: object]] ) : <em>stream</em></div>
-          <p>Creates so called pipe - stream used for inter-thread communications. Pipe is shared between two threads allowing two threads to &nbsp;communicate. See methods <em>send()</em>, <em>post()</em> and properties <em>pending</em> and <em>proxy</em>. </p>
+          <p>Creates so called pipe - stream used for inter-thread communications. Pipe is shared between two threads allowing two threads to &nbsp;communicate. See methods <em>send()</em>, <em>post()</em> and properties <em>pending</em> and <em>proxy</em>.</p>
           <p>The <em>receiver</em> is the function that has following signature: <code>function recv(value)</code>. This function will be called when data printed by print(), println() or printf() will arrive from other side of the pipe.</p>
           <p>The <em>proxy</em> object is an object that is used as an interface with functions accessible from the alien thread (VM) sitting on other side of the pipe, See methods <em>send()</em> and <em>post()</em> below.</p>
           <p>Example, following fragment (from ScIDE/facades.tis) creates three pipes that are used as stdin, stdout and stderr streams in the alien VM (other ScIDE window running is separate thread).</p>
           <pre>  <code>function</code> receiverOut(data) { Log.print(data,false); }
   <code>function</code> receiverErr(data) { Log.print(data,true); }
-  
+
   // callback interface
-  <code>var</code> iface = 
+  <code>var</code> iface =
   {
-    foo: <code>function</code>(v1,v2) { stdout.printf(&quot;got a call of 'foo' with %V,%V\n&quot;,v1,v2); <code>return</code> v1 + v2; } 
+    foo: <code>function</code>(v1,v2) { stdout.printf(&quot;got a call of 'foo' with %V,%V\n&quot;,v1,v2); <code>return</code> v1 + v2; }
   };
- 
+
   view.open(f,
       Stream.openPipe( null, iface ), // call interface for the alien
       Stream.openPipe( receiverOut ), // stdout
       Stream.openPipe( receiverErr )  // stderr
   );
-</pre>
-          <p></p></td></tr>
+</pre></td></tr>
       <tr>
         <td bgcolor="#ffffff" valign="top" align="right"><strong><em>toString</em></strong></td>
         <td bgcolor="#fffff0" valign="middle">
@@ -112,10 +113,20 @@ sock.println(&quot;&quot;);
           <p>Outputs <em>string</em> into the stream.</p>
           <p>print is an equivalent of: <em>stream &lt;&lt; string</em>; operation.</p></td></tr>
       <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>$</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div> ( ... ) :<strong> </strong><em>true</em> | <em>false</em></div>
+          <p>Stringizer method, outputs content in brackets into the stream.</p></td></tr>
+      <tr>
         <td bgcolor="#ffffff" valign="top" align="right"><strong><em>println</em></strong></td>
         <td bgcolor="#fffff0" valign="middle">
           <div><strong>( </strong><em>string</em><strong> ) </strong>:<strong> </strong><em>true</em> | <em>false</em></div>
-          <p>Outputs <em>string</em> appended by \r\n into the stream. &nbsp;</p></td></tr>
+          <p>Outputs <em>string</em> appended by \r\n into the stream. </p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>$n</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>string</em><strong> ) </strong>:<strong> </strong><em>true</em> | <em>false</em></div>
+          <p>Stringizer method, outputs content in brackets appended by \r\n into the stream.</p></td></tr>
       <tr>
         <td bgcolor="#ffffff" valign="top" align="right"><strong><em>printf</em></strong></td>
         <td bgcolor="#fffff0" valign="middle">

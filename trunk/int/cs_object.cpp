@@ -24,6 +24,7 @@ static value CSF_restore(VM *c);
        value CSF_propertyAt(VM *c);
 
 static value CSF_length(VM *c,value obj);
+static value CSF_persistent(VM *c,value obj);
 static value CSF_prototype(VM *c,value obj);
 static void CSF_set_prototype(VM *c,value obj, value pro);
 
@@ -33,7 +34,8 @@ static value CSF_class_class_name(VM *c,value obj);
 static void CSF_set_class_class_name(VM *c,value obj, value pro);
 
 #define FETCH(c,obj) if( _CsIsPersistent(obj) ) obj = CsFetchObjectData(c, obj);
-
+#define FETCH_P(c,obj,p1) if( _CsIsPersistent(obj) ) { CsPush(c,p1); obj = CsFetchObjectData(c, obj); p1 = CsPop(c); }
+#define FETCH_PP(c,obj,p1,p2) if( _CsIsPersistent(obj) ) { CsPush(c,p2); CsPush(c,p1); obj = CsFetchObjectData(c, obj); p1 = CsPop(c); p2 = CsPop(c); }
 
 
 /* Object methods */
@@ -60,6 +62,8 @@ static vp_method properties[] = {
 //VP_METHOD_ENTRY( "class",    CSF_prototype, CSF_set_prototype ),
 VP_METHOD_ENTRY( "length",      CSF_length, 0 ),
 VP_METHOD_ENTRY( "className",   CSF_class_name, 0 ),
+VP_METHOD_ENTRY( "persistent",  CSF_persistent, 0 ),
+
 VP_METHOD_ENTRY( 0,          0,         0         )
 };
 
@@ -97,6 +101,10 @@ static value CSF_length(VM *c,value obj)
     return CsMakeInteger(CsObjectPropertyCount(obj));
 }
 
+static value CSF_persistent(VM *c,value obj)
+{
+    return CsIsPersistent(c,obj)? TRUE_VALUE:FALSE_VALUE;
+}
 
 static value CSF_prototype(VM *c,value obj)
 {
@@ -106,7 +114,7 @@ static value CSF_prototype(VM *c,value obj)
 
 static void CSF_set_prototype(VM *c,value obj, value pro)
 {
-    FETCH( c, obj );
+    FETCH_P( c, obj, pro );
     if( CsObjectOrMethodP(pro) )
       CsSetObjectClass(obj, pro);
     else
@@ -159,7 +167,7 @@ static value CSF_exists(VM *c)
     value obj,tag;
     bool deep = false;
     CsParseArguments(c,"V=*V|B",&obj,&CsObjectDispatch,&tag,&deep);
-    FETCH( c, obj );
+    FETCH_P( c, obj,tag );
     while (CsObjectP(obj)) {
         if (CsFindProperty(c,obj,tag,NULL,NULL))
             return TRUE_VALUE;
@@ -176,7 +184,7 @@ value CSF_propertyAt(VM *c)
 {
     value obj,tag, val;
     CsParseArguments(c,"V*V",&obj,&tag);
-    FETCH( c, obj );
+    FETCH_P( c, obj, tag );
 
     if(CsGetProperty(c,obj,tag,&val))
       return val;
@@ -189,7 +197,7 @@ static value CSF_remove(VM *c)
 {
     value obj,tag;
     CsParseArguments(c,"V=*V",&obj,&CsObjectDispatch,&tag);
-    FETCH( c, obj );
+    FETCH_P( c, obj,tag );
     CsRemoveObjectProperty(c,obj,tag);
     return UNDEFINED_VALUE;
 }
@@ -391,6 +399,25 @@ dispatch CsClassDispatch = {
     AddClassConstant,
 };
 
+/* Namespace pdispatch */
+dispatch CsNamespaceDispatch = {
+    "Namespace",
+    &CsObjectDispatch,
+    CsGetObjectProperty,
+    CsSetClassProperty,
+    CsDefaultNewInstance,
+    CsDefaultPrint,
+    CsClassSize,
+    CsDefaultCopy,
+    CsClassScan,
+    CsDefaultHash,
+    CsObjectGetItem,
+    CsClassSetItem,
+    CsObjectNextElement,
+    AddClassConstant,
+};
+
+
 /* CsSetCObjectProperty - CObject set property handler */
 static bool AddClassConstant(VM *c,value obj,value tag,value val)
 {
@@ -434,9 +461,9 @@ static void CsClassSetItem(VM *c,value obj,value tag,value val)
 
 value CsObjectGetItem(VM *c,value obj,value tag)
 {
-    FETCH(c,obj);
+    FETCH_P(c,obj,tag);
     value p;
-    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
+    if( tag == PROTOTYPE_SYM )
     {
       return CsObjectClass(obj);
     }
@@ -453,7 +480,7 @@ void CsObjectSetItemNoLoad(VM *c,value obj,value tag,value val)
     int_t hashValue,i;
     value p;
 
-    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
+    if( tag == PROTOTYPE_SYM )
     {
       if( !CsObjectP(val) && val != UNDEFINED_VALUE)
         CsUnexpectedTypeError(c,val, "instance of Object class");
@@ -473,7 +500,7 @@ void CsObjectSetItemNoLoad(VM *c,value obj,value tag,value val)
 
 void     CsObjectSetItem(VM *c,value obj,value tag,value val)
 {
-   FETCH(c,obj);
+   FETCH_PP(c,obj,tag,val);
    CsSetModified(obj, true);
    CsObjectSetItemNoLoad(c,obj, tag,val);
   //CsSetObjectProperty(c,obj,tag,value);
@@ -488,10 +515,10 @@ bool CsGetProperty(VM *c,value obj,value tag,value *pValue)
 /* CsGetObjectProperty - Object get property handler */
 bool CsGetObjectProperty(VM *c,value& obj,value tag,value *pValue)
 {
-    FETCH(c,obj);
+    FETCH_P(c,obj,tag);
     value p;
 
-    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
+    if( CsSymbolP(tag) && tag == PROTOTYPE_SYM )
     {
       *pValue = CsObjectClass(obj);
       return true;
@@ -538,11 +565,14 @@ bool CsGetObjectProperty(VM *c,value& obj,value tag,value *pValue)
           *pValue = propValue;
         return true;
       }
-      if( CsClassP(obj) && uph == UNDEFINED_VALUE)
+      if( CsClassP(obj))
+      {
+         if(uph == UNDEFINED_VALUE)
          uph = CsClassUndefinedPropHandler(obj);
     }
+    }
 
-    if( CsPropertyMethodP(uph))
+    if( uph != UNDEFINED_VALUE && CsPropertyMethodP(uph))
     {
       value v = CsSendMessage(c,self,uph, 2, tag, NOTHING_VALUE );
       if(v != NOTHING_VALUE )
@@ -560,7 +590,7 @@ bool CsSetObjectPropertyNoLoad(VM *c,value obj,value tag,value val)
     int_t hashValue = 0,i = 0;
     value p;
 
-    if( tag == PROTOTYPE_VALUE )
+    if( tag == PROTOTYPE_SYM )
     {
       if( !CsObjectP(val) && val != UNDEFINED_VALUE)
         CsUnexpectedTypeError(c,val, "instance of Object class");
@@ -630,7 +660,7 @@ bool CsSetObjectPersistentProperty(VM *c,value obj,value tag,value val)
     int_t hashValue,i;
     value p;
 
-    if( tag == PROTOTYPE_VALUE )
+    if( tag == PROTOTYPE_SYM )
     {
       if( !CsObjectP(val) && val != UNDEFINED_VALUE )
         CsUnexpectedTypeError(c,val, "instance of Object class");
@@ -678,7 +708,7 @@ bool CsSetObjectPersistentProperty(VM *c,value obj,value tag,value val)
 /* CsSetObjectProperty - Object set property handler */
 bool CsSetObjectProperty(VM *c,value obj,value tag,value val)
 {
-    FETCH(c,obj);
+    FETCH_PP(c,obj,tag,val);
     CsSetModified(obj, true);
     return CsSetObjectPropertyNoLoad(c,obj,tag,val);
 }
@@ -728,7 +758,7 @@ bool CsSetProperty1(VM *c, value obj,value tag,value val )
     if( !CsObjectP(obj) && !CsCObjectP(obj) )
       CsUnexpectedTypeError(c,val, "instance of Object class");
 
-    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
+    if( tag == PROTOTYPE_SYM )
     {
       if( !CsObjectP(val) )
         CsUnexpectedTypeError(c,val, "instance of Object class");
@@ -750,7 +780,7 @@ bool CsSetProperty1(VM *c, value obj,value tag,value val )
     int_t hashValue,i;
     value p;
 
-    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
+    if( tag == PROTOTYPE_SYM )
     {
       if( !CsObjectP(val) && val != UNDEFINED_VALUE )
         CsUnexpectedTypeError(c,val, "instance of Object class");
@@ -780,7 +810,7 @@ bool CsSetObjectProperty(VM *c,value obj,value tag,value val)
     int_t hashValue,i;
     value p;
 
-    if( CsSymbolP(tag) && tag == PROTOTYPE_VALUE )
+    if( tag == PROTOTYPE_SYM )
     {
       if( !CsObjectP(val) )
         CsUnexpectedTypeError(c,val, "instance of Object class");
@@ -828,6 +858,7 @@ void CsClassScan(VM *c,value obj)
 {
     CsObjectScan(c,obj);
     CsSetClassName(obj,CsCopyValue(c,CsClassName(obj)));
+    CsSetClassNamespace(obj,CsCopyValue(c,CsClassNamespace(obj)));
     CsSetClassUndefinedPropHandler(obj,CsCopyValue(c,CsClassUndefinedPropHandler(obj)));
 }
 
@@ -869,12 +900,30 @@ value CsNewClassInstance(VM* c,value parentClass, value nameSymbol)
     newo = CsAllocate(c,sizeof(klass));
     CsSetDispatch(newo,&CsClassDispatch);
     CsSetClassName(newo,CsPop(c));
+    CsSetClassNamespace(newo, c->currentNS );
     CsSetObjectClass(newo,CsPop(c));
     CsSetClassUndefinedPropHandler(newo,UNDEFINED_VALUE);
     CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
     return newo;
 }
+
+value CsNewNamespaceInstance(VM* c,value parentNamespace, value nameSymbol)
+{
+    value newo;
+    CsCPush(c,parentNamespace);
+    CsCPush(c,nameSymbol);
+    newo = CsAllocate(c,sizeof(klass));
+    CsSetDispatch(newo,&CsNamespaceDispatch);
+    CsSetClassName(newo,CsPop(c));
+    CsSetClassNamespace(newo, c->currentNS );
+    CsSetObjectClass(newo,CsPop(c));
+    CsSetClassUndefinedPropHandler(newo,UNDEFINED_VALUE);
+    CsSetObjectProperties(newo,UNDEFINED_VALUE);
+    CsSetObjectPropertyCount(newo,0);
+    return newo;
+}
+
 
 /* CsCloneObject - clone an existing obj */
 value CsCloneObject(VM *c,value obj)
@@ -900,7 +949,7 @@ static value CopyPropertyListExcept(VM *c,value table, value tag, bool& r);
 
 void CsRemoveObjectProperty(VM *c,value obj, value tag)
 {
-    FETCH( c, obj );
+    FETCH_P( c, obj, tag );
     value properties;
     CsCheck(c,1);
     CsPush(c,obj);
@@ -1069,6 +1118,7 @@ value FindNextSymbolValue(VM *c,value obj, value& idx)
                               // its end reached.
     {
       idx = UNDEFINED_VALUE;
+      CsSetRVal(c,1,NOTHING_VALUE);
       return NOTHING_VALUE;
     }
     
@@ -1085,8 +1135,8 @@ value FindNextSymbolValue(VM *c,value obj, value& idx)
         return CsPropertyValue(p);
       }
     }
-
     idx = UNDEFINED_VALUE; // end of table has been reached;
+    CsSetRVal(c,1,NOTHING_VALUE);
     return NOTHING_VALUE;
 }
 

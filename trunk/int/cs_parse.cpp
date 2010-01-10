@@ -80,6 +80,20 @@ int CsParseArguments(VM *c,char *fmt,...)
                     *p = (int)CsIntegerValue(arg);
                 }
                 break;
+            case 'I':   /* int */
+                {   int *p = va_arg(ap,int *);
+                    if (CsIntegerP(arg))
+                      *p = (int)CsIntegerValue(arg);
+                    else if(CsFloatP(arg))
+                      *p = (int)CsFloatValue(arg);
+                    else if(arg == TRUE_VALUE)
+                      *p = 1;
+                    else if(arg == FALSE_VALUE)
+                      *p = 0;
+                    else
+                      CsUnexpectedTypeError(c,arg,"integer");
+                }
+                break;
             case 'l':   /* long */
                 {   long *p = va_arg(ap,long *);
                     if (!CsIntegerP(arg))
@@ -88,6 +102,7 @@ int CsParseArguments(VM *c,char *fmt,...)
                     *p = (long)CsIntegerValue(arg);
                 }
                 break;
+            case 'F':   /* float */
             case 'f':   /* float */
                 {   float *p = va_arg(ap,float *);
                     if (CsIntegerP(arg))
@@ -99,6 +114,7 @@ int CsParseArguments(VM *c,char *fmt,...)
                       *p = (float)CsFloatValue(arg);
                 }
                 break;
+            case 'D':   /* double */
             case 'd':   /* double */
                 {   double *p = va_arg(ap,double *);
                     if (CsIntegerP(arg))

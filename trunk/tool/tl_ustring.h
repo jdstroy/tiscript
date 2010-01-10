@@ -22,6 +22,7 @@
 #include "tl_string.h"
 #include "tl_basic.h"
 #include "tl_array.h"
+#include "tl_streams.h"
 #include "tl_slice.h"
 #include "ucdata/ucdata_lt.h"
 //#include "ucdata/ucpgba_lt.h"
@@ -86,8 +87,8 @@ class ustring {
 
         ustring(wchar c, int n = 1);
         ~ustring();
-        operator const wchar *() const;
-        operator slice<wchar> () const;
+        operator const wchar *() const { return elements(); }
+        operator slice<wchar> () const { return slice<wchar>(elements(),length()); }
         
         wchar *buffer();
         wchar &operator[](int index);
@@ -112,6 +113,8 @@ class ustring {
         ustring &operator+=(const ustring &s);
         ustring &operator+=(const wchar *s);
         ustring &operator+=(wchar c);
+        
+        const wchar* elements() const;
         
         int length() const;
         void length (int newlen) { set_length(newlen,true); }
@@ -178,7 +181,10 @@ class ustring {
 
         // create utf8 string
         string utf8() const { return utf8(wchars(*this)); }
+        void   utf8(array<byte>& out, bool emit_bom = false) const { utf8(wchars(*this),out, emit_bom); }
         static string utf8(wchars s);
+        static void   utf8(wchars wc, array<byte>& out, bool emit_bom = false);
+
         ustring xml_escape() const;
 
         void inherit(const ustring& src) { if(src.length()) *this = src; }
@@ -262,8 +268,6 @@ class ustring {
         static data null_data;
 };
 
-
-
 /***************************************************************************/
 
 inline wchar *ustring::head()
@@ -335,13 +339,8 @@ inline ustring::~ustring()
 inline int ustring::length() const
 { return my_data->length; }
 
-inline ustring::operator const wchar *() const
+inline const wchar * ustring::elements() const
 { return my_data->chars; }
-
-inline ustring::operator slice<wchar> () const
-{
-  return slice<wchar>(my_data->chars,my_data->length);
-}
 
 inline wchar *ustring::buffer()
 { make_unique(); return my_data->chars; }
@@ -476,8 +475,6 @@ namespace utf16
 }
 
 
-extern wchar getc_utf8(FILE *f);
-
 inline void to_utf8(uint c, array<byte>& utf8out)
 {
 #undef APPEND
@@ -501,10 +498,10 @@ inline void to_utf8(uint c, array<byte>& utf8out)
 #undef APPEND
 }
 
-inline bool putc_utf8(uint c, FILE* utf8out)
+inline bool putc_utf8(stream* utf8out, uint c)
 {
 #undef APPEND
-#define APPEND(x) if( (unsigned char)(x) != putc((unsigned char)(x),utf8out)) return false;
+#define APPEND(x) if(!utf8out->write(x)) return false;
 
   if (c < (1 << 7)) {
     APPEND (c);
@@ -526,6 +523,8 @@ inline bool putc_utf8(uint c, FILE* utf8out)
 }
 
 extern wchar getc_utf8(const bytes& buf, int& pos);
+extern int   getc_utf8(stream *f);
+//extern bool  putc_utf8(stream *f, int ch);
 
 inline void to_utf8(const wchar* utf16, size_t utf16_length, array<byte>& utf8out)
 {
@@ -573,6 +572,8 @@ inline void to_utf8_x_no_amp(const wchar* utf16, size_t utf16_length, array<byte
 
 
 void from_utf8(const char *src, size_t len, array<wchar>& buf);
+inline void from_utf8(chars src, array<wchar>& buf) { from_utf8(src.start, src.length, buf); }
+inline void from_utf8(bytes src, array<wchar>& buf) { from_utf8((const char *)src.start, src.length, buf); }
 
 //wchar   html_unescape(const string& name);
 wchar html_unescape(chars name);
@@ -680,6 +681,7 @@ inline WCHAR_CLASS wchar_class(wchar c)
 
   if( c == 0x200b
    || c == 0x2009
+   || c == 0x2007
    || c == 0x2006
    || c == 0x2005
    || c == 0x2004 )
@@ -714,6 +716,7 @@ inline WCHAR_CLASS wchar_class(wchar c)
     return false;
   }
 
+  inline int stoi(const wchar* s) { int n = 0; stoi(s,n); return n; }
 
   inline bool stof(const wchar* s, double& d)
   {
@@ -728,6 +731,8 @@ inline WCHAR_CLASS wchar_class(wchar c)
     }
     return false;
   }
+
+  inline double stof(const wchar* s) { double n = 0; stof(s,n); return n; }
 
   inline void to_lower( wchars wc )
   {
@@ -750,6 +755,12 @@ inline WCHAR_CLASS wchar_class(wchar c)
       *p = towlower(*p);
   #endif
   }
+
+  inline char  to_upper( char c ) { return toupper(c); }
+  inline wchar to_upper( wchar c ) { return towupper(c); }
+  inline char  to_lower( char c ) { return tolower(c); }
+  inline wchar to_lower( wchar c ) { return towlower(c); }
+
 
   inline void capitalize( wchars wc )
   {

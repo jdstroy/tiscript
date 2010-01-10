@@ -73,22 +73,26 @@ value CsMakeHashTable(VM *c,long size)
 /* CsHashBytes - compute the hash value for a byte vector */
 int_t CsHashBytes(const byte *str,int length)
 {
+    return hashlittle(str, length * 2, 0);
+/*
     register unsigned short hash = 0xFFFF;
     register const byte* p = str;
     while (--length >= 0)
 	    hash = UPDC16(*p++,hash);
-    return (int_t)hash;
+    return (int_t)hash; */
 }
 
 /* CsHashString - compute the hash value for a string */
 int_t CsHashString(const wchar *str,int length)
 {
+    return hashlittle(str, length * 2, 0);
+/*
     register unsigned short hash = 0xFFFF;
     register const char* p = (const char*)str;
     length <<= 1; 
     while (--length >= 0)
 	    hash = UPDC16(*p++,hash);
-    return (int_t)hash;
+    return (int_t)hash;*/
 }
 
 

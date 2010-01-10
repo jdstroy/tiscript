@@ -63,7 +63,9 @@ bool CsDbIndexP(VM* c, value obj)
 value CsMakeDbIndex(VM *c, value vs, oid_t oid)
 {
   DbIndexData* data = new DbIndexData();
+  CsPush(c,vs);
   value obj = CsMakeCPtrObject(c, c->dbIndexDispatch, (void*)data);
+  vs = CsPop(c);
 
   ptr<persistent_header>(obj)->oid = oid;
   ptr<persistent_header>(obj)->vstorage = vs;
@@ -75,6 +77,11 @@ value CsMakeDbIndex(VM *c, value vs, oid_t oid)
   return obj;
 }
 
+inline void* keyptr(db_triplet& data)
+{
+  if(data.type == dybase_string_type) return (void*)data.data.s;
+  return &data.data;
+}
 
 /* slice like functionlity for DB Index
  * the functionality is identical to the Search method:
@@ -93,19 +100,28 @@ value CsDbIndexSlice(VM* c, value obj, value start, value end, bool ascent, bool
   storage* s = (storage*)CsCObjectValue(vs);
   oid_t oidIdx = ptr<persistent_header>(obj)->oid;
 
+  CsPush(c,obj);
+  CsPush(c,start);
+  CsPush(c,end);
+  CsPush(c,vs);
+
   // create new object (a.k.a. iterator)
   value retObj = CsMakeDbIndex(c, vs, oidIdx);
   DbIndexData* data = (DbIndexData*)CsCObjectValue(retObj);
   assert(data);
+
+  vs = CsPop(c);
+  end = CsPop(c);
+  start = CsPop(c);
+  obj = CsPop(c);
 
   data->asc = ascent;
   data->startInclusive = startInclusive;
   data->endInclusive = endInclusive;
   Transform(c, vs, start, data->start);
   Transform(c, vs, end, data->end);
-  if(data->start.type != data->end.type)
+  if( !data->start.is_null() && !data->end.is_null() && data->start.type != data->end.type)
     { CsThrowKnownError(c, CsErrPersistError, "Min and max keys are of different types"); }
-
 
   return retObj;
 }
@@ -208,15 +224,16 @@ value CSF_dbindexRemove(VM *c)
 value CSF_dbindexSelect(VM *c)
 {
   value obj;
-  value keyMin;
-  value keyMax;
+  value keyMin = NULL_VALUE;
+  value keyMax = NULL_VALUE;
   bool ascent = true;
   bool startInclusive = true;
   bool endInclusive = true;
-  CsParseArguments(c, "V=*VV|B|B|B", &obj, c->dbIndexDispatch, &keyMin, &keyMax, &ascent, &startInclusive, &endInclusive);
+  CsParseArguments(c, "V=*|V|V|B|B|B", &obj, c->dbIndexDispatch, &keyMin, &keyMax, &ascent, &startInclusive, &endInclusive);
 
   return CsDbIndexSlice(c, obj, keyMin, keyMax, ascent, startInclusive, endInclusive );
 }
+
 
 // usage:
 //    var iter = index.search(minVal, maxVal[, true|false]); 
@@ -245,8 +262,8 @@ value DbIndexGetNextElement(VM *c, value* index, value obj, int nr)
     *data = *dataObj;
 
     data->iterator = dybase_create_index_iterator( s->dbS, oidIdx, data->start.type, 
-          (data->start.type == dybase_string_type) ? (void*)data->start.data.s : &data->start.data, data->start.len, data->startInclusive, 
-          (data->end.type == dybase_string_type) ? (void*)data->end.data.s : &data->end.data, data->end.len, data->endInclusive, 
+          keyptr(data->start),data->start.len, data->startInclusive, 
+          keyptr(data->end),  data->end.len, data->endInclusive, 
           data->asc);
     assert(data->iterator);
   }
@@ -289,18 +306,22 @@ value CSF_dbindexNext(VM *c)
 
   if( !data->iterator )
   { 
-    assert(false);
+    // create iterator on the fly
+    data->iterator = dybase_create_index_iterator( s->dbS, oidIdx, data->start.type, 
+          keyptr(data->start),data->start.len, data->startInclusive, 
+          keyptr(data->end),  data->end.len, data->endInclusive, 
+          data->asc);
+    assert(data->iterator);
     // create iterator on fly                                 // for debug only
-    data->iterator = dybase_create_index_iterator( s->dbS, oidIdx, dybase_int_type, 
-        NULL, 0, 0, 
-        NULL, 0, 0, 
-        true);
+    //data->iterator = dybase_create_index_iterator( s->dbS, oidIdx, dybase_int_type, 
+    //    NULL, 0, 0, 
+    //    NULL, 0, 0, 
+    //    true);
   }
 
   oid_t oid = dybase_index_iterator_next(data->iterator);
   if(!oid) // end of the iterator
-  { return NOTHING_VALUE; }
-
+    return NOTHING_VALUE;
   return CsFetchObject( c, vs, oid );
 }
 
@@ -365,8 +386,8 @@ value CSF_get_length(VM *c, value obj)
 
   dybase_oid_t* selected_objects = NULL;
   int_t numSelected = dybase_index_search( s->dbS, oidIdx, data->start.type, 
-          (data->start.type == dybase_string_type) ? (void*)data->start.data.s : &data->start.data, data->start.len, 1, 
-          (data->end.type == dybase_string_type) ? (void*)data->end.data.s : &data->end.data, data->end.len, 1,
+          keyptr(data->start), data->start.len, 1, 
+          keyptr(data->end),   data->end.len, 1,
           &selected_objects);
 
   dybase_free_selection(s->dbS, selected_objects, numSelected);

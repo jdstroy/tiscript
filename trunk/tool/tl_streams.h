@@ -18,6 +18,19 @@
 namespace tool
 {
 
+  // abstract stream
+  struct stream
+  {
+      enum constants {
+        EOS = -1,
+        TIMEOUT = -2,
+      };
+      virtual int  read() { return EOS; }
+      virtual bool write(int ch) { return false; }
+      virtual void rewind() {}
+      virtual ~stream() {}
+  };
+
   template<typename T>
     struct stream_o
   {

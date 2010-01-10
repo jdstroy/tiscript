@@ -1083,6 +1083,7 @@ byte* dbDatabase::markField(byte* p)
       case dybase_bool_type:
         p += 1;
         break;
+      case dybase_color_type:
       case dybase_int_type:
         p += sizeof(db_int4);
         break;

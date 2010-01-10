@@ -148,15 +148,18 @@ bool TISAPI get_float_value(tiscript_value v, double* pd)
 
 bool TISAPI get_bool_value(tiscript_value v, bool* pb)
 {
-  if(v == TRUE_VALUE && pb) 
+  if(pb)
+  {
+    if(v == TRUE_VALUE) 
   {
     *pb = true;
     return true;
   }
-  if(v == FALSE_VALUE && pb) 
+    else if(v == FALSE_VALUE)  
   {
-    *pb = true;
+      *pb = false;
     return true;
+  }
   }
   return false;
 }
@@ -265,17 +268,21 @@ tiscript_value TISAPI define_class
       )
 {
   tis::dispatch *pd = 0;
+  tis::dispatch *psuper = 0;
+
+  if(cls->prototype && tis::CsTypeP((xvm*)pvm,cls->prototype))
+    psuper = (tis::dispatch *)tis::CsCObjectValue(cls->prototype);
 
   if(zns)
   {
     tis::auto_scope as((xvm*)pvm,zns);
-    pd = tis::CsEnterCPtrObjectType(&as,NULL,(char *)cls->name, 
+    pd = tis::CsEnterCPtrObjectType(&as,psuper,(char *)cls->name, 
         (tis::c_method *)cls->methods,
         (tis::vp_method *)cls->props, 0);
   }
   else
   {
-    pd = tis::CsEnterCPtrObjectType(tis::CsGlobalScope((xvm*)pvm),NULL,(char *)cls->name, 
+    pd = tis::CsEnterCPtrObjectType(tis::CsGlobalScope((xvm*)pvm),psuper,(char *)cls->name, 
         (tis::c_method *)cls->methods,
         (tis::vp_method *)cls->props, 0);
   }
@@ -307,7 +314,6 @@ tiscript_value TISAPI define_class
         break;
       }
       ++pc;
-
     }
     return pd->obj;
   }

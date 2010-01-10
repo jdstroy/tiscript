@@ -40,6 +40,7 @@ static c_method methods[] = {
 C_METHOD_ENTRY( "scanFiles",        CSF_scanFiles      ),
 C_METHOD_ENTRY( "home",             CSF_home           ),
 C_METHOD_ENTRY( "path",             CSF_path           ),
+
 C_METHOD_ENTRY( 0,                  0                  )
 };
 
@@ -56,6 +57,15 @@ static constant constants[] =
   CONSTANT_ENTRY("IS_DIR"       , int_value(tool::filesystem::FA_DIR   )),
   CONSTANT_ENTRY("IS_HIDDEN"    , int_value(tool::filesystem::FA_HIDDEN   )),
   CONSTANT_ENTRY("IS_SYSTEM"    , int_value(tool::filesystem::FA_SYSTEM   )),
+#ifdef PLATFORM_WINCE
+  CONSTANT_ENTRY("MOBILE_OS"    , TRUE_VALUE ),
+  CONSTANT_ENTRY("DESKTOP_OS"   , FALSE_VALUE ),
+#else
+  CONSTANT_ENTRY("MOBILE_OS"    , FALSE_VALUE ),
+  CONSTANT_ENTRY("DESKTOP_OS"   , TRUE_VALUE ),
+#endif
+  CONSTANT_ENTRY("OS"           , CsSymbolOf(tool::get_os_version_name()) ),
+
   CONSTANT_ENTRY(0, 0)
 };
 
@@ -142,7 +152,8 @@ static value CSF_scanFiles(VM *c)
       for(int n = 0; n < entries.size(); ++n)
       {
         const folder_entry& fe = entries[n]; 
-        value r = CsCallFunction(CsCurrentScope(c),fun,2,CsMakeCString(c,fe.name), CsMakeInteger(fe.flags));
+        value name = CsMakeCString(c,fe.name);
+        value r = CsCallFunction(CsCurrentScope(c),fun,2,name, CsMakeInteger(fe.flags));
         if(CsToBoolean(c,r) != TRUE_VALUE)
           break;
       }

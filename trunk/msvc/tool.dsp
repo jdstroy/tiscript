@@ -118,6 +118,10 @@ SOURCE=..\tool\tl_basic.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\tool\tl_crc32.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\tool\tl_datetime.cpp
 # End Source File
 # Begin Source File

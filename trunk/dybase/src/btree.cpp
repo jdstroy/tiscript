@@ -78,6 +78,7 @@ bool dbBtree::packItem(dbDatabase* db, dbBtree* tree, dbBtreePage::item& it, voi
         it.keyLen = sizeof(db_int1);
         it.boolKey = *(db_int1*)key;
         break;
+      case dybase_color_type:
       case dybase_int_type:
         it.keyLen = sizeof(db_int4);
         it.intKey = *(db_int4*)key;
@@ -300,6 +301,7 @@ bool dbBtreePage::find(dbDatabase* db, dbSearchContext& sc, int height)
         FIND(refKey, oid_t);
       case dybase_bool_type:
         FIND(boolKey, db_int1);
+      case dybase_color_type:
       case dybase_int_type:
         FIND(intKey, db_int4);
       case dybase_long_type:
@@ -500,6 +502,7 @@ int dbBtreePage::insert(dbDatabase* db, oid_t pageId, int type, item& ins, bool 
       case dybase_bool_type:
         INSERT(boolKey, db_int1);
       case dybase_int_type:
+      case dybase_color_type:
         INSERT(intKey, db_int4);
       case dybase_long_type:
         INSERT(longKey, db_int8);
@@ -1098,6 +1101,7 @@ int dbBtreePage::remove(dbDatabase* db, oid_t pageId, int type, item& rem,  int 
       case dybase_bool_type:
         REMOVE(boolKey, db_int1);
       case dybase_int_type:
+      case dybase_color_type:
         REMOVE(intKey, db_int4);
       case dybase_long_type:
         REMOVE(longKey, db_int8);
@@ -1219,6 +1223,7 @@ int dbBtreeIterator::compare(void* key, int keyType, dbBtreePage* pg, int pos)
       case dybase_bool_type:
         return *(db_int1*)key - pg->boolKey[pos];
       case dybase_int_type:
+      case dybase_color_type:
         return *(db_int4*)key - pg->intKey[pos];
       case dybase_long_type:
         return *(db_int8*)key < pg->longKey[pos] ? -1 : *(db_int8*)key == pg->longKey[pos] ? 0 : 1;
@@ -1284,6 +1289,7 @@ dbBtreeIterator::dbBtreeIterator(dbDatabase* db, oid_t treeId, int type,
             this->from = &from_val.boolKey;
             break;
           case dybase_int_type:
+          case dybase_color_type:
             from_val.intKey = *(db_int4*)from;
             this->from = &from_val.intKey;
             break;
@@ -1310,6 +1316,7 @@ dbBtreeIterator::dbBtreeIterator(dbDatabase* db, oid_t treeId, int type,
             this->till = &till_val.boolKey;
             break;
           case dybase_int_type:
+          case dybase_color_type:
             till_val.intKey = *(db_int4*)till;
             this->till = &till_val.intKey;
             break;

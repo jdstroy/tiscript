@@ -42,7 +42,7 @@ value CSF_pc(VM *c);
 value CSF_dip(VM *c);
 value CSF_color(VM *c);
 value CSF_make_length(VM *c);
-
+//value CSF_handheld(VM *c);
 
 /* function table */
 static c_method functionTable[] = {
@@ -76,11 +76,13 @@ C_METHOD_ENTRY( "length",           CSF_make_length      ),
 C_METHOD_ENTRY( 0,          0         )
 };
 
+
 /* CsEnterLibrarySymbols - enter the built-in functions and symbols */
 void CsEnterLibrarySymbols(VM *c)
 {
     CsEnterFunctions(CsGlobalScope(c),functionTable);
 }
+
 
 /* CSF_type - built-in function 'Type' */
 static value CSF_type(VM *c)
@@ -203,22 +205,85 @@ value CsToString(VM *c, value val)
 {
     if(CsStringP(val))
       return val;
+    if(CsSymbolP(val))
+      return CsMakeString(c, CsSymbolName(val) );
+
+    /*value r;
+    value obj = val;
+    if(CsGetProperty1(c, obj, TO_STRING_SYM, &r) && (CsMethodP(r) || CsCMethodP(r)))
+    {
+      //TRY 
+      //{
+      return CsSendMessage(CsCurrentScope(c),val,r, 0);
+      //}
+      //CATCH_ERROR(e) {}
+    }*/
 
     string_stream s(64);
-    value r;
 
-    /* print the value to the buffer */
-    //CsInitStringOutputStream(c,&s,64);
     CsDisplay(c,val,&s);
 
-    r = s.string_o(c);
+    value r = s.string_o(c);
 
     s.close();
 
-    /* return the resulting string */
+    // return the resulting string
     return r;
 }
 
+void CsToString(VM *c, value val, stream& s)
+{
+    if(CsStringP(val))
+    {
+      s.put_str(CsStringAddress(val));
+      return;
+    }
+    if(CsSymbolP(val))
+    {
+      s.put_str(  CsSymbolName(val) );
+      return;
+    }
+
+    /*value r;
+    value obj = val;
+    if(CsGetProperty1(c,obj,TO_STRING_SYM, &r) && (CsMethodP(r) || CsCMethodP(r)))
+    {
+      val = CsSendMessage(c,val,r);
+      if(CsStringP(val))
+      {
+        s.put_str(CsStringAddress(val));
+        return;
+      }
+    }*/
+    CsDisplay(c,val,&s);
+}
+
+void  CsToHtmlString(VM *c, value val, stream& s)
+{
+    value r;
+    value obj = val;
+
+    static value TO_HTML_STRING = 0;
+    if( !TO_HTML_STRING ) TO_HTML_STRING = CsSymbolOf("toHtmlString");
+
+    if(!CsGetProperty1(c,obj,TO_HTML_STRING, &r))
+    {
+      obj = val;
+      if(!CsGetProperty1(c,obj,TO_STRING_SYM, &r))
+        CsThrowKnownError(c,CsErrNoSuchFeature,val, "toHtmlString() method");
+    }
+    if( CsMethodP(r) || CsCMethodP(r))
+    {
+      val = CsSendMessage(c,val,r);
+      if(CsStringP(val))
+      {
+        s.put_str(CsStringAddress(val));
+        return;
+      }
+    }
+    else
+      CsThrowKnownError(c,CsErrNoSuchFeature,val, "toHtmlString() method");
+}
 
 /* CSF_rand - built-in function 'rand' */
 static value CSF_rand(VM *c)
@@ -243,11 +308,12 @@ static value CSF_rand(VM *c)
     return CsMakeInteger((int_t) (i?(rseed % i):rseed) );
 }
 
+
 value CsToInteger(VM *c, value v)
 {
     int_t i = 0;
     wchar *pend;
-
+//START:
     if( CsIntegerP(v) )
       return v;
     else if (CsFloatP(v))
@@ -264,12 +330,24 @@ value CsToInteger(VM *c, value v)
       if( CsStringAddress(v) != pend )
         return CsMakeInteger(n);
     }
+    /*else if( CsObjectP(v) )
+    {
+      value r;
+      value obj = v;
+      if(CsGetProperty1(c, obj, VALUE_OF_SYM, &r) && (CsMethodP(r) || CsCMethodP(r)))
+      {
+        v = CsSendMessage(CsCurrentScope(c),v,r, 0);
+        if( !CsObjectP(v) )
+          goto START;
+      }
+    }*/
     return CsMakeInteger(i);
 }
 
 value CsToFloat(VM *c, value v)
 {
-    wchar *pend;
+    wchar *pend = 0;
+//START:
     if( CsFloatP(v) )
       return v;
     else if (CsIntegerP(v))
@@ -286,6 +364,17 @@ value CsToFloat(VM *c, value v)
       if( CsStringAddress(v) != pend )
         return CsMakeFloat(c,n);
     }
+    /*else if( CsObjectP(v) )
+    {
+      value r;
+      value obj = v;
+      if(CsGetProperty1(c, obj, VALUE_OF_SYM, &r) && (CsMethodP(r) || CsCMethodP(r)))
+      {
+        v = CsSendMessage(CsCurrentScope(c),v,r, 0);
+        if( !CsObjectP(v) )
+          goto START;
+      }
+    }*/
     return CsMakeFloat(c,float_t((int64)v));
 }
 

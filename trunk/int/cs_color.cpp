@@ -8,8 +8,6 @@
 #include "cs.h"
 #include <limits.h>
 
-#undef SCITER
-
 #ifdef SCITER
 #include "../gool/gool.h"  
 #endif
@@ -52,6 +50,8 @@ C_METHOD_ENTRY( "toHSL",            CSF_to_hsl          ),
 C_METHOD_ENTRY( "toFloat",          CSF_toFloat         ),
 C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
 C_METHOD_ENTRY( "toString",         CSF_toString        ),
+C_METHOD_ENTRY( "toHtmlString",     CSF_toString        ),
+C_METHOD_ENTRY( "toUrlString",      CSF_toString        ),
 C_METHOD_ENTRY( 0,                  0                   )
 };
 
@@ -148,6 +148,11 @@ static value CSF_rgba(VM *c)
     return unit_value( rgba(vr,vg,vb,va), tool::value::clr ); 
 }
 
+value  CsMakeColor(byte vr, byte vg, byte vb, byte va)
+{
+  return unit_value( rgba(vr,vg,vb,255-va), tool::value::clr ); 
+}
+
 #ifdef SCITER
 
 static value CSF_parse(VM *c)
@@ -236,7 +241,7 @@ static value CSF_toInteger(VM *c)
 {
     value obj;
     CsParseArguments(c,"V=*",&obj,&CsColorDispatch);
-    return obj;
+    return CsMakeInteger(CsIntegerValue(obj));
 }
 
 /* CSF_toString - built-in method 'toString' */

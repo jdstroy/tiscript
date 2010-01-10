@@ -25,6 +25,8 @@ C_METHOD_ENTRY( "parse",            CSF_parse           ),
 C_METHOD_ENTRY( "toFloat",          CSF_toFloat         ),
 C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
 C_METHOD_ENTRY( "toString",         CSF_toString        ),
+C_METHOD_ENTRY( "toHtmlString",     CSF_toString        ),
+C_METHOD_ENTRY( "toUrlString",      CSF_toString        ),
 C_METHOD_ENTRY( 0,                  0                   )
 };
 

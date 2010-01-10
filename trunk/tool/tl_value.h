@@ -204,6 +204,7 @@ namespace tool
 
     explicit value(bool b, uint u = 0)             { _units = u; _type = t_bool; _b(b); }
     explicit value(int i, uint u = 0)              { _units = u; _type = t_int;  _i(i); }
+    explicit value(uint i, uint u = 0)             { _units = u; _type = t_int;  _i(i); }
     explicit value(double d, uint u = 0)           { _units = u; _type = t_double; _d(d); }
     //explicit value(const string& s, uint u = 0)    { _units = u; _type = t_string; _s(s.get_data()); }
     explicit value(chars s)                        { _units = UT_SYMBOL; _type = t_string; _us( ustring(s.start,s.length).get_data()); }
@@ -284,7 +285,8 @@ namespace tool
 
 
     void set(const value& cv);
-    bool set(uint idx, const value& v); // set element by index
+    bool  set_element(uint idx, const value& v); // set element by index
+    value get_element(uint idx) const;           // get element by index
 
     void clear();
 
@@ -313,37 +315,11 @@ namespace tool
     uint  units() const { return _units; }
     void  units(uint u) { _units = u; }
 
-    unsigned int hash() const 
-    {
-        switch(_type) 
-        {
-        //case t_null:
-        //  return "{undefined}";
-        default:
-          assert(false);
-        case t_null:
-          return _type + uint(_units);
-        case t_bool:
-          return _type + uint(_i());
-        case t_int:
-          return _type + 1 + uint(_i()) + _units;
-        case t_length:
-          return _type + 1 + uint(_i()) + _units;
-        case t_duration:
-        case t_double:
-          return _type + uint(_i()) + _units;
-        case t_string:
-          return ustring(_us()).hash();
-        //case t_function:
-        //  return _f()->hash();
-        case t_undefined:
-          return 0;
-        }
-        return (unsigned int)_i();
-    }
+    unsigned int hash() const;
 
     //to_string()
     bool  is_undefined() const { return _type == t_undefined; }
+    bool  is_defined() const { return _type != t_undefined; }
     bool  is_null() const { return _type == t_null; }
     bool  is_cancel() const { return _type == t_null && _units == 0xAFED; }
     bool  is_color() const { return _type == t_int && _units == clr; } 
@@ -353,6 +329,7 @@ namespace tool
     bool  is_double() const { return _type == t_double; }
     bool  is_string() const { return _type == t_string; }
     bool  is_array() const { return _type == t_array; }
+    bool  is_array_like() const { return _type == t_array || is_proxy_of_array(); }
     bool  is_function() const { return _type == t_function; }
     bool  is_map() const { return _type == t_map; }
     bool  is_length() const { return _type == t_length; }
@@ -365,6 +342,7 @@ namespace tool
     bool  is_proxy() const { return _type == t_object_proxy; }
     bool  is_proxy_of_object() const { return _type == t_object_proxy && _units == UT_OBJECT_OBJECT; }
     bool  is_proxy_of_array() const { return _type == t_object_proxy && _units == UT_OBJECT_ARRAY; }
+    bool  is_proxy_of_function() const { return _type == t_object_proxy && _units == UT_OBJECT_FUNCTION; } 
     bool  is_resource() const { return _type == t_resource; }
     bool  is_range() const { return _type == t_range; }
     bool  is_duration() const { return _type == t_duration; }
@@ -635,6 +613,8 @@ namespace tool
 
     static value parse(const ustring& us)
     {
+      if( us.undefined() )
+        return value();
       double d;
       int i;
       if( stoi(us,i) ) return value(i);
@@ -735,18 +715,25 @@ namespace tool
     bool operator == (const value& rs) const { return equal(rs); }
     bool operator != (const value& rs) const { return !equal(rs); }
 
-    const value operator [] (uint idx) const; 
-         value& operator [] (uint idx); 
+    //value& operator [] (uint idx); 
+
     // converts the value to array if needed and append the value to it
     void push(const value& v);
 
     // converts the value to map if needed and append the named value to it
     void push(const value& k, const value& v);
 
-    const value   operator [] (const value& k) const; 
-         value&   operator [] (const value& k); 
+    //const value   operator [] (const value& k) const; 
+    //     value&   operator [] (const value& k); 
+
+    value   get_prop(const value& k) const; 
+    void    set_prop(const value& k,const value& v); 
+    value   get_prop(const char* k) const { return get_prop(value(k)); }
+    void    set_prop(const char* k,const value& v) { set_prop(value(k),v); }
+
     value   key(uint n) const;
 
+    void    inherit(const value& from) { if(from.is_defined()) *this = from; }
 
 /*    
     size_t storage_size() const 
@@ -866,6 +853,8 @@ namespace tool
     static value inherit() { value t; t._type = t_null; t._units = 0xFFFF; return t; }
     static value cancel() { value t; t._type = t_null; t._units = 0xAFED; return t; }
 
+    
+
     static const value undefined;
 
     // if array...
@@ -964,6 +953,13 @@ namespace tool
     inline void   _res(resource* pr)    { _data.i = 0; _data.ptr = pr; }
 
   };
+
+  struct named_value
+  {
+    tool::string name;
+    tool::value  value;
+  };
+
   struct script_proxy: public resource
   {
     virtual uint  get_type() const = 0; //e.g. returns t_array if this represents array in tiscript
@@ -1001,6 +997,14 @@ namespace tool
       }
       return d;
     }
+
+    value get(const value& key) const
+    {
+      value v;
+      params.find(key,v);
+      return v;
+    }
+
   };
 
   inline value value::make_function(function_value* f) 
@@ -1061,27 +1065,27 @@ namespace tool
     }
   }
 
-  inline const value value::operator [] (const value& k) const
+  inline value value::get_prop(const value& k) const
   {
     value v; 
     if(is_map())
       get_map()->params.find(k,v);
     else if(is_function())
       get_function()->params.find(k,v);
+    else if(is_proxy())
+      return _proxy()->get_by_key(k);
     return v;
   }
 
-  inline value& value::operator [] (const value& k)
+  inline void value::set_prop(const value& k, const value& v)
   {
     if(is_map())
-      return get_map()->params[k];
+      get_map()->params[k] = v;
     else if(is_function())
-      return get_function()->params[k];
-    assert(false);
-    static value z;
-    return z;
+      get_function()->params[k] = v;
+    else if(is_proxy())
+      _proxy()->set_by_key(k,v);
   }
-
 
   inline value value::key(uint n) const
   {
@@ -1155,7 +1159,7 @@ namespace tool
       _i64(0);
     }
 
-    inline const value value::operator [] (uint idx) const 
+    inline value value::get_element(uint idx) const 
     { 
       if(is_array())
       {
@@ -1175,9 +1179,9 @@ namespace tool
         return _proxy()->get_by_index(idx);
       return value(); 
     }
-    inline value& value::operator [] (uint idx) 
+
+    /*inline value& value::operator [] (uint idx) 
     { 
-      assert(is_array());
       if(is_array())
       {
         if(idx >= size())
@@ -1203,7 +1207,8 @@ namespace tool
       static value dummy;
       return dummy; 
     }
-    inline bool value::set(uint idx, const value& v) 
+    */
+    inline bool value::set_element(uint idx, const value& v) 
     {
       switch(_type)
       {
@@ -1296,6 +1301,36 @@ namespace tool
         return _a()->elements();
       return slice<value>();
     }
+
+    inline unsigned int value::hash() const 
+    {
+        switch(_type) 
+        {
+        //case t_null:
+        //  return "{undefined}";
+        default:
+          assert(false);
+        case t_null:
+          return _type + uint(_units);
+        case t_bool:
+          return _type + uint(_i());
+        case t_int:
+          return _type + 1 + uint(_i()) + _units;
+        case t_length:
+          return _type + 1 + uint(_i()) + _units;
+        case t_duration:
+        case t_double:
+          return _type + uint(_i()) + _units;
+        case t_string:
+          return ustring(_us()).hash();
+        case t_function:
+          return _f()->hash();
+        case t_undefined:
+          return 0;
+        }
+        return (unsigned int)_i();
+    }
+
 
 
   inline bool  enumerate( value& val, enumerator& en ) 

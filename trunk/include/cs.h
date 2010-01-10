@@ -63,11 +63,7 @@ struct  error_event
 //typedef unsigned short int  wchar;
 
 /* default values */
-#ifdef PLATFORM_WINCE
-  #define HEAP_SIZE   (400 * 1024)
-  #define EXPAND_SIZE (800 * 1024)
-  #define STACK_SIZE  (64 * 1024)
-#else
+
   #ifdef X64BITS
     #define HEAP_SIZE   (4*1024 * 1024)
     #define EXPAND_SIZE (8 * 1024 * 1024)
@@ -78,11 +74,11 @@ struct  error_event
       #define PTR64_MASK    0xFFFFFFFFFFFFi64 // 48bits on x64
     #endif 
   #else
-    #define HEAP_SIZE   (1024 * 1024)
+    #define HEAP_SIZE   (2 * 1024 * 1024)
     #define EXPAND_SIZE (2 * 1024 * 1024)
     #define STACK_SIZE  (64 * 1024)
   #endif
-#endif
+
 
 #define FEATURE_FILE_IO   0x00000001
 #define FEATURE_SOCKET_IO 0x00000002
@@ -102,7 +98,7 @@ struct  error_event
 #endif
 
 /* obj file version number */
-#define CsFaslVersion      4
+#define CsFaslVersion      0x400
 
 /* hash table thresholds */
 #define CsHashTableCreateThreshold 8           /* power of 2 */
@@ -121,16 +117,25 @@ struct  error_event
 #define CsVectorExpandDivisor      2
 
 /* obj file tags */
-#define CsFaslTagNil       0
-#define CsFaslTagCode      1
-#define CsFaslTagVector    2
-#define CsFaslTagObject    3
-#define CsFaslTagSymbol    4
-#define CsFaslTagString    5
-#define CsFaslTagInteger   6
-#define CsFaslTagFloat     7
-#define CsFaslTagBytes     8
-#define CsFaslTagDate      9
+enum CsFaslTags
+{
+  CsFaslTagUndefined = 0,
+  CsFaslTagNull      = 1,
+  CsFaslTagTrue      = 2,
+  CsFaslTagFalse     = 3,
+  CsFaslTagProxy     = 4, // object proxy in case of cyclic reference
+  CsFaslTagCode      = 5,
+  CsFaslTagVector    = 6,
+  CsFaslTagObject    = 7,
+  CsFaslTagSymbol    = 8,
+  CsFaslTagString    = 9,
+  CsFaslTagInteger   = 10,
+  CsFaslTagFloat     = 11,
+  CsFaslTagBytes     = 12,
+  CsFaslTagDate      = 13,
+  CsFaslTagColor     = 14,
+  CsFaslTagLength    = 15,
+};
 
 template<typename T>
   inline T* ptr( const value& v )
@@ -220,7 +225,11 @@ inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
     #define NULL_VALUE      0x2000000000000003LL
     #define TRUE_VALUE      0x2000000000000004LL
     #define FALSE_VALUE     0x2000000000000005LL
-    #define PROTOTYPE_VALUE 0x2000000000000006LL
+    #define PROTOTYPE_SYM   0x2000000000000006LL
+    #define TO_STRING_SYM   0x2000000000000007LL
+    #define VALUE_OF_SYM    0x2000000000000008LL
+    #define THIS_SYM        0x2000000000000009LL
+
 #else
     inline value ptr_value( header* ph )    { return (value)ph; }
     inline value symbol_value( symbol_t i ) { return ((unsigned int)i)       | 0x2000000000000000i64; }
@@ -238,7 +247,10 @@ inline dword lodword(const value& v) { return ((dword*)(&v))[0]; }*/
     #define NULL_VALUE      0x2000000000000003i64
     #define TRUE_VALUE      0x2000000000000004i64
     #define FALSE_VALUE     0x2000000000000005i64
-    #define PROTOTYPE_VALUE 0x2000000000000006i64
+    #define PROTOTYPE_SYM   0x2000000000000006i64
+    #define TO_STRING_SYM   0x2000000000000007i64
+    #define VALUE_OF_SYM    0x2000000000000008i64
+    #define THIS_SYM        0x2000000000000009i64
 
 #endif
 
@@ -357,7 +369,7 @@ struct CsScope
     value globals;
     value ns;
     CsScope *next;
-    //CsScope *next;
+    CsScope():c(0),globals(0),ns(0),next(0) {}
 };
 
 /* get the obj holding the variables in a scope */
@@ -376,6 +388,24 @@ void CsAlreadyDefined(VM *c, value tag);
 class storage;
 
 #define V_REGISTERS 256
+
+// muti return helepers:
+
+#define CS_RETURN4(c,r1,r2,r3,r4) \
+      CsSetRVal(c,1, r3 ); \
+      CsSetRVal(c,2, r2 ); \
+      CsSetRVal(c,3, r1 ); \
+      return r4;
+
+#define CS_RETURN3(c,r1,r2,r3) \
+      CsSetRVal(c,1, r2 ); \
+      CsSetRVal(c,2, r1 ); \
+      return r3;
+
+#define CS_RETURN2(c,r1,r2) \
+      CsSetRVal(c,1, r1 ); \
+      return r2;
+
 
 struct _VM
 {
@@ -398,6 +428,9 @@ struct _VM
     byte *cbase;                 /* code base */
     byte *pc;                    /* program counter */
     value val[V_REGISTERS];      /* value register */
+
+    //circular_buffer<value>       global_cache;      
+
     uint  vals;                  /* count of cells used in val[] array, changed by BC_PUSH_RVAL, BC_POP_RVAL.
                                     shall be >= 1 */
     value env;                   /* environment register */
@@ -432,6 +465,8 @@ struct _VM
     long expandSize;               /* size of each expansion */
     unsigned long totalMemory;     /* total memory allocated */
     unsigned long allocCount;      /* number of calls to CsAlloc */
+    int page_size;
+    void *virtual_memory;
 
     dispatch *fileDispatch;
     dispatch *storageDispatch;
@@ -456,7 +491,12 @@ struct _VM
 struct loader
 {
   virtual tool::ustring combine_url( const tool::ustring& base, const tool::ustring& relative ) = 0;
-  virtual stream* open( const tool::ustring& url ) = 0;
+  virtual stream* open( const tool::ustring& url, bool as_text ) = 0;
+};
+
+struct gc_callback
+{
+  virtual void on_GC(VM* c) = 0; 
 };
 
 
@@ -466,6 +506,8 @@ struct VM: _VM, loader, tool::resource
     loader*     ploader;
     debug_peer* pdebug;
     tool::mutex guard;
+    tool::array<gc_callback*> gc_callbacks;
+
     
     VM( unsigned int features = 0xFFFFFFFF,
       long size = HEAP_SIZE, long expandSize = EXPAND_SIZE,long stackSize = STACK_SIZE );
@@ -479,7 +521,7 @@ struct VM: _VM, loader, tool::resource
     virtual void GC_ended() {}
 
     virtual tool::ustring combine_url( const tool::ustring& base, const tool::ustring& relative );
-    virtual stream* open( const tool::ustring& url );
+    virtual stream* open( const tool::ustring& url, bool as_text );
 
     value   getCurrentNS() const { 
       return currentNS == UNDEFINED_VALUE? currentScope.globals: currentNS; 
@@ -503,11 +545,23 @@ struct VM: _VM, loader, tool::resource
       if( get_current() == this )
       {
         pc->operator()();
-        pc->release();
+        //pc->release(); // if we release it we delete it twice - now and later in destructor of tool::handle
         return true;
       }
       return false;
     }
+
+    void add_gc_callback(gc_callback* nc)
+    {
+      gc_callbacks.push(nc);
+    }
+    void remove_gc_callback(gc_callback* nc)
+    {
+      bool r = gc_callbacks.remove_by_value(nc);
+      assert(r); r;
+    }
+
+
 };
 
 /*enum CONNECT_RESULT
@@ -538,6 +592,8 @@ inline bool     CsFalseP(VM* c, const value& v) { return v == FALSE_VALUE; }
 
 inline bool     CsBooleanP(VM* c, value v)      { return v == TRUE_VALUE || v == FALSE_VALUE; }
 inline value    CsMakeBoolean(VM* c, bool b)    { return b? TRUE_VALUE : FALSE_VALUE; }
+inline bool     CsBooleanP(value v)             { return v == TRUE_VALUE || v == FALSE_VALUE; }
+inline value    CsMakeBoolean(bool b)           { return b? TRUE_VALUE : FALSE_VALUE; }
 
 
 /* get the global scope */
@@ -672,19 +728,19 @@ struct persistent_header: header {
 inline  bool        CsPointerP(value o)                 { return is_ptr(o); }
 
 
-inline  dispatch*   CsQuickGetDispatch(value o)         
+INLINE  dispatch*   CsQuickGetDispatch(value o)         
 { 
    dispatch* pd = ptr<header>(o)->pdispatch;
    assert(pd); 
    return pd; 
 }
-inline  dispatch*   CsGetDispatch(value o) {
+INLINE  dispatch*   CsGetDispatch(value o) {
                       if( is_ptr(o) )
                         return CsQuickGetDispatch(o);
-                      if( is_int(o) )
-                        return &CsIntegerDispatch;
-                      else if( is_symbol(o) )
+                      if( is_symbol(o) )
                         return &CsSymbolDispatch;
+                      else if( is_int(o) )
+                        return &CsIntegerDispatch;
                       else if( is_float(o) )
                         return &CsFloatDispatch;
                       else if( is_unit(o) )
@@ -715,13 +771,14 @@ inline  dispatch*   CsGetDispatch(value o) {
 #endif
                       return 0;
                     }
-inline  bool        CsIsType(value o,dispatch* t)       { return CsGetDispatch(o) == t; }
-inline  bool        CsIsBaseType(value o,dispatch* t)   { return CsGetDispatch(o)->baseType == t; }
-inline  bool        CsQuickIsType(value o,dispatch* t)  { return CsQuickGetDispatch(o) == t; }
+INLINE  bool        CsIsType(value o,dispatch* t)       { return CsGetDispatch(o) == t; }
+INLINE  bool        CsIsBaseType(value o,dispatch* t)   { return CsGetDispatch(o)->baseType == t; }
+INLINE  bool        CsQuickIsType(value o,dispatch* t)  { return CsQuickGetDispatch(o) == t; }
 inline  const char* CsTypeName(value o)                 { return CsGetDispatch(o)->typeName; }
 inline  const char* CsQuickTypeName(value o)            { return CsQuickGetDispatch(o)->typeName; }
 
-inline void         CsCheckArgType(VM* c,int n,dispatch* t) { CsIsType(CsGetArg(c,n),t); }
+inline void         CsCheckArgType(VM* c,int n,dispatch* t) { if(!CsIsType(CsGetArg(c,n),t)) CsUnexpectedTypeError(c,CsGetArg(c,n),t->typeName); }
+inline void         CsCheckArgType(VM* c,int n,dispatch* t1, dispatch* t2) { if(!CsIsType(CsGetArg(c,n),t1) && !CsIsType(CsGetArg(c,n),t2)) CsUnexpectedTypeError(c,CsGetArg(c,n),t1->typeName); }
 
 inline  void        CsSetDispatch(value o, dispatch* d)      { ptr<header>(o)->pdispatch = d; }
 inline  bool        CsGetProperty1(VM* c,value& o,value t,value* pv) { return CsGetDispatch(o)->getProperty(c,o,t,pv); }
@@ -731,6 +788,7 @@ inline  bool        CsAddConstant(VM* c,value o,value t, value v)  { dispatch* p
 
 inline  value       CsNewInstance(VM* c,value o)             { return CsGetDispatch(o)->newInstance(c,o); }
 extern  value       CsNewClassInstance(VM* c,value parentClass, value nameSymbol);
+extern  value       CsNewNamespaceInstance(VM* c,value parentClass, value nameSymbol);
 
 inline  bool        CsPrintValue(VM* c,value o, stream* s, bool toLocale = false)
                     {
@@ -792,6 +850,11 @@ inline bool  CsLengthP(value o)            { return is_unit(o) && get_unit(o) !=
 
 inline uint   CsColorValue(value o)        { int u; return (uint)to_unit(o,u); }
        value  CSF_color(VM *c);
+
+inline value  CsMakeColor(int_t colorref)  { return unit_value( colorref, tool::value::clr ); }
+       value  CsMakeColor(byte r, byte g, byte b, byte a);
+
+inline int    CsLengthValue(value o,int& u) { return (uint)to_unit(o,u); }
 
 /* NUMBER */
 
@@ -918,6 +981,9 @@ enum WELL_KNOWN_SYMBOLS // this enum must match well_known_symbols table
   S_TRUE_,
   S_FALSE_,
   S_PROTOTYPE,
+  S_TO_STRING,
+  S_VALUE_OF,
+  S_THIS,
   S_BOOLEAN,
   S_INTEGER,
   S_FLOAT,
@@ -949,6 +1015,23 @@ void    CsSetNamespaceValue(VM *c,value sym,value val);
 void    CsSetNamespaceConst(VM *c,value sym,value val);
 
 value   CsGetGlobalValueByPath(VM *c,const char* path);
+value   CsGetGlobalValueByPath(VM *c,value root_ns, const char* path);
+
+// get_prop helper, fetches property value 
+inline  bool _CsGetProp(VM* c, value o, const char* name, value* pv) { return CsGetDispatch(o)->getProperty(c,o,CsSymbolOf(name),pv); }
+
+inline  int_t CsGetProp(VM* c, value o, const char* name, int_t defval) 
+{ 
+  value v; if( !_CsGetProp(c,o,name,&v) || !CsIntegerP(v) ) return defval; return CsIntegerValue(v);
+}
+inline  float_t CsGetProp(VM* c, value o, const char* name, float_t defval) 
+{ 
+  value v; if( !_CsGetProp(c,o,name,&v) || !CsIntegerP(v) ) return defval; return CsFloatValue(v);
+}
+inline  bool    CsGetProp(VM* c, value o, const char* name, bool defval) 
+{ 
+  value v; if( !_CsGetProp(c,o,name,&v) || !CsBooleanP(v) ) return defval; return v == TRUE_VALUE;
+}
 
 
 /* OBJECT */
@@ -963,8 +1046,9 @@ struct object: public persistent_header
 
 struct klass: public object
 {
-    value name; // namespace
+    value name; // fully qualified name
     value undefinedPropHandler; 
+    value ns; // namespace this class is in
     klass() {}
 };
 
@@ -983,12 +1067,16 @@ extern const char* CsObjectClassName(VM* c, value obj);
 extern const char* CsClassClassName(VM* c, value cls);
 
 extern dispatch CsClassDispatch;
+extern dispatch CsNamespaceDispatch;
 inline bool   CsClassP(value o)       { return CsIsType(o,&CsClassDispatch); }
+inline bool   CsNamespaceP(value o)   { return CsIsType(o,&CsNamespaceDispatch); }
 
 inline bool   CsTypeP(VM* c, value o) { return CsIsType(o,c->typeDispatch); }
 
 inline value  CsClassName(value o)  { return ptr<klass>(o)->name; }
+inline value  CsClassNamespace(value o)  { return ptr<klass>(o)->ns; }
 inline void   CsSetClassName(value o,value v) { ptr<klass>(o)->name = v; }
+inline void   CsSetClassNamespace(value o,value v) { ptr<klass>(o)->ns = v; }
 
 inline value  CsClassUndefinedPropHandler(value o)  { return ptr<klass>(o)->undefinedPropHandler; }
 inline void   CsSetClassUndefinedPropHandler(value o,value v) { ptr<klass>(o)->undefinedPropHandler = v; }
@@ -1541,6 +1629,7 @@ void CsFreeDispatch(VM *c,dispatch *d);
 //bool CsUnprotectPointer(VM *c,value *pp);
 value CsAllocate(VM *c,size_t size);
 void *CsAlloc(VM *c,unsigned long size);
+void *CsMalloc(VM *c,unsigned long size);
 void CsFree(VM *c,void *ptr);
 void CsInsufficientMemory(VM *c);
 
@@ -1663,14 +1752,16 @@ bool CsLoadExtLibrary(VM *c, tool::ustring fullpath);
 
 /* cs_wcode.c prototypes */
 bool CsCompileFile(CsScope *scope,const wchar *iname,const wchar *oname, bool serverScript);
-int  CsCompileString(CsScope *scope,char *str,stream *os);
-int  CsCompileStream(CsScope *scope,stream *is,stream *os, bool serverScript);
+//int  CsCompileString(CsScope *scope,char *str,stream *os);
+bool CsCompileStream(CsScope *scope,stream *is,stream *os, bool serverScript);
 
 bool CsCompile(VM *c, stream *is, stream *os, bool serverScript);
 
 /* cs_rcode.c prototypes */
 int CsLoadObjectFile(CsScope *scope,const wchar *fname);
 int CsLoadObjectStream(CsScope *scope,stream *s);
+
+bool CsReadBytecodePreamble(VM* c, stream* s, bool riseError); // true - it a BC file of proper version, false - too bad.
 
 /* cs_debug.c prototypes */
 void CsDecodeProcedure(VM *c,value method,stream *stream);
@@ -1715,6 +1806,8 @@ int     CsCompareObjects(VM *c,value obj1,value obj2, bool suppressError = false
 
 /* cvt everything into String */
 value CsToString(VM *c, value val);
+void  CsToString(VM *c, value val, stream& s);
+void  CsToHtmlString(VM *c, value val, stream& s);
 value CsToInteger(VM *c, value val);
 value CsToFloat(VM *c, value val);
 
@@ -1788,8 +1881,11 @@ public:
 
   void CommitHash(VM* c);
 
-  bool IsExistsInHash( oid_t oid  )
+  bool IsInHash( oid_t oid  )
     { return (!this->hashS.is_empty() && this->hashS.exists(oid)); }
+  bool IsInHash( oid_t oid, value& obj  )
+    { return (!this->hashS.is_empty() && this->hashS.find(oid,obj)); }
+
   value GetFromHash( oid_t oid );
   void  InsertInHash( oid_t oid, value obj );
 
@@ -1804,7 +1900,7 @@ public:
       return v;
 
     v = CsGetGlobalValueByPath(c,className);
-    if(v)
+    if(v && v != UNDEFINED_VALUE)
       this->hashNameProto[className] = v;
     else
       c->standardError->printf(L"class %S not found while loading object from Storage\n", className.c_str());
@@ -1834,18 +1930,17 @@ union dbvtag
 };
 typedef dbvtag dbvtype;
 
-typedef struct db_tripletTag
+struct db_triplet
 {
   dbvtype data;
   int_t   type;
   int_t   len;
-
   // init as NULL string
-  db_tripletTag();
-  ~db_tripletTag();
-  void operator=(db_tripletTag& obj);
-
-} db_triplet;
+  db_triplet();
+  ~db_triplet();
+  void operator=(db_triplet& obj);
+  bool is_null() const;
+};
 
 enum EBlobType
 {

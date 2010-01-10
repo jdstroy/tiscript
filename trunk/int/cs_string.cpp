@@ -43,6 +43,8 @@ static value CSF_htmlUnescape(VM *c);
 static value CSF_urlEscape(VM *c);
 static value CSF_urlUnescape(VM *c);
 
+static value CSF_toString(VM *c);
+
 extern value CSF_head(VM *c);
 extern value CSF_tail(VM *c);
 
@@ -55,8 +57,9 @@ extern value CSF_string_split(VM *c);
 static value CSF_fromCharCode(VM *c);
 static value CSF_toLowerCase(VM *c);
 static value CSF_toUpperCase(VM *c);
-static value CSF_toString(VM *c);
 static value CSF_UID(VM *c);
+
+
 
 /* virtual property methods */
 static value CSF_length(VM *c,value obj);
@@ -65,7 +68,9 @@ static value CSF_length(VM *c,value obj);
 static c_method methods[] = {
 C_METHOD_ENTRY( "this",      CSF_ctor            ),
 C_METHOD_ENTRY( "toLocaleString",   CSF_std_toLocaleString  ),
-C_METHOD_ENTRY( "toString",         CSF_std_toString    ),
+C_METHOD_ENTRY( "toString",         CSF_toString    ),
+C_METHOD_ENTRY( "toHtmlString",     CSF_htmlEscape      ),
+C_METHOD_ENTRY( "toUrlString",      CSF_urlEscape       ),
 C_METHOD_ENTRY( "toSymbol",         CSF_toSymbol        ),
 
 C_METHOD_ENTRY( "substring",        CSF_substring       ),
@@ -92,7 +97,6 @@ C_METHOD_ENTRY( "slice",            CSF_slice  ),
 C_METHOD_ENTRY( "fromCharCode",     CSF_fromCharCode ),
 C_METHOD_ENTRY( "toLowerCase",      CSF_toLowerCase ),
 C_METHOD_ENTRY( "toUpperCase",      CSF_toUpperCase ),
-C_METHOD_ENTRY( "toString",         CSF_toString ),
 C_METHOD_ENTRY( "valueOf",          CSF_toString ),
 
 //C_METHOD_ENTRY( "head",             CSF_head ),
@@ -455,12 +459,11 @@ static value CSF_htmlUnescape(VM *c)
 static value CSF_urlEscape(VM *c)
 {
     wchar *str;
-    int len;
 
     /* parse the arguments */
-    CsParseArguments(c,"S#*",&str,&len);
+    CsParseArguments(c,"S*",&str);
 
-    tool::string r = tool::url::escape(tool::string(str,len));
+    tool::string r = tool::url::escape(str);
 
     return CsMakeCString(c, r);
 }
@@ -687,14 +690,13 @@ static value CSF_printf(VM *c)
 
 static value CSF_scanf(VM *c)
 {
-    int len;
-    wchar *str = 0;
+    tool::wchars str;
     wchar *fmt = 0;
     
     /* parse the arguments */
-    CsParseArguments(c,"S#*S",&str,&len,&fmt);
+    CsParseArguments(c,"S#*S",&str.start,&str.length,&fmt);
 
-    string_i_stream s(str,len);
+    string_i_stream s(str);
     return s.scanf(c,fmt);
 }
 
@@ -884,7 +886,24 @@ static value CSF_length(VM *c,value obj)
 
 static value CSF_UID(VM *c)
 {
+    bool sequential = false;
+    CsParseArguments(c,"**|B",&sequential);
+
     tool::string uid = tool::unique_id();
+
+    if( sequential )
+    {
+      tool::datetime_t t = tool::date_time::now().time();
+      // this ensures that two consequtive calls of Date.now(true) return distinct values.
+      static tool::mutex guard;
+      static tool::datetime_t last_t = 0;
+      tool::critical_section _(guard);
+      if( t <= last_t )
+        t = last_t + 1;
+      last_t = t;
+      return CsMakeCString(c,tool::string::format("%08X%08X.%s", hidword(t),lodword(t),uid.c_str()));
+    }
+    else
     return CsMakeCString(c,uid);
 }
 
