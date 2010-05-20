@@ -102,7 +102,10 @@ namespace tiscript
   {
   public:
     virtual int  get() { int c = getchar(); return c != EOF? oem2wchar(c) : -1; }      
-    virtual bool put(int v) { return putchar( wchar2oem(v) ) != EOF; }
+    virtual bool put(int v) 
+    { 
+      return putchar( wchar2oem(v) ) != EOF; 
+    }
   };
   
   

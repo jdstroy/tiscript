@@ -28,6 +28,7 @@ static value CSF_dumpScopes(VM *c);
 static value CSF_toInteger(VM *c);
 static value CSF_toFloat(VM *c);
 static value CSF_crackUrl(VM *c);
+static value CSF_membersOf(VM *c);
 
 value CSF_em(VM *c);
 value CSF_ex(VM *c);
@@ -57,6 +58,7 @@ C_METHOD_ENTRY( "toFloat",          CSF_toFloat          ),
 C_METHOD_ENTRY( "dumpScopes",       CSF_dumpScopes       ),
 C_METHOD_ENTRY( "missed",           CSF_missed           ),
 C_METHOD_ENTRY( "crackUrl",         CSF_crackUrl         ),
+C_METHOD_ENTRY( "membersOf",        CSF_membersOf        ),
 
 C_METHOD_ENTRY( "px",               CSF_px               ),
 C_METHOD_ENTRY( "pt",               CSF_pt               ),
@@ -381,14 +383,14 @@ value CsToFloat(VM *c, value v)
 
 static value CSF_toInteger(VM *c)
 {
-    int_t i = 0;
+    value dv = CsMakeInteger(0);
     value v;
     wchar *pend;
-    CsParseArguments(c,"**V|i",&v, &i);
+    CsParseArguments(c,"**V|V",&v, &dv);
     if( CsIntegerP(v) )
       return v;
     else if (CsFloatP(v))
-      i = (int_t) CsFloatValue(v);
+      return CsMakeInteger((int)CsFloatValue(v));
     else if ( v == TRUE_VALUE )
       return CsMakeInteger(1);
     else if ( v == FALSE_VALUE )
@@ -401,15 +403,14 @@ static value CSF_toInteger(VM *c)
       if( CsStringAddress(v) != pend )
         return CsMakeInteger(n);
     }
-    return CsMakeInteger(i);
+    return dv;
 }
 
 static value CSF_toFloat(VM *c)
 {
-    float_t d = 0;
-    value v;
+    value v, dv = CsMakeFloat(c,0.0);
     wchar *pend;
-    CsParseArguments(c,"**V|d",&v, &d);
+    CsParseArguments(c,"**V|V",&v, &dv);
     if( CsIntegerP(v) )
       return CsMakeFloat(c, CsIntegerValue(v));
     else if (CsFloatP(v))
@@ -426,7 +427,7 @@ static value CSF_toFloat(VM *c)
       if( CsStringAddress(v) != pend )
         return CsMakeFloat(c,n);
     }
-    return CsMakeFloat(c,d);
+    return dv;
 }
 
 
@@ -559,5 +560,17 @@ static value CSF_crackUrl(VM *c)
   return NULL_VALUE;
 }
 
+static value CSF_membersOf(VM *c)
+{
+  CsCheckArgCnt(c,3);
+  CsCheckType(c,3,CsObjectOrMethodP);
+  pvalue pobj(c,CsMakeObject(c,UNDEFINED_VALUE));
+
+  each_property gen(c, CsGetArg(c,3));
+  
+  for(value key,val; gen(key,val); )
+    CsObjectSetItem(c,pobj,key,val);
+  return pobj;
+}
 
 }

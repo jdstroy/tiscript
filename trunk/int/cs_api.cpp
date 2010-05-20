@@ -2,18 +2,20 @@
 
 #include "cs.h"
 
+extern tiscript_VM* TISAPI create_vm(uint features, uint heap_size, uint stack_size);
+
 struct xstream: public tis::stream
 {
-  bool              _delete_on_close;
   tiscript_stream*  _stm;
+  bool              _delete_on_close;
 
   virtual bool is_output_stream() const { return _stm->_vtbl->output != 0; }
   virtual bool is_input_stream() const { return _stm->_vtbl->input != 0; }
 
-  xstream(tiscript_stream* stm = 0, bool _do_not_delete_on_close = true)
+  xstream(tiscript_stream* stm, bool delete_on_close)
   {
+    _delete_on_close = delete_on_close;
     _stm = stm;
-    _delete_on_close = !_do_not_delete_on_close;
   }
   virtual const wchar* stream_name() const 
   { 
@@ -50,6 +52,9 @@ struct xstream: public tis::stream
 
 };
 
+typedef tis::VM xvm;
+
+/*
 struct xvm: public tis::VM
 {
   xstream _stdin;
@@ -64,19 +69,21 @@ struct xvm: public tis::VM
   ~xvm()
   {
   }
-};
+};*/
 
 void* TISAPI get_instance_data(tiscript_value obj);
 
 tiscript_VM* TISAPI create_vm(uint features, uint heap_size, uint stack_size)
 {
   xvm* pvm = new xvm(features,heap_size,stack_size);
+  pvm->add_ref();
   return (tiscript_VM*)pvm;
 }
 
 void  TISAPI destroy_vm(tiscript_VM* pvm)
 {
-  delete (xvm*)pvm;
+  //delete (xvm*)pvm;
+  ((xvm*)pvm)->release();
 }
 
 void  TISAPI invoke_gc(tiscript_VM* pvm)
@@ -87,9 +94,9 @@ void  TISAPI invoke_gc(tiscript_VM* pvm)
 void  TISAPI set_std_streams(tiscript_VM* pvm, tiscript_stream* input, tiscript_stream* output, tiscript_stream* error)
 {
   xvm* vm = (xvm*)pvm;
-  vm->_stdin._stm = input;
-  vm->_stdout._stm = output;
-  vm->_stderr._stm = error;
+  if(vm->standardInput) vm->standardInput->close();  vm->standardInput = new xstream(input,true);
+  if(vm->standardOutput) vm->standardOutput->close();  vm->standardOutput = new xstream(output,true);
+  if(vm->standardError) vm->standardError->close();  vm->standardError = new xstream(error,true);
 }
 
 tiscript_VM* TISAPI get_current_vm()
@@ -164,7 +171,7 @@ bool TISAPI get_bool_value(tiscript_value v, bool* pb)
   return false;
 }
 
-bool TISAPI get_bytes(tiscript_value v, const byte** pb, uint* pblen) 
+bool TISAPI get_bytes(tiscript_value v, byte** pb, uint* pblen) 
 { 
   if(tis::CsByteVectorP(v) && pb && pblen) 
   {
@@ -426,7 +433,7 @@ uint TISAPI get_array_size(tiscript_VM* pvm, tiscript_value obj)
 // eval
 bool TISAPI eval(tiscript_VM* pvm, tiscript_value ns, tiscript_stream* input, bool template_mode, tiscript_value* pretval)
 {
-  xstream inp(input,true);
+  xstream inp(input,false);
   try 
   {
     tis::auto_scope as((xvm*)pvm, ns);
@@ -468,8 +475,8 @@ bool TISAPI eval_string(tiscript_VM* pvm, tiscript_value ns, const wchar* script
 
 bool TISAPI compile( tiscript_VM* pvm, tiscript_stream* input, tiscript_stream* output, bool template_mode )
 {
-  xstream tin(input);
-  xstream tout(output);
+  xstream tin(input,false);
+  xstream tout(output,false);
   try 
   {
     tis::CsCompile((xvm*)pvm, &tin, &tout, template_mode);
@@ -485,7 +492,7 @@ bool TISAPI compile( tiscript_VM* pvm, tiscript_stream* input, tiscript_stream* 
 
 bool  TISAPI loadbc( tiscript_VM* pvm, tiscript_stream* bytecodes )
 {
-  xstream tin(bytecodes);
+  xstream tin(bytecodes, false);
   try {
     tis::CsLoadObjectStream(tis::CsGlobalScope((xvm*)pvm),&tin);
     return true;
@@ -596,6 +603,13 @@ bool TISAPI set_remote_std_streams(tiscript_VM* pvm, tiscript_pvalue* callback_i
   //return false;
 }
 
+bool TISAPI set_nth_retval(tiscript_VM* pvm, int n, tiscript_value ns )
+{
+  if( n < 0 || n >= V_REGISTERS) return false;
+  tis::CsSetRVal((tis::VM*)pvm,n,ns);
+  return true;
+}
+
 
 /*struct tiscript_method_def
 {
@@ -698,6 +712,7 @@ tiscript_native_interface native_interface =
 
   set_remote_std_streams,
 
+  set_nth_retval,
 };
 
 namespace tis 

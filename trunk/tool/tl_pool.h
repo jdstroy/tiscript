@@ -233,7 +233,7 @@ namespace tool
   inline bool
     pool<c_element,c_traits>::exists ( const c_element& the_key )
   {
-    return ( get_index ( the_key, false ) != (size_t)-1 );
+    return ( get_index ( the_key, false ) != uint(-1) );
   }
 
   template <typename c_element, typename c_traits>

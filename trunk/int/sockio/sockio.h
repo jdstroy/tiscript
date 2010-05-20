@@ -92,14 +92,14 @@ class socket_t
 
 
     //
-    // Create local domain socket
+    // Create local domain server socket
     //
     static socket_t*  create_local(char const* address,
 				   int listen_queue_size =
 				       DEFAULT_LISTEN_QUEUE_SIZE);
 
     //
-    // Create global domain socket
+    // Create global domain server socket 
     //
     static socket_t*  create_global(char const* address,
 				   int listen_queue_size =

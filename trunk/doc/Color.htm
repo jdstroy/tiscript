@@ -57,6 +57,11 @@
           <p>(<strong>hue</strong>: float, <strong>saturation</strong>: float, <strong>lightness</strong>: float [, <strong>opacity</strong>: int | float]) : color</p>
           <p>Static method (of the class), &nbsp;constructs the color from HSL values, see: <a href="http://en.wikipedia.org/wiki/HSL_color_space">http://en.wikipedia.org/wiki/HSL_color_space</a></p></td></tr>
       <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>tint</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p>( <strong>luminance</strong>: float [, <strong>saturation</strong>: float] ) : color</p>
+          <p>Returns color - tint of the color this method is applied to. luminance and saturation are float numbers in the range -1.0 ... +1.0.</p></td></tr>
+      <tr>
         <td bgcolor="#ffffff" valign="top" align="right"><strong><em>parse</em></strong></td>
         <td bgcolor="#fffff0" valign="middle">
           <p>( <strong>text</strong>: string )</p>
@@ -84,12 +89,12 @@
       <tr>
         <td bgcolor="#ffffff" valign="top" align="right"><strong><em>toHSV</em></strong></td>
         <td bgcolor="#fffff0" valign="middle">
-          <p>( ) : array[3] of floats</p>
-          <p>Returns array[3] of floats with HSV components.</p></td></tr>
+          <p>( ) : float,float,float</p>
+          <p>Returns three values - H,S, and V color components .</p></td></tr>
       <tr>
         <td bgcolor="#ffffff" valign="top" align="right"><strong><em>toHSL</em></strong></td>
         <td bgcolor="#fffff0" valign="middle">
-          <p>( ) : array[3] of floats</p>
-          <p>Returns array[3] of floats with HSL components.</p></td></tr></table></div>
+          <p>( ) : float,float,float</p>
+          <p>Returns three values - H,S, and L color components .</p></td></tr></table></div>
 </body>
 </html>

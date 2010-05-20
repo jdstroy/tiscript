@@ -87,8 +87,6 @@ static value CSF_toString(VM *c)
     CsParseArguments(c,"V=*",&obj,&CsFloatDispatch);
     char buf[128];
     CsFloatToString(buf,CsFloatValue(obj));
-    if (!strchr(buf,'.'))
-        strcat(buf,".0");
     return CsMakeCString(c,buf);
 }
 
@@ -221,11 +219,12 @@ static bool SetFloatProperty(VM *c,value obj,value tag,value value)
 /* FloatPrint - Float print handler */
 static bool FloatPrint(VM *c,value obj,stream *s, bool toLocale)
 {
-    char buf[128];
-    CsFloatToString(buf,CsFloatValue(obj));
-    if (!strchr(buf,'.'))
-        strcat(buf,".0");
-    return s->put_str(buf);
+    //char buf[128];
+    //CsFloatToString(buf,CsFloatValue(obj));
+    //if (!strchr(buf,'.'))
+    //    strcat(buf,".0");
+    //return s->put_str(buf);
+    return s->printf(L"%f",CsFloatValue(obj));
 }
 
 

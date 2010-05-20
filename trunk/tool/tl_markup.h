@@ -53,7 +53,10 @@ template< typename CHAR_TYPE >
 
       TT_COMMENT,     // "<!--" ...value... "-->"
       TT_CDATA,       // "<![CDATA[" ...value... "]]>"
-      TT_PI,          // "<?" ...value... "?>"
+      TT_PI,          // <? .....  ?>
+                      //             ^-- happens after PI processing
+      TT_WORD,        // in details mode these will be generated 
+      TT_SPACE,       // instead of TT_TEXT above
 
     };
 
@@ -70,7 +73,7 @@ template< typename CHAR_TYPE >
         line_no(1) { c_scan = &scanner<CHAR_TYPE>::scan_body; }
 
     // get next token
-    token_type      get_token()  { return (this->*c_scan)(); }
+    token_type      get_token(bool details = false)  { details_mode = details; return (this->*c_scan)(); } 
 
     // get value of TT_WORD, TT_SPACE, TT_ATTR and TT_DATA
     token_value     get_value() { return value(); }
@@ -132,6 +135,7 @@ template< typename CHAR_TYPE >
     instream<CHAR_TYPE>&  input;
     char_type             input_char;
     int         line_no; 
+    bool        details_mode;
 
     // case sensitive string equality test
     // s_lowcase shall be lowercase string
@@ -157,12 +161,15 @@ template< typename CHAR_TYPE >
       char_type c = get_char();
 
       value.clear();
+      bool ws = false;
 
       if(c == 0) return TT_EOF;
-      else if(c == '<') return scan_tag();
-      else if(c == '&')
-         c = scan_entity();
+      if(c == '<') return scan_tag();
+      if(c == '&') c = scan_entity();
+      else ws = is_whitespace(c);
 
+      if(!details_mode)
+      {
       while(true)
       {
         value.push(c);
@@ -172,6 +179,32 @@ template< typename CHAR_TYPE >
         if(c == '&') c = scan_entity();
       }
       return TT_TEXT;
+    }
+      // details mode 
+      if(ws)
+      {
+        while(true) 
+        {
+          value.push(c);
+          c = get_char();
+          if(c == 0)  { push_back(c); break; }
+          if(c == '<') { push_back(c); break; }
+          if(!is_whitespace(c)) { push_back(c); break; }
+          if(c == '&') c = scan_entity();
+        }
+        return TT_SPACE;
+      } else {
+        while(true) 
+        {
+          value.push(c);
+          c = get_char();
+          if(c == 0)  { push_back(c); break; }
+          if(c == '<') { push_back(c); break; }
+          if(is_whitespace(c)) { push_back(c); break; }
+          if(c == '&') c = scan_entity();
+        }
+        return TT_WORD;
+      }
     }
 
     inline token_type scan_head()
@@ -248,6 +281,8 @@ template< typename CHAR_TYPE >
       tag_name_length = 0;
 
       char_type c = get_char();
+      if( c == '?' )
+        return scan_pi();
 
       bool is_tail = c == '/';
       if(is_tail) c = get_char();
@@ -258,6 +293,7 @@ template< typename CHAR_TYPE >
         if(c == '/' || c == '>') break;
         append_tag_name(c);
 
+        if(!is_tail)
         switch(tag_name_length)
         {
         case 3:
@@ -269,7 +305,6 @@ template< typename CHAR_TYPE >
             return scan_cdata();
           break;
         }
-
         c = get_char();
       }
 
@@ -418,7 +453,7 @@ template< typename CHAR_TYPE >
           break;
         }
       }
-      c_scan = &scan_body;
+      //c_scan = &scan_body;
       return TT_PI;
     }
 

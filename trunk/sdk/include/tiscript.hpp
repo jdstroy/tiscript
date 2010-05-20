@@ -35,7 +35,6 @@ namespace tiscript
     */
 
   inline void  set_std_streams(VM* vm, stream* input, stream* output, stream* error) {  ni()->set_std_streams(vm, input, output, error); }
-  inline void  set_remote_std_streams(VM* vm, tiscript_pvalue& input, tiscript_pvalue& output, tiscript_pvalue& error) {  ni()->set_remote_std_streams(vm, &input, &output, &error); }
 
   inline VM*   get_current_vm()         { return ni()->get_current_vm(); }
   inline value get_global_ns(VM* vm)    { return ni()->get_global_ns(vm); }
@@ -68,7 +67,7 @@ namespace tiscript
   inline bool         c_bool(value v)    { bool dv = false;    ni()->get_bool_value(v,&dv); return dv; }
   inline std::string  c_symbol(value v)  { const char* dv = "";  ni()->get_symbol_value(v,&dv); return dv; }
   inline std::wstring c_string(value v)  { const wchar_t* dv = L""; unsigned len = 0; ni()->get_string_value(v,&dv,&len); return std::wstring(dv,len); }
-  inline bool         c_bytes(value v, const unsigned char* &data, unsigned &datalen) { return ni()->get_bytes(v,&data,&datalen); }
+  inline bool         c_bytes(value v, unsigned char* &data, unsigned &datalen) { return ni()->get_bytes(v,&data,&datalen); }
 
   // to script value from C/C++ type
   inline value        v_nothing()             { static value _v = ni()->nothing_value(); return _v; }   // designates ultimate "does not exist" situation.
@@ -207,7 +206,7 @@ namespace tiscript
     { return ni()->post(pvm,pfunc,prm); }
   
   // pinned value, a.k.a. gc root variable.
-  class pinned: protected tiscript_pvalue
+  class pinned: public tiscript_pvalue
   {
     friend class args; 
   private:
@@ -316,6 +315,8 @@ namespace tiscript
     return ni()->define_class(vm,cd,zns);
   }
 
+  inline void  set_remote_std_streams(VM* vm, pinned& input, pinned& output, pinned& error) {  ni()->set_remote_std_streams(vm, &input, &output, &error); }
+
   // defines native function that can be accessed globally  
   inline void define_global_function( VM* vm, method_def* md, value zns = 0) // in this namespace object (or 0 if global)
   {
@@ -323,13 +324,29 @@ namespace tiscript
     set_prop(vm,zns,md->name, ni()->native_function_value(vm,md));
   }
 
-  // defines native controlled property (variable if you wish) that can be accessed in namespace.  
-  inline void define_global_property( VM* vm, prop_def* pd, value zns) // in this namespace object
+  // defines native controlled property (variable if you wish) that can be accessed globally  
+  inline void define_global_property( VM* vm, prop_def* pd, value zns = 0) // in this namespace object (or 0 if global)
   {
+    if( !zns ) zns = get_global_ns(vm);
     set_prop(vm,zns,pd->name, ni()->native_property_value(vm,pd));
   }
-
 }
 
+// multi return macros. Used to return multiple values from native functions.
+
+#define TISCRIPT_RETURN_2(c,rv1,rv2) \
+  { tiscript::ni()->set_nth_retval(vm,1,(rv1)); \
+    return (rv2); }
+
+#define TISCRIPT_RETURN_3(c,rv1,rv2,rv3) \
+  { tiscript::ni()->set_nth_retval(vm,2,(rv1)); \
+    tiscript::ni()->set_nth_retval(vm,1,(rv2)); \
+    return (rv3); }
+
+#define TISCRIPT_RETURN_4(c,rv1,rv2,rv3,rv4) \
+  { tiscript::ni()->set_nth_retval(vm,3,(rv1)); \
+    tiscript::ni()->set_nth_retval(vm,2,(rv2)); \
+    tiscript::ni()->set_nth_retval(vm,1,(rv3)); \
+    return (rv4); }
 
 #endif

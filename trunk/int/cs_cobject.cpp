@@ -48,8 +48,37 @@ dispatch CsCObjectDispatch = {
     CsCObjectGetItem,
     CsCObjectSetItem,
     CsObjectNextElement,
-    CsAddCObjectConstant
+    CsAddCObjectConstant,
+    CsRemoveObjectProperty,
 };
+
+/* CsCPtrObjectDispatch dispatch - generic cptr object */
+dispatch CsCPtrObjectDispatch = {
+    "NativeObject",
+    &CsObjectDispatch,
+    CsGetCObjectProperty,
+    CsSetCObjectProperty,
+    CObjectNewInstance,
+    CsDefaultPrint,
+    CObjectSize,
+    CsDefaultCopy,
+    CsCObjectScan,
+    CsDefaultHash,
+    CsCObjectGetItem,
+    CsCObjectSetItem,
+    CsObjectNextElement,
+    CsAddCObjectConstant, //     add_constant_t            addConstant;
+    0,                    //     del_item_t                delItem;
+    0,//call_method_t             handleCall; // native call used by e.g. Sciter behavior
+    0,//dispatch**                interfaces;
+    0,//value                     obj; // a.k.a. class vtbl;
+    8,//long                      dataSize;
+    0,//destructor_t              destroy;
+    0,//void*                     destroyParam;
+    0,//dispatch*                 proto;
+    0,//dispatch*                 next;
+};
+
 
 /* CsCObjectP - is this value a cobject? */
 bool CsCObjectP(value val)
@@ -128,7 +157,7 @@ bool CsGetCObjectProperty(VM *c,value& obj,value tag,value *pValue)
         dispatch *d;
         /* look for a method in the CObject proto chain */
         for (d = CsQuickGetDispatch(obj); d != 0; d = d->proto) {
-            if ((p = CsFindProperty(c,d->obj,tag,0,0)) != 0) 
+            if ( d->obj && (p = CsFindProperty(c,d->obj,tag,0,0)) != 0 ) 
             {
               obj = d->obj;
               value propValue = CsPropertyValue(p);
@@ -206,7 +235,7 @@ bool CsSetCObjectProperty(VM *c,value obj,value tag,value val)
 
         /* look for a method in the CObject proto chain */
         for (d = CsQuickGetDispatch(obj); d != 0; d = d->proto) {
-          if ((p = CsFindProperty(c,d->obj,tag,0,0)) != 0) 
+          if ( d->obj && (p = CsFindProperty(c,d->obj,tag,0,0)) != 0) 
           {
             value propValue = CsPropertyValue(p);
 
@@ -288,6 +317,7 @@ static value CPtrObjectNewInstance(VM *c,value proto)
 static long CObjectSize(value obj)
 {
     dispatch *d = CsQuickGetDispatch(obj);
+    assert(d->dataSize > 0);
     return sizeof(c_object) + d->dataSize;
 }
 

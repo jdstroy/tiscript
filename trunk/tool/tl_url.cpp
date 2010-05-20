@@ -295,6 +295,17 @@ data_scheme:
     return has_percent && has_only_url_chars;
   }
 
+  bool url::need_escapement(const ustring& s)
+  {
+    for( int n = 0; n < s.length(); ++n )
+    {
+      wchar c = s[n];
+      if( !is_url_char(c) )
+        return true;
+    }
+    return false;
+  }
+
   string
     url::escape ( const char *src, bool space_to_plus )
   {
@@ -693,7 +704,7 @@ string url::compose_object() const
 
 // Filter TCP/IP addresses
 #define RE_TCP_IP_ADDR_NAME L"[_a-zA-Z0-9\\-]+([\\.]+[_a-zA-Z0-9\\-]+)*"
-#define RE_TCP_IP_ADDR_IP   L"[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+"
+#define RE_TCP_IP_ADDR_IP   L"\\d+\\.\\d+\\.\\d+\\.\\d+"
 #define RE_TCP_IP_ADDR      L"(" RE_TCP_IP_ADDR_IP L"|" RE_TCP_IP_ADDR_NAME L")"
 // Filter an e-mail address
 #define RE_EMAIL_ADDR       L"[_a-zA-Z0-9\\-\\.]+@(" RE_TCP_IP_ADDR L")"
@@ -704,12 +715,12 @@ string url::compose_object() const
 #define RE_ANCHOR        L"(\\#[_a-zA-Z0-9\\%]+)?"
 // filters an URL - ftp or http.
 
-#define RE_URL           L"([Ff][Tt][Pp]|[Hh][Tt][Tt][Pp][Ss]?)://(" RE_TCP_IP_ADDR L")(:[0-9]+)?(" RE_UNIX_PATH L")*" RE_PARAMS RE_ANCHOR L"$"
-#define RE_WWW           L"[Ww][Ww][Ww]\\."
-#define RE_FTP           L"[Ff][Tt][Pp]\\."
+#define RE_URL           L"(ftp|https?)://(" RE_TCP_IP_ADDR L")(:[0-9]+)?(" RE_UNIX_PATH L")*" RE_PARAMS RE_ANCHOR L"$"
+#define RE_WWW           L"www\\."
+#define RE_FTP           L"ftp\\."
 
 tool::wregexp re_canonic_url( L"^" RE_URL );
-tool::wregexp re_email( L"^([Mm][Aa][Ii][Ll][Tt][Oo]:)?(" RE_EMAIL_ADDR L")" );
+tool::wregexp re_email( L"^(mailto:)?(" RE_EMAIL_ADDR L")" );
 tool::wregexp re_www(   L"^" RE_WWW RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" RE_PARAMS RE_ANCHOR );
 tool::wregexp re_ftp(   L"^" RE_FTP RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" );
 tool::wregexp re_no_www(   L"^" RE_TCP_IP_ADDR_NAME L"(" RE_UNIX_PATH L")*" RE_PARAMS RE_ANCHOR );

@@ -69,17 +69,9 @@ namespace tool
   {
     date_time dt;
 #ifdef WIN32
-    if(utc)
-    {
-      GetSystemTimeAsFileTime((FILETIME*)&dt._time);
-    }
-    else
-    {
       SYSTEMTIME st;
       GetLocalTime(&st);
     SystemTimeToFileTime( &st, (FILETIME*)&dt._time);
-    }
-    
 #else
     struct timeval tv;
     gettimeofday(&tv, NULL); 

@@ -252,7 +252,7 @@ template <typename element>
 inline
   array<element>& array<element>::operator= ( const slice<element> &the_range )
 {
-  size ( the_range.length );
+  size ( int(the_range.length) );
   copy(_elements,the_range.start,the_range.length);
   return *this;
 }
@@ -922,6 +922,7 @@ template<typename T>
 	  // clear the buffer
 	  void clear()
 	  {
+                  erase(super::head(),super::size());
 		  _begin = _end = super::head();
 		  _size = 0;
 		  _full = false;

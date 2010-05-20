@@ -1,3 +1,4 @@
+
 /* RegExp.c - 'RegExp' handler */
 /*
         Copyright (c) 2001-2004 Terra Informatica Software, Inc.
@@ -5,8 +6,8 @@
         All rights reserved
 */
 
-#include "cs.h"
 #include "tl_wregexp.h"
+#include "cs.h"
 
 namespace tis 
 {
@@ -249,11 +250,11 @@ value CSF_string_match(VM *c)
       tool::wregexp* pre = RegExpValue(c,pat);
       if(!pre)
         CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
-      if(pre->exec(test))
+      if(pre->m_global? pre->exec_all(test):pre->exec(test))
       {
-        if(pre->get_number_of_matches() == 1)
-          return string_to_value( c, pre->get_match() );
-        else
+        //if(pre->get_number_of_matches() == 1)
+        //  return string_to_value( c, pre->get_match() );
+        //else
         {
           value vec = CsMakeVector(c,pre->get_number_of_matches());
           CsPush(c,vec);
@@ -319,7 +320,7 @@ value CSF_string_search(VM *c)
       tool::wregexp* pre = RegExpValue(c,pat);
       if(!pre)
         CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
-      pre->m_nextIndex = 0;
+      pre->m_next_index = 0;
       if(pre->exec(test))
         return CsMakeInteger(pre->get_match_start());
       else
@@ -388,7 +389,7 @@ value CSF_string_replace(VM *c)
 
     bool g = pre->m_global;
 
-    if(!pre->exec_first(test))
+    if(!pre->exec(test))
       return obj;
 
     if( CsMethodP(rep))
@@ -409,7 +410,7 @@ value CSF_string_replace(VM *c)
         end = test.length();
         if(!g) 
           break;
-        if(!pre->exec_next())
+        if(!pre->exec(0))
           break;
       }
       s.put_str( (const wchar*)test + start, (const wchar*)test + end );
@@ -418,6 +419,8 @@ value CSF_string_replace(VM *c)
     else if(CsStringP(rep))
     {
       tool::ustring reps = value_to_string(rep);
+      //reps = pre->replace(reps);
+      //return string_to_value(c,reps);
 
       int start = 0;
       int end = 0;
@@ -428,13 +431,13 @@ value CSF_string_replace(VM *c)
       {
         end = pre->get_match_start(0);
         s.put_str( test.c_str() + start, test.c_str() + end );
-        s.put_str( reps );
+        s.put_str( pre->subs(reps) );
         start = pre->get_match_end(0);
         end = test.length();
         
         if(!g) 
           break;
-        if(!pre->exec_next())
+        if(!pre->exec(0))
           break;
       }
       s.put_str( (const wchar*)test + start, (const wchar*)test + end );
@@ -467,13 +470,10 @@ value CSF_string_split(VM *c)
       if(!pre)
         CsThrowKnownError(c,CsErrRegexpError,"wrong RE object");
 
-      bool g = pre->m_global;
-      pre->m_nextIndex = 0;
-
-      //start = pre->text().start;
-
-      pre->m_global = true;
-      if( pre->exec(test.start) )
+      //bool g = pre->m_global;
+      pre->m_next_index = 0;
+      //pre->m_global = true;
+      if( pre->exec_all(test.start) )
       {
         maxn = min(maxn, pre->get_number_of_matches());
         for(int i = 0; i < maxn; ++i )
@@ -487,9 +487,7 @@ value CSF_string_split(VM *c)
       }
       else
         slices.push( test );
-
-
-      pre->m_global = g;
+      //pre->m_global = g;
     }
     else if(CsStringP(pat))
     {

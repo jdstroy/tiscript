@@ -96,6 +96,8 @@ namespace tool
     string &operator= ( const ustring& s );
     string &operator= ( const char *s );
     string &operator= ( const wchar *s );
+    string &operator= ( chars s );
+    string &operator= ( wchars s );
     
     string &operator= (char c);
 
@@ -510,6 +512,14 @@ namespace tool
     ::memcpy ( head(), s, length );
     return *this;
   }
+  inline string &
+    string::operator=(chars s)
+  {
+    set_length ( s.length );
+    ::memcpy ( head(), s.start, s.length );
+    return *this;
+  }
+
 
   inline string &
     string::operator=(char c)
@@ -533,6 +543,21 @@ namespace tool
       set_length ( 0 );
     return *this;
   }
+
+  inline string &
+    string::operator= ( wchars s )
+  {
+    if( s.length )
+    {
+      int mblength = int(::wcstombs ( 0, s.start, s.length ));
+      set_length ( mblength );
+      ::wcstombs ( head(), s.start, s.length );
+    }
+    else
+      set_length ( 0 );
+    return *this;
+  }
+
 
   inline bool
     string::operator== ( const string &s ) const

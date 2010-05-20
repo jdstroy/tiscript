@@ -202,6 +202,8 @@ static value CSF_remove(VM *c)
     return UNDEFINED_VALUE;
 }
 
+
+
 /* CSF_call - built-in method 'call'
    calls method in context of 'this' */
 value CSF_call(VM *c)
@@ -374,6 +376,7 @@ dispatch CsObjectDispatch = {
     CsObjectSetItem,
     CsObjectNextElement,
     AddObjectConstant,
+    CsRemoveObjectProperty,
 };
 
 static void CsClassScan(VM *c,value obj);
@@ -457,7 +460,6 @@ static void CsClassSetItem(VM *c,value obj,value tag,value val)
   }
   CsObjectSetItem(c,obj,tag,val);
 }
-
 
 value CsObjectGetItem(VM *c,value obj,value tag)
 {
@@ -599,6 +601,8 @@ bool CsSetObjectPropertyNoLoad(VM *c,value obj,value tag,value val)
     }
 
 #ifdef _DEBUG
+    if(CsStringP(tag) && CsStringChars(tag) == WCHARS("101"))
+        tag = tag;
     //dispatch * pd = CsGetDispatch(tag);
     //tool::string name = CsSymbolName(tag);
 #endif
@@ -670,7 +674,7 @@ bool CsSetObjectPersistentProperty(VM *c,value obj,value tag,value val)
 
     if( p = CsFindProperty(c,obj,tag,&hashValue,&i))
     {
-      value propValue = CsPropertyValue(p);
+      //value propValue = CsPropertyValue(p);
       CsSetPropertyValue(p,val);
       return true;
     }
@@ -874,6 +878,7 @@ value CsMakeObject(VM *c,value proto)
     CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
     _CsInitPersistent(newo);
+    assert(sizeof(object) == ValueSize(newo));
     return newo;
 }
 
@@ -889,6 +894,7 @@ value CsMakeClass(VM *c,value proto)
     CsSetObjectClass(newo,CsPop(c));
     CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
+    assert(sizeof(klass) == ValueSize(newo));
     return newo;
 }
 
@@ -905,6 +911,7 @@ value CsNewClassInstance(VM* c,value parentClass, value nameSymbol)
     CsSetClassUndefinedPropHandler(newo,UNDEFINED_VALUE);
     CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
+    assert(sizeof(klass) == ValueSize(newo));
     return newo;
 }
 
@@ -921,6 +928,7 @@ value CsNewNamespaceInstance(VM* c,value parentNamespace, value nameSymbol)
     CsSetClassUndefinedPropHandler(newo,UNDEFINED_VALUE);
     CsSetObjectProperties(newo,UNDEFINED_VALUE);
     CsSetObjectPropertyCount(newo,0);
+    assert(sizeof(klass) == ValueSize(newo));
     return newo;
 }
 
@@ -947,7 +955,7 @@ value CsCloneObject(VM *c,value obj)
 static value CopyPropertyTableExcept(VM *c,value table, value tag, bool& r);
 static value CopyPropertyListExcept(VM *c,value table, value tag, bool& r);
 
-void CsRemoveObjectProperty(VM *c,value obj, value tag)
+bool CsRemoveObjectProperty(VM *c,value obj, value tag)
 {
     FETCH_P( c, obj, tag );
     value properties;
@@ -970,6 +978,7 @@ void CsRemoveObjectProperty(VM *c,value obj, value tag)
       CsSetObjectPropertyCount(CsTop(c),CsObjectPropertyCount(CsTop(c)) - 1);
     }
     CsPop(c);
+    return removed;
 }
 
 
@@ -979,6 +988,10 @@ value CsFindProperty(VM *c,value obj,value tag,int_t *pHashValue,int_t *pIndex)
 #ifdef _DEBUG
     dispatch *pd = CsGetDispatch(obj);
 #endif
+
+    //if( CsStringP(tag) && (CsStringChars(tag) == WCHARS("101")))
+    //  log4::printf("getting 101\n");
+
     value p = CsObjectProperties(obj);
     if (CsHashTableP(p)) {
         int_t hashValue = CsHashValue(tag);
@@ -991,8 +1004,11 @@ value CsFindProperty(VM *c,value obj,value tag,int_t *pHashValue,int_t *pIndex)
         if (pIndex) *pIndex = -1;
     }
     for (; p != UNDEFINED_VALUE; p = CsPropertyNext(p))
-        if (CsEql(CsPropertyTag(p),tag))
+    {
+        value ptag = CsPropertyTag(p);
+        if (CsEql(ptag,tag))
             return p;
+    }
     return 0;
 }
 
@@ -1163,8 +1179,11 @@ static value CopyPropertyList(VM *c,value plist)
     CsCheck(c,2);
     CsPush(c,UNDEFINED_VALUE);
     CsPush(c,plist);
-    for (; CsTop(c) != UNDEFINED_VALUE; CsSetTop(c,CsPropertyNext(CsTop(c)))) {
-        value newo = CsMakeProperty(c,CsPropertyTag(CsTop(c)),CsPropertyValue(CsTop(c)), CsPropertyFlags(CsTop(c))  );
+    for (; CsTop(c) != UNDEFINED_VALUE; CsSetTop(c,CsPropertyNext(CsTop(c)))) 
+    {
+        value tag = CsPropertyTag(CsTop(c));
+        value val = CsPropertyValue(CsTop(c));
+        value newo = CsMakeProperty(c,tag,val,CsPropertyFlags(CsTop(c)));
         CsSetPropertyNext(newo,c->sp[1]);
         c->sp[1] = newo;
     }
@@ -1172,6 +1191,7 @@ static value CopyPropertyList(VM *c,value plist)
     return CsPop(c);
 }
 
+// used for deletion of properties
 static value CopyPropertyListExcept(VM *c,value plist, value tag, bool& r)
 {
     value p = 0;
@@ -1182,6 +1202,8 @@ static value CopyPropertyListExcept(VM *c,value plist, value tag, bool& r)
         value pTag = CsPropertyTag(t);
         if( CsEql(tag,pTag))
         {
+          if( CsPropertyIsConst(t) )
+            CsThrowKnownError(c,CsErrReadOnlyProperty,tag);          
           r = true;
           if( p ) 
             CsSetPropertyNext(p,CsPropertyNext(t));
@@ -1378,7 +1400,7 @@ static void PropertyScan(VM *c,value obj);
 /* Property pdispatch */
 dispatch CsPropertyDispatch = {
     "PropertyTuple",
-    &CsPropertyDispatch,
+    &CsFixedVectorDispatch,
     CsDefaultGetProperty,
     CsDefaultSetProperty,
     CsDefaultNewInstance,
@@ -1406,15 +1428,21 @@ static void PropertyScan(VM *c,value obj)
 }
 
 /* CsMakeProperty - make a property */
-value CsMakeProperty(VM *c,value key,value val, int_t flags)
+value CsMakeProperty(VM *c,value& key,value& val, int_t flags)
 {
     value newo;
     CsCheck(c,2);
     CsPush(c,val);
     CsPush(c,key);
     newo = CsMakeFixedVectorValue(c,&CsPropertyDispatch,CsPropertySize);
-    SetPropertyTag(newo,CsPop(c));
-    CsSetPropertyValue(newo,CsPop(c));
+    key = CsPop(c);
+    val = CsPop(c);
+#ifdef _DEBUG
+    if(key == 0x0542a6d800000403i64)
+      key = key;
+#endif
+    SetPropertyTag(newo,key);
+    CsSetPropertyValue(newo,val);
     CsSetPropertyFlags(newo,flags);
     return newo;
 }

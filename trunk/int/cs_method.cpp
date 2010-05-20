@@ -96,6 +96,7 @@ static value CSF_function_ctor(VM *c)
     tool::ustring body;
     //tool::wchars str;
     value func;
+    //assert(CsMethodP(func));
     //CsParseArguments(c,"V=*S#",&obj,&CsMethodDispatch,&str.start,&str.length);
     CsCheckArgMin(c,3);
     //CsCheckType(c,1,CsMethodP); -- don't care, it should be null
@@ -263,7 +264,8 @@ static void  MethodScan(VM *c,value obj);
 static value MethodNextElement(VM *c,value* index, value obj);
 static value MethodNewInstance(VM *c,value proto)
 {
-    return NULL_VALUE; // CSF_function_ctor will supply the instance
+  return CsMakeMethod(c,NULL_VALUE,NULL_VALUE,NULL_VALUE,NULL_VALUE);
+  //return NULL_VALUE; // CSF_function_ctor will supply the instance
 }
 
 
@@ -294,8 +296,8 @@ dispatch CsMethodDispatch = {
     CsDefaultCopy,
     MethodScan,
     CsDefaultHash,
-    CsDefaultGetItem,
-    CsDefaultSetItem,
+    CsObjectGetItem,
+    CsObjectSetItem,
     MethodNextElement
 };
 
@@ -505,6 +507,7 @@ static value CsMakeMethodValue(VM *c,dispatch *type)
     CsSetMethodGlobals(newo,UNDEFINED_VALUE);
     CsSetMethodNamespace(newo,UNDEFINED_VALUE);
 
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 
@@ -599,6 +602,7 @@ value CsMakeCMethod(VM *c,const char *name,c_method_t handler)
     CsSetDispatch(newo,&CsCMethodDispatch);
     SetCMethodName(newo,name);
     SetCMethodHandler(newo,handler);
+    assert(sizeof(c_method) == ValueSize(newo));
     return newo;
 }
 

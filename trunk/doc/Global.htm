@@ -106,23 +106,106 @@
             <tr>
               <td bgcolor="#ffffff" valign="top" align="right"><strong><em>fetch</em></strong></td>
               <td bgcolor="#fffff0" valign="middle">
-          <div><strong>( </strong><em>filename</em> | <em>stream</em><strong> ) </strong>:<strong> </strong><em>value</em> | <em>null</em></div>
+          <div><strong>( </strong><em>filename</em> | <em>stream</em><strong> ) </strong>:<strong> </strong>value | null</div>
           <p>Restores value previously written into the file (<em>filename</em>) or <em>stream</em> by function <em>store.</em> Returns value or <em>null</em> if operation failed.</p></td></tr>
             <tr>
               <td bgcolor="#ffffff" valign="top" align="right"><strong><em>hash</em></strong></td>
               <td colspan="2" bgcolor="#fffff0" valign="middle">
-          <p><strong>( </strong><em>value</em><strong> ) </strong>: <em>integer</em></p>
+          <p><strong>( </strong><em>value</em><strong> ) </strong>: integer</p>
           <p>Returns hash value of its argument.</p></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><strong><em>membersOf</em></strong></td>
+              <td colspan="2" bgcolor="#fffff0" valign="middle">
+          <p>( obj: object | function ) : map (object)</p></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"></td>
+              <td colspan="2" bgcolor="#fffff0" valign="middle">
+          <p>Returns map (simple object) that has the same set of properties as the obj. Main purpose of <em>membersOf</em> is to be used in <code>for( var (k,v) in membersOf(obj))</code> alike enumerations to scan properties of entities that have different semantic of enumeration than in instances of Object. Example:</p>
+          <pre>function Foo() { ... }
+Foo.bar = 1; // adding property 'bar' to the
+             // Foo function (that is an object too)
+for(var (k,v) in Foo ) 
+  ... // here you should see k equal to #bar <br/>      // on some iteration
+</pre></td></tr>
             <tr>
               <td bgcolor="#ffffff" valign="top" align="right"><strong><em>rand</em></strong></td>
               <td colspan="2" bgcolor="#fffff0" valign="middle">
-          <p><strong>( </strong><em>maxNumber</em><strong> )</strong> : <em>integer</em></p>
+          <p><strong>( </strong><em>maxNumber</em><strong> )</strong> : integer</p>
           <p>Returns a random number between 0 and maxNumber-1.</p></td></tr>
             <tr>
               <td bgcolor="#ffffff" valign="top" align="right"><strong><em>gc</em></strong></td>
               <td colspan="2" bgcolor="#fffff0" valign="middle">
           <div><strong>( )</strong> : <em>undefined</em></div>
-          <p>Invokes garbage collector.</p></td></tr></table></div>
+          <p>Invokes garbage collector.</p></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><strong><em>crackUrl</em></strong></td>
+              <td colspan="2" bgcolor="#fffff0" valign="middle">
+          <div><strong>( </strong><em>url</em>:string<strong> )</strong> : object</div>
+          <p>Parses the url string. Returns an object having following fields:</p>
+          <ul>
+            <li><em>port</em> - integer, tcp/ip port number;</li>
+            <li><em>protocol</em> - string, protocol like &quot;http&quot;, &quot;file&quot;, etc.;</li>
+            <li><em>hostname</em> - string, host name;</li>
+            <li><em>anchor</em> - string, anchor;</li>
+            <li><em>username</em> - string;</li>
+            <li><em>password</em> - string;</li>
+            <li><em>params</em> - string, parameters of http GET request</li>
+            <li><em>dir</em> - string, directory</li>
+            <li><em>name</em> - string, filename without extension</li>
+            <li><em>ext</em> - &nbsp;string, extension</li>
+            <li><em>name_ext</em> - string, filename with extension.</li></ul></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><em><strong>symbol</strong></em></td>
+              <td colspan="2" bgcolor="#fffff0" valign="middle">
+          <div>( <em>string</em> ) : symbol</div>
+          <p>Function returns symbol of the string. Internally symbol is 32bit value so symbol space is limited - it makes no sense to &quot;symbolize&quot; arbitrary strings.</p></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><strong><em>color</em></strong></td>
+              <td bgcolor="#fffff0" valign="middle">(<strong>r</strong>: int, <strong>g</strong>: int, <strong>b</strong>: int [, <strong>opacity</strong>: int | float]) : color
+          <p>The <em>color</em> function constructs color value from red, green, blue and opacity components.</p></td>
+              <td bgcolor="#fffff0" valign="middle"></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><em><strong>em</strong></em></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div>(<strong> v</strong>: int | float ) : length, these functions constructs length values of correspondent type.</div></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div></div></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><strong><em>pr</em></strong></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div>(<strong> v</strong>: int | float ) : length</div></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div></div></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><strong><em>px</em></strong></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div>(<strong> v</strong>: int | float ) : length</div></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div></div></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><strong><em>cm</em></strong></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div>(<strong> v</strong>: int | float ) : length</div></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div></div></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><strong><em>pt</em></strong></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div>(<strong> v</strong>: int | float ) : length</div></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div></div></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><strong><em>dip</em></strong></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div>(<strong> v</strong>: int | float ) : length</div></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div></div></td></tr>
+            <tr>
+              <td bgcolor="#ffffff" valign="top" align="right"><em><strong>flex</strong></em></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div>(<strong> v</strong>: int | float ) : length, flex unit value</div></td>
+              <td bgcolor="#fffff0" valign="middle">
+          <div></div></td></tr></table></div>
   <div></div>
 </body>
 </html>

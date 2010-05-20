@@ -92,7 +92,7 @@ bool bind_value(VM* vm, sqlite3_stmt *pst, int &n, value arg)
       sqlite3_bind_int(pst, n, c_bool(arg));
     else if( is_bytes(arg) )
     {
-      const unsigned char* data = 0; unsigned len = 0;
+      unsigned char* data = 0; unsigned len = 0;
       c_bytes(arg,data,len);
       sqlite3_bind_blob(pst, n, data, len, SQLITE_STATIC);
     }

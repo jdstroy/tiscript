@@ -41,8 +41,8 @@ void CsUseEval(VM *c)
 {
     c_method *method;
 
-    /* create a compiler context         1mb      16k  */      
-    if ((c->compiler = CsMakeCompiler(c,0x100000,0x4000)) == NULL) /* 4096,1024 */
+    /* create a compiler context         1mb      16k literals  */      
+    if ((c->compiler = CsMakeCompiler(c,0x100000,16*1024)) == NULL) /* 4096,1024 */
         CsInsufficientMemory(c);
 
     /* enter the eval functions */
@@ -91,17 +91,20 @@ static value CSF_fetch(VM *c)
     {
       if ((is = OpenFileStream(c,CsStringAddress(inp),L"rb")) == NULL)
           return NULL_VALUE;
+      value v;
+      CsFetchValue(c,&v,is);
+      is->close();
+      return v? v: NULL_VALUE;
     }
     else if( CsFileP(c,inp) )
-      is = CsFileStream(inp);
-    else
     {
-      CsTypeError(c, inp);
-      return UNDEFINED_VALUE;
-    }
+      is = CsFileStream(inp);
     value v;
     CsFetchValue(c,&v,is);
     return v? v: NULL_VALUE;
+}
+    CsTypeError(c, inp);
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_store(VM *c)
@@ -114,16 +117,18 @@ static value CSF_store(VM *c)
     {
       if ((os = OpenFileStream(c,CsStringAddress(inp),L"wb+")) == NULL)
           return FALSE_VALUE;
+      value r = CsStoreValue(c,v,os)? TRUE_VALUE: FALSE_VALUE;
+      os->close();
+      return r;
     }
     else if( CsFileP(c,inp) )
-      os = CsFileStream(inp);
-    else
     {
+      os = CsFileStream(inp);
+      return CsStoreValue(c,v,os)? TRUE_VALUE: FALSE_VALUE;
+    }
       CsTypeError(c, inp);
       return UNDEFINED_VALUE;
     }
-    return CsStoreValue(c,v,os)? TRUE_VALUE: FALSE_VALUE;
-}
 
 
 /* CSF_Eval - built-in function 'Eval' */
@@ -160,9 +165,8 @@ value CSF_eval(VM *c)
 /* CSF_parseData - built-in function 'parseValue' */
 value CSF_parseData(VM *c)
 {
-    value v, v_namespace = 0;
-    CsParseArguments(c,"**V|V",&v,&v_namespace);
-
+    value v;
+    CsParseArguments(c,"**V",&v);
     if( CsStringP(v) )
       return CsEvalDataString(CsCurrentScope(c),CsStringAddress(v), CsStringSize(v));
     else if( CsFileP(c,v) )
@@ -453,19 +457,29 @@ value CsLoadFile(CsScope *scope,const wchar *fname, stream* os)
     return r;
 }
 
-value CsInclude(CsScope *scope, const tool::ustring& path)
+value CsInclude(CsScope *scope, const tool::ustring& path_in, bool no_throw)
 {
+  tool::ustring path = path_in;
+  path = scope->c->ploader->combine_url( scope->c->script_url , path );
+
+  path.to_lower();
   value sym = CsMakeSymbol(scope->c, path, path.length());
   value val;
 
   //if(CsGlobalValue( scope, sym, &val)) - appears to be wrong!
   if( CsGetProperty(scope->c, scope->globals, sym, &sym) )
     return FALSE_VALUE;
+
   stream *s = scope->c->ploader->open(path, true);
   if( !s )
+  {
+    if(no_throw) 
+      return UNDEFINED_VALUE;
     CsThrowKnownError(scope->c,CsErrFileNotFound, path.c_str());
+  }
 
-  CsSetGlobalValue(scope, sym, TRUE_VALUE);
+  //CsSetGlobalValue(scope, sym, TRUE_VALUE);
+  CsSetProperty(scope->c, scope->globals, sym,TRUE_VALUE);
 
   bool r = CsReadBytecodePreamble(scope->c,s,false);
   s->rewind();
@@ -507,6 +521,8 @@ value CsLoadStream(CsScope *scope,stream *is, stream *os, int line_no)
     CsInitScanner(c->compiler,is);
     //c->currentNS = UNDEFINED_VALUE;
     value r = NOTHING_VALUE;
+
+    tool::auto_state<tool::ustring> _(c->script_url,is->stream_name());    
 
     if(!os)
     {

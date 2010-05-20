@@ -286,19 +286,19 @@ static value CSF_ctor(VM *c)
             CsTypeError(c, p1);
         year = CsIntegerValue(p1);
         
-        tool::date_time ts(ushort(year), ushort(month + 1), ushort(date));
+        tool::date_time ts(year, month, date);
         if( n >= 4 )
         {
-          ts.hours(ushort(hours));
+          ts.hours(hours);
           if( n >= 5 )
           {
-            ts.minutes(ushort(minutes));
+            ts.minutes(minutes);
             if( n >= 6 )
             {
-              ts.seconds(ushort(seconds));
+              ts.seconds(seconds);
               if(n == 7)
               {
-                ts.millis(ushort(ms));
+                ts.millis(ms);
               }
             }
           }

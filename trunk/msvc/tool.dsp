@@ -146,6 +146,10 @@ SOURCE=..\tool\tl_util.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=..\tool\rp_regexp.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=..\tool\tl_wregexp.cpp
 # End Source File
 # End Group

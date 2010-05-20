@@ -35,6 +35,7 @@ static value CSF_hsl(VM *c);
 static value CSF_hsv(VM *c);
 static value CSF_to_hsl(VM *c);
 static value CSF_to_hsv(VM *c);
+static value CSF_tint(VM *c);
 #endif
 
 /* Integer methods */
@@ -46,6 +47,8 @@ C_METHOD_ENTRY( "hsl",              CSF_hsl             ),
 C_METHOD_ENTRY( "hsv",              CSF_hsv             ),
 C_METHOD_ENTRY( "toHSV",            CSF_to_hsv          ),
 C_METHOD_ENTRY( "toHSL",            CSF_to_hsl          ),
+C_METHOD_ENTRY( "tint",             CSF_tint            ),
+
 #endif
 C_METHOD_ENTRY( "toFloat",          CSF_toFloat         ),
 C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
@@ -207,22 +210,50 @@ static value CSF_to_hsl(VM *c)
     value t = CsMakeVector(c,3);
     gool::rgb rgb( color_value(obj) );
     gool::hsl hsl(rgb);
-    CsSetVectorElementI(t,0,CsMakeFloat(c,hsl.h));
-    CsSetVectorElementI(t,1,CsMakeFloat(c,hsl.s));
-    CsSetVectorElementI(t,1,CsMakeFloat(c,hsl.l));
-    return t;
+    //CsSetVectorElementI(t,0,CsMakeFloat(c,hsl.h));
+    //CsSetVectorElementI(t,1,CsMakeFloat(c,hsl.s));
+    //CsSetVectorElementI(t,1,CsMakeFloat(c,hsl.l));
+    //return t;
+    CS_RETURN3(c,CsMakeFloat(c,hsl.h),CsMakeFloat(c,hsl.s),CsMakeFloat(c,hsl.l));
 }
 static value CSF_to_hsv(VM *c)
 {
     value obj;
     CsParseArguments(c,"V=*",&obj,&CsColorDispatch);
-    value t = CsMakeVector(c,3);
+    //value t = CsMakeVector(c,3);
     gool::rgb rgb( color_value(obj) );
     gool::hsv hsv(rgb);
-    CsSetVectorElementI(t,0,CsMakeFloat(c,hsv.h));
-    CsSetVectorElementI(t,1,CsMakeFloat(c,hsv.s));
-    CsSetVectorElementI(t,1,CsMakeFloat(c,hsv.v));
-    return t;
+    //CsSetVectorElementI(t,0,CsMakeFloat(c,hsv.h));
+    //CsSetVectorElementI(t,1,CsMakeFloat(c,hsv.s));
+    //CsSetVectorElementI(t,1,CsMakeFloat(c,hsv.v));
+    //return t;
+    CS_RETURN3(c,CsMakeFloat(c,hsv.h),CsMakeFloat(c,hsv.s),CsMakeFloat(c,hsv.v));
+}
+
+static value CSF_tint(VM *c)
+{
+    gool::color base_color;
+    float_t saturation = 0, luminance = 1;
+
+    CsParseArguments(c,"C*d|d",&base_color,&luminance,&saturation);
+    
+    gool::hsl z = gool::rgb( base_color );
+    
+    saturation = limit(saturation, float_t(-1), float_t(1));
+    luminance = limit(luminance, float_t(-1), float_t(1));
+
+    if( saturation < 0.0)
+      z.s -= z.s * (-saturation);
+    else if( saturation > 0.0)
+      z.s += (1.0 - z.s) * (saturation);
+
+    if( luminance < 0.0)
+      z.l -= z.l * (-luminance);
+    else if( luminance > 0.0)
+      z.l += (1.0 - z.l) * (luminance);
+
+    gool::color res = gool::rgb(z);
+    return CsMakeColor(res); 
 }
 
 #endif

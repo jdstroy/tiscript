@@ -51,6 +51,7 @@
 #include "tl_filesystem.h" // OS dependent
 #include "tl_streams.h" 
 #include "tl_generator.h" 
+#include "tl_delegate.h" 
 //#include "eval/tl_eval.h"
 
 #include "snprintf.h"
@@ -131,6 +132,11 @@ namespace tool
            dst.push(buf());
       }
   }
+
+  void play_sound(bytes sound_data);
+
+  void get_ext_for_mime(chars mimetype, array<chars>& exts);
+  string guess_mime_type(const ustring& filename, bytes data);
 
 }
 

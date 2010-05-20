@@ -18,6 +18,7 @@ typedef tool::markup::scanner<wchar> markup_scanner;
 /* method handlers */
 static value CSF_ctor(VM *c);
 static value CSF_token(VM *c);
+static value CSF_stepBack(VM *c);
 static value CSF_get_value(VM *c,value obj);
 static value CSF_get_tag(VM *c,value obj);
 static value CSF_get_attribute(VM *c,value obj);
@@ -27,6 +28,7 @@ static value CSF_get_lineNo(VM *c,value obj);
 static c_method methods[] = {
 C_METHOD_ENTRY( "this",    CSF_ctor            ),
 C_METHOD_ENTRY( "token",          CSF_token           ),  
+C_METHOD_ENTRY( "stepBack",  CSF_stepBack        ),  
 C_METHOD_ENTRY( 0,                0                   )
 };
 
@@ -54,6 +56,8 @@ static constant constants[] =
   CONSTANT_ENTRY("COMMENT"      , int_value(markup_scanner::TT_COMMENT   )),
   CONSTANT_ENTRY("CDATA"        , int_value(markup_scanner::TT_CDATA     )),
   CONSTANT_ENTRY("PI"           , int_value(markup_scanner::TT_PI        )),
+  CONSTANT_ENTRY("WORD"         , int_value(markup_scanner::TT_WORD      )),
+  CONSTANT_ENTRY("SPACE"        , int_value(markup_scanner::TT_SPACE     )),
 
   CONSTANT_ENTRY(0, 0)
 };
@@ -96,10 +100,28 @@ struct xml_stream:  public tool::markup::instream<wchar>
 
 struct xml_scanner_ctl 
   {
+
     markup_scanner    scan;
     xml_stream        xstr;    
+    int               last_token;
+    int               saved_token;
     //value streamObj;
-    xml_scanner_ctl(value ins): xstr( ins ), scan(xstr) {}
+    xml_scanner_ctl(value ins): xstr( ins ), scan(xstr), last_token(-100), saved_token(-100) {}
+
+    int get_token(bool details) 
+    {
+      if( saved_token != -100 )
+      {
+        int t = saved_token; saved_token = -100;
+        return last_token = t;
+      }
+      return last_token = scan.get_token(details);
+    }
+    void rewind_token()
+    {
+       saved_token = last_token;
+    }
+
   };
 
 static void CsXMLScannerScan(VM* c, value obj)
@@ -131,14 +153,26 @@ static value CSF_ctor(VM *c)
     return val;
 }
 
-/* CSF_Close - built-in method 'Close' */
+/* CSF_token - built-in method 'token' */
 static value CSF_token(VM *c)
+{
+    value val;
+    xml_scanner_ctl* pscan;
+    bool details = false;
+    CsParseArguments(c,"V=*|B",&val,c->xmlScannerDispatch,&details);
+    pscan = (xml_scanner_ctl *)CsCObjectValue(val);
+    return CsMakeInteger(pscan->get_token(details));
+}
+
+/* CSF_token - built-in method 'token' */
+static value CSF_stepBack(VM *c)
 {
     value val;
     xml_scanner_ctl* pscan;
     CsParseArguments(c,"V=*",&val,c->xmlScannerDispatch);
     pscan = (xml_scanner_ctl *)CsCObjectValue(val);
-    return CsMakeInteger(pscan->scan.get_token());
+    pscan->rewind_token();
+    return UNDEFINED_VALUE;
 }
 
 static value CSF_get_tag(VM *c,value obj)
@@ -164,5 +198,7 @@ static value CSF_get_lineNo(VM *c,value obj)
     xml_scanner_ctl* pscan = (xml_scanner_ctl *)CsCObjectValue(obj);
     return CsMakeInteger(pscan->scan.get_line_no());
 }
+
+
 
 }

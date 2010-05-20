@@ -59,7 +59,7 @@ bool CsCompileFile(CsScope *scope,const wchar *iname, const wchar *oname, bool s
     value expr;
 
     /* open the source and obj files */
-    if ((is = OpenFileStream(c,iname,L"r")) == NULL)
+    if ((is = OpenFileStream(c,iname,L"ru")) == NULL)
         return false;
     if ((os = OpenFileStream(c,oname,L"wb")) == NULL) {
         is->close();

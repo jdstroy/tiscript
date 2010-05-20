@@ -8,9 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cs.h"
-#include "threadalloc.h"
 
-#ifdef WINDOWS
+#if defined(WINDOWS) && defined(TISCRIPT_USE_VIRTUAL_MEMORY) 
 #define USE_VIRTUAL_MEMORY_ON_WINDOWS
 #endif
 
@@ -19,7 +18,6 @@ namespace tis
 
 /* VALUE */
 
-  inline long ValueSize(value o) { return CsQuickGetDispatch(o)->size(o); }
   inline void ScanValue(VM *c, value o) { CsQuickGetDispatch(o)->scan(c,o); }
 
 /* prototypes */
@@ -84,6 +82,8 @@ void CsFree(VM *c,void *p)
     free(p1);
 }
 
+static tool::thread_context<VM> thread_context_VM;
+
 //void finalize();
 VM::VM(unsigned int features, long size,long expandSize,long stackSize)
 //VM *CsMakeInterpreter(long size,long expandSize,long stackSize)
@@ -110,21 +110,35 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     //   Windows Mobile cannot allocate more than 32 Mb of ANY ram (HeapAlloc, VirtualAlloc)
     //   The trick is that if we call VirtualAlloc in a special way (PAGE_NOACCESS and size > 2 Mb)
     //   this memory will be allocated from Large Memory Area that is ~1Gb.
-    int virt_size = size * 16;
+    size_t virt_size = size_t(size) * 16;
 #ifdef UNDER_CE
     virt_size = max(virt_size, 2 * 1024 * 1024);
 #endif
     this->virtual_memory = ::VirtualAlloc(0, virt_size, MEM_RESERVE, PAGE_NOACCESS);
     if( !this->virtual_memory )
-      return;
+      throw not_enough_memory_error(virt_size);
 
-    // commit size is how many we allocate at the beginning.
+    // Dmitrii's hope about initial heap size: 
+    //
+    //   Commit size is how many we allocate at the beginning.
     // setting it to small value give us several unneeded gc() on start.
     // setting it much is useless because we can easily (and fast!) expand it further.
     // it is better to set up at least of size of initially allocated objects.
     // for example 450 kb is enough to run ScIDE without a gc() at all
+    //
+    // My comment:
+    //
+    //   Initial heap should be of size to fill VM comfortable in it. 
+    //   Say if you have XML parser that allocates bunch of temporary strings while parsing. 
+    //   Then on small heap GC will be invoked more frequently. Each GC call has extra costs that are not related to the size of memory.
+    //  
+    //   In principle it should be some adaptive mechanism that accounts GC frequency and increase the heap if some threshold reached.
+    //   It is definitely needed on Mobile. On desktop 2mb(4mb) is really nothing.
+    //  
+
 #ifdef PLATFORM_DESKTOP
     int commit_size = 450 * 1000;
+    //int commit_size = 2000 * 1000;
 #else
     int commit_size = 200 * 1000; // compiler eats ~130kb, so at least 200
 #endif
@@ -132,19 +146,24 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     // setup spaces
     this->newSpace = (CsMemorySpace*) ::VirtualAlloc(this->virtual_memory, commit_size, MEM_COMMIT, PAGE_READWRITE);
     this->oldSpace = (CsMemorySpace*) ::VirtualAlloc((byte*)this->virtual_memory + virt_size / 2, commit_size, MEM_COMMIT, PAGE_READWRITE);
+
+    if(!this->newSpace || !this->oldSpace)
+      throw not_enough_memory_error(virt_size);
+
     newSpace->base = (byte *)newSpace + sizeof(CsMemorySpace);
     newSpace->free = newSpace->base;
-    newSpace->top = (byte*)newSpace + commit_size; // when we do garbage collection
+    newSpace->top = (byte*)newSpace + commit_size - sizeof(CsMemorySpace); // when we do garbage collection
     newSpace->cObjects = 0;
 
     oldSpace->base = (byte *)oldSpace + sizeof(CsMemorySpace);
     oldSpace->free = oldSpace->base;
-    oldSpace->top = (byte*)oldSpace + commit_size;
+    oldSpace->top = (byte*)oldSpace + commit_size - sizeof(CsMemorySpace);
     oldSpace->cObjects = 0;
 #else
     /* make the initial old memory space */
     if ((this->oldSpace = NewMemorySpace(this,size)) == NULL)
     {
+        throw not_enough_memory_error(size);
         return;
     }
     //this->pNextOld = &this->oldSpace->next;
@@ -153,6 +172,7 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     if ((this->newSpace = NewMemorySpace(this,size)) == NULL) {
         CsFree(this,this->oldSpace);
         this->oldSpace = NULL;
+        throw not_enough_memory_error(size);
         return;
     }
 #endif
@@ -162,6 +182,7 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     if ((this->stack = (value *)CsMalloc(this,(size_t)(stackSize * sizeof(value)))) == NULL) {
         CsFree(this,this->oldSpace);
         CsFree(this,this->newSpace);
+        throw not_enough_memory_error(size);
         return;
     }
 
@@ -247,8 +268,8 @@ VM::VM(unsigned int features, long size,long expandSize,long stackSize)
     /* return successfully */
     valid = 0xAFED;
 
-    if(!thread_get_data())
-      thread_set_data(this);
+    if(!thread_context_VM.get())
+      thread_context_VM.set(this);
 }
 
 #ifdef USE_VIRTUAL_MEMORY_ON_WINDOWS
@@ -276,15 +297,14 @@ static void FreeMemorySpace(VM *c,CsMemorySpace *addr)
 /* CsFreeInterpreter - free an interpreter structure */
 VM::~VM()
 {
-    if(thread_get_data() == this)
-      thread_set_data(0);
+    tool::critical_section cs(guard);
+
+    if(thread_context_VM.get() == this)
+      thread_context_VM.set(0);
 
     this->standardInput->close();
     this->standardOutput->close();
     this->standardError->close();
-
-  {
-    tool::critical_section cs(guard);
 
     //CsMemorySpace *space,*nextSpace;
     //CsProtectedPtrs *p,*nextp;
@@ -333,9 +353,9 @@ VM::~VM()
     /* free the type list */
     for (d = this->types; d != NULL; d = nextd) 
     {
-#ifdef _DEBUG
-        dbg_printf("type deletion %s\n", d->typeName);
-#endif
+//#ifdef _DEBUG
+//        dbg_printf("type deletion %s\n", d->typeName);
+//#endif
         nextd = d->next;
         CsFreeDispatch(this,d);
     }
@@ -348,11 +368,10 @@ VM::~VM()
             CsFree(this,s);
     }
   }
-}
 
 VM* VM::get_current()
 {
-  return (VM*)thread_get_data();
+  return thread_context_VM.get();
 }
 
 bool _call_host_side(VM* c, const char* host_method_path, tool::value& envelope, int_t alien_id )
@@ -487,7 +506,9 @@ value CsAllocate(VM *c,size_t size)
     tool::critical_section cs(c->guard);
 
     // todo: we can try to align to 8 on 64 bit platforms to improve cache access but it will require more space
-    size = ((size + 3) / 4) * 4;
+    //size = ((size + 3) / 4) * 4;
+    assert((size % 4) == 0);
+
     /* look for free space
     for (newSpace = c->newSpace; newSpace != NULL; newSpace = newSpace->next)
         if (newSpace->free + size <= newSpace->top) {
@@ -508,20 +529,11 @@ value CsAllocate(VM *c,size_t size)
     /* collect garbage */
     CsCollectGarbage(c);
 
-    /* look again
-    for (newSpace = c->newSpace; newSpace != NULL; newSpace = newSpace->next)
-        if (newSpace->free + size < newSpace->top) {
-            memset(newSpace->free, 0, size);
-            val = ptr_value((header*)newSpace->free);
-            newSpace->free += size;
-            return val;
-        } */
-
+    /* look again */
     if (c->newSpace->free + size < c->newSpace->top)
     {
-    /*  while doing many small allocations (for example while scrolling a virtual table)
-        we are at risk of repeating CsCollectGarbage many times, so lets prevent it */
         bool need_allocate = false;
+        //  using allocation threashold to avoid frequent allocations:
         if( c->newSpace->top - c->newSpace->free < (c->newSpace->free - c->newSpace->base) / 4)
           need_allocate = true;
         memset(c->newSpace->free, 0, size);
@@ -573,11 +585,12 @@ value CsAllocate(VM *c,size_t size)
     tool::swap( oldSpace, c->oldSpace );
     FreeMemorySpace(c, oldSpace);
 #else
-    long allocated = c->newSpace->free - (byte*)c->newSpace;
+    long allocated = c->newSpace->top - (byte*)c->newSpace;
 #ifdef UNDER_CE
     long extra = size + allocated / 3;
 #else
-    long extra = size + allocated / 2;
+    //long extra = size + allocated / 2;
+    long extra = max(long(size),allocated); // more agressive than above.
 #endif
 
     // lets commit more pages
@@ -834,7 +847,7 @@ void CsCollectGarbage(VM *c)
 #ifdef _DEBUG
 
     c->standardError->printf(
-        L" - %ld bytes free out of %ld, total memory %lu, allocations %lu]\n",
+        L" - %d bytes free out of %d, total memory %u, allocations %u]\n",
         c->newSpace->top - c->newSpace->free,
         c->newSpace->top - c->newSpace->base,
         c->totalMemory,
@@ -1008,9 +1021,6 @@ inline bool NewObjectP(VM* c, value obj)   { return ( ptr<byte>(obj) >= (c)->new
 /* CsDefaultCopy - copy an obj from old space to new space */
 value CsDefaultCopy(VM *c,value obj)
 {
-    size_t sz = ValueSize(obj);
-    value newObj;
-
     /* don't copy an obj that is already in new space */
     if (NewObjectP(c,obj))
           return obj;
@@ -1020,13 +1030,16 @@ value CsDefaultCopy(VM *c,value obj)
       space = space->next;
     assert(space); */
 
+    size_t sz = ValueSize(obj);
+    value newObj;
+
 #ifdef _DEBUG
     if((c->newSpace->free + sz) > c->newSpace->top)
     {
       assert(false);
+      return UNDEFINED_VALUE; // too bad, copied 
     }
 #endif
-
 
   /* find a place to put the new obj */
     newObj = ptr_value((header*)c->newSpace->free);
@@ -1165,11 +1178,14 @@ void *CsAlloc(VM *c,unsigned long size)
 {
     unsigned long totalSize = sizeof(unsigned long) + size;
     unsigned long *p = (unsigned long *)calloc(totalSize,1);
-    if (p) {
+    if (p) 
+    {
         *p++ = totalSize;
         c->totalMemory += totalSize;
         ++c->allocCount;
     }
+    else 
+      throw not_enough_memory_error(size);
     return (void *)p;
 }
 
@@ -1177,6 +1193,12 @@ void *CsAlloc(VM *c,unsigned long size)
 void CsInsufficientMemory(VM *c)
 {
     CsThrowKnownError(c,CsErrInsufficientMemory,0);
+}
+
+bool is_valid_ptr_value( VM* c, value v )
+{
+  void* p = ptr<void>(v);
+  return p >= c->newSpace->base && p < c->newSpace->free;
 }
 
 }

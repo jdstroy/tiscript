@@ -766,11 +766,11 @@ bool Execute(VM *c,value gen)
 
         case BC_EQ_STRONG:
             p1 = CsPop(c);
-            c->val[0] = CsMakeBoolean(c, p1 == c->val[0]);
+            c->val[0] = CsMakeBoolean(c, CsStrongEql(p1,c->val[0]));
             break;
         case BC_NE_STRONG:
             p1 = CsPop(c);
-            c->val[0] = CsMakeBoolean(c, p1 != c->val[0]);
+            c->val[0] = CsMakeBoolean(c, !CsStrongEql(p1,c->val[0]));
             break;
 
         case BC_GE:
@@ -786,6 +786,14 @@ bool Execute(VM *c,value gen)
             off |= *c->pc++ << 8;
             c->val[0] = CsCompiledCodeLiteral(c->code,off);
             break;
+/*        case BC_LIT_FLOAT:
+          {
+            float_t* pd = (float_t*)c->pc;
+            c->val[0] = CsMakeFloat(c,*pd);
+            c->pc += sizeof(float_t);
+          }
+          break;*/
+
         case BC_GREF:
             off = *c->pc++;
             off |= *c->pc++ << 8;
@@ -799,8 +807,12 @@ bool Execute(VM *c,value gen)
         case BC_GSET:
             off = *c->pc++;
             off |= *c->pc++ << 8;
-            //CsSetGlobalValue(CsCurrentScope(c),CsCompiledCodeLiteral(c->code,off),c->val[0]);
-            CsSetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val[0]));
+            CsSetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val[0]),false);
+            break;
+        case BC_GSETNEW: // create new global variable
+            off = *c->pc++;
+            off |= *c->pc++ << 8;
+            CsSetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),value_to_set(c->val[0]),true);
             break;
 
         case BC_GSETNS:
@@ -857,6 +869,20 @@ bool Execute(VM *c,value gen)
             p2 = CsPop(c);
             p1 = CsPop(c);
             CsSetItem(c,p1,p2,value_to_set(c->val[0]));
+            break;
+
+        case BC_DELP:
+            p1 = CsPop(c);
+            c->val[0] = CsMakeBoolean(CsDetProperty(c,p1,c->val[0]));
+            break;
+        case BC_GDEL:
+            off = *c->pc++;
+            off |= *c->pc++ << 8;
+            c->val[0] = CsMakeBoolean(CsDelGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off)));
+            break;
+        case BC_VDEL:
+            p1 = CsPop(c);
+            c->val[0] = CsMakeBoolean(CsDelItem(c,p1,c->val[0]));
             break;
         case BC_DUP2:
             CsCheck(c,2);
@@ -918,6 +944,9 @@ bool Execute(VM *c,value gen)
                 break;
             }
             break;
+        case BC_TRACE:
+            c->val[0] = CsMakeStackTrace(c);
+            break;
         case BC_NEWOBJECT:
             if(*c->pc++)
             {
@@ -925,7 +954,7 @@ bool Execute(VM *c,value gen)
               p1 = CsNewInstance(c,c->val[0]);
               CsPush(c,p1);                 // sp[3] - obj
               CsPush(c,p1);                 // sp[2] - obj
-              CsPush(c,CsSymbolOf("this")); // sp[1] - #this
+              CsPush(c,THIS_SYM);           // sp[1] - #this
               CsPush(c,c->val[0]);             // sp[0] - class
             }
             else // literal creation case
@@ -1444,12 +1473,12 @@ int Send(VM *c,FrameDispatch *d,int argc)
 {
     value _this = c->sp[argc];
 
-    if(_this == UNDEFINED_VALUE)
-      CsThrowKnownError(c,CsErrUnboundVariable,CsSymbolOf("this"));
-
     value next = c->sp[argc - 2];
     value selector = c->sp[argc - 1];
     value method = UNDEFINED_VALUE;
+
+    if(_this == UNDEFINED_VALUE || _this == NOTHING_VALUE || _this == NULL_VALUE)
+      CsThrowKnownError(c,CsErrNoMethod, "", _this, selector);
 
     //bool  root_call = _this == next;
 
@@ -1564,6 +1593,8 @@ void check_thrown_error( VM *c)
 /* Call - setup to call a function */
 static bool Call(VM *c,FrameDispatch *d,int argc)
 {
+    STATIC_ASSERT( sizeof(CallFrame) % sizeof(value) == 0 );
+
     int rflag,rargc,oargc,targc,n;
     value method = c->sp[argc];
     byte *cbase,*pc;
@@ -1575,6 +1606,7 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
   /* setup the argument list */
     c->argv = &c->sp[argc];
     c->argc = argc;
+
 
     /* handle built-in methods */
     if (CsCMethodP(method)) {
@@ -1665,6 +1697,9 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
 
     /* initialize the frame */
     frame = (CallFrame *)(c->sp - WordSize(sizeof(CallFrame)));
+
+    
+
     frame->pdispatch = d;
     frame->next.set(c,c->fp);
     frame->globals = c->currentScope.globals;
@@ -1689,6 +1724,8 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
     c->code = code;
     c->cbase = cbase;
     c->pc = pc;
+
+    c->vals = 1;
 
     /* didn't complete the call */
     return false;
@@ -1836,6 +1873,7 @@ static value UnstackEnv(VM *c,value env)
     /* copy each stack environment frame to the heap */
     while (CsStackEnvironmentP(env)) {
 
+		value nextf = CsEnvNextFrame(env);
         /* allocate a newo frame */
         CsPush(c,env);
         size = CsEnvSize(env);
@@ -1969,6 +2007,14 @@ bool CsEql(value obj1,value obj2)
     return false;
 }
 
+bool CsStrongEql(value obj1,value obj2)
+{
+    if( obj1 == obj2 )
+      return true;
+    else if(CsStringP(obj1) && CsStringP(obj2) && CompareStrings(obj1,obj2) == 0)
+      return true;
+    return false;
+}
 
 value CsToBoolean(VM* c, value v)
 {
@@ -1988,9 +2034,11 @@ START:
   if (CsStringP(v))
     return CsStringSize(v) != 0? TRUE_VALUE: FALSE_VALUE;
   if (CsVectorP(v))
-    return CsVectorSize(c,v) != 0? TRUE_VALUE: FALSE_VALUE;
+    //return CsVectorSize(c,v) != 0? TRUE_VALUE: FALSE_VALUE;
+    return TRUE_VALUE;
   if (CsByteVectorP(v))
-    return CsByteVectorSize(v) != 0? TRUE_VALUE: FALSE_VALUE;
+    //return CsByteVectorSize(v) != 0? TRUE_VALUE: FALSE_VALUE;
+    return TRUE_VALUE;
   if( CsObjectP(v) )
     {
       value r;
@@ -2002,7 +2050,6 @@ START:
           goto START;
       }
     }
-
   return TRUE_VALUE;
 
 }
@@ -2031,8 +2078,8 @@ bool CsEqualOp(VM* c, value obj1,value obj2)
 5. If x is NaN, return false.
 6. If y is NaN, return false.
 7. If x is the same number value as y, return true.
-8. If x is +0 and y is âˆ’0, return true.
-9. If x is âˆ’0 and y is +0, return true.
+8. If x is +0 and y is ??’0, return true.
+9. If x is ??’0 and y is +0, return true.
 10. Return false.
 11.If Type(x) is String, then return true if x and y are exactly the same sequence of characters (same
 length and same characters in corresponding positions). Otherwise, return false.
@@ -2166,7 +2213,7 @@ static int CompareStrings(value str1,value str2)
     const wchar *p2 = CsStringAddress(str2);
     long len2 = CsStringSize(str2);
     while (len1 > 0 && len2 > 0 && *p1++ == *p2++)
-        --len1, --len2;
+    { --len1; --len2; }
     if (len1 == 0) return len2 == 0 ? 0 : -1;
     if (len2 == 0) return 1;
     return ( int(*--p1) - int(*--p2)) < 0 ? -1 : ((*p1 == *p2) ? 0 : 1);
@@ -2223,7 +2270,7 @@ int GetLineNumber(VM *c, value ccode, int pc )
   LineNumberEntry* plne = (LineNumberEntry*)CsByteVectorAddress(lna);
   int n = CsByteVectorSize(lna) / sizeof(LineNumberEntry);
   for( int i = n - 2; i >= 0 ; --i )
-    if( pc >= plne[i].pc && pc < plne[i+1].pc )
+    if( pc >= plne[i].pc && pc <= plne[i+1].pc )
       return plne[i].line;
   return 0;
 }
@@ -2244,7 +2291,8 @@ void CsStreamStackTrace(VM *c,stream *s)
         if( ln )
         {
           value fn = CsCompiledCodeFileName(c->code);
-          s->printf(L"\tat %S (%S(%d))\n", CsSymbolName(name).c_str(), CsSymbolName(fn).c_str(),ln);
+          tool::ustring filename = tool::url::unescape(CsSymbolName(fn).c_str());
+          s->printf(L"\tat %S (%s(%d))\n", CsSymbolName(name).c_str(), filename.c_str(),ln);
         }
         else if( CsSymbolP(name) )
           s->printf(L"\tat %S\n", CsSymbolName(name).c_str());
@@ -2252,7 +2300,7 @@ void CsStreamStackTrace(VM *c,stream *s)
           s->printf(L"\tat %s\n", CsStringAddress(name));
           //s->put_str("'\n");
     }
-    while (fp && fp <= (CsFrame *)c->stackTop)
+    while (fp && fp < (CsFrame *)c->stackTop)
     {
         CallFrame *frame = (CallFrame *)fp;
         if (frame->pdispatch == &CsCallCDispatch && frame->code) {
@@ -2267,9 +2315,9 @@ void CsStreamStackTrace(VM *c,stream *s)
             {
               //CsDisplay();
               if( fn != name )
-                s->printf(L"\tat %S (%S(%d))\n", CsSymbolName(name).c_str(), CsSymbolName(fn).c_str(),ln);
+                s->printf(L"\tat %S (%s(%d))\n", CsSymbolName(name).c_str(), tool::url::unescape(CsSymbolName(fn).c_str()).c_str(),ln);
               else
-                s->printf(L"\tat (%S(%d))\n", CsSymbolName(fn).c_str(),ln);
+                s->printf(L"\tat (%s(%d))\n", tool::url::unescape(CsSymbolName(fn).c_str()).c_str(),ln);
             }
             else
             {
@@ -2278,6 +2326,53 @@ void CsStreamStackTrace(VM *c,stream *s)
         }
         fp = fp->next.get(c);
     }
+}
+
+// make stack trace as a vector of triplets: 
+//  [0] - lineNo
+//  [1] - functionName
+//  [2] - fileName
+value CsMakeStackTrace(VM *c)
+{
+    pvalue vec(c, CsMakeVector(c,256));
+    pvalue triple(c, CsMakeVector(c,3));
+
+    int n = 0;
+    
+    bool calledFromP = false;
+    CsFrame *fp = c->fp;
+    if (c->code) 
+    {
+      value name = CsCompiledCodeName(c->code);
+      value file_name = UNDEFINED_VALUE;
+      int ln = GetLineNumber(c, c->code, c->pc - c->cbase - 1); // -1 as pc already incremented
+      if( ln )
+        file_name = CsCompiledCodeFileName(c->code);
+      CsSetVectorElement(c,triple,0,CsMakeInteger(ln));
+      CsSetVectorElement(c,triple,1,name);
+      CsSetVectorElement(c,triple,2,file_name);
+      CsSetVectorElement(c,vec,n++,triple);
+    }
+    while (fp && fp < (CsFrame *)c->stackTop)
+    {
+        CallFrame *frame = (CallFrame *)fp;
+        if (frame->pdispatch == &CsCallCDispatch && frame->code) 
+        {
+            if( n >= 256 )
+              break;
+            triple = CsMakeVector(c,3);
+            value name = CsCompiledCodeName(frame->code);
+            value file_name = CsCompiledCodeFileName(frame->code);
+            int ln = GetLineNumber(c, frame->code, frame->pcOffset);
+            //if(!ln) //  file_name = UNDEFINED_VALUE;
+            CsSetVectorElement(c,triple,0,CsMakeInteger(ln));
+            CsSetVectorElement(c,triple,1,name);
+            CsSetVectorElement(c,triple,2,file_name);
+            CsSetVectorElement(c,vec,n++,triple);
+        }
+        fp = fp->next.get(c);
+    }
+    return CsResizeVector(c,vec,n);
 }
 
 

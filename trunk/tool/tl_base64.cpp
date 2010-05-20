@@ -80,7 +80,7 @@ namespace tool
 void  base64_encode(bytes data, stream_o<char>& out)
 {
     int cols = 0, bits = 0, c, char_count = 0;
-    for(int i = 0; i < data.length; ++i) 
+    for(int i = 0; i < int(data.length); ++i) 
     {
       c = data[i];
 	    bits += c;

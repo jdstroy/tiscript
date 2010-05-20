@@ -1163,10 +1163,10 @@ void CsStoreVectorData( VM *c, value obj )
   if( CsIsPersistent(c,obj) && !CsIsModified(obj) )
   {
     CsPush(c,vs);
-    int_t v_length = CsVectorSize(c,obj);
+    int_t v_length = CsVectorSizeNoLoad(c,obj);
     for( int_t i = 0; i < v_length; i++ )
     {
-      value vel = CsVectorElement(c, obj, i );
+      value vel = CsVectorElementNoLoad(c, obj, i );
       PersistValue( c, vs, vel ); vs = CsTop(c);
     }
     CsPop(c);
@@ -1195,15 +1195,11 @@ void CsStoreVectorData( VM *c, value obj )
   if(!h) { CsThrowKnownError(c, CsErrPersistError, strErrCantSaveObj); }
 
   // -- store all elements --
-  int_t v_length = CsVectorSize(c,obj);
-#ifdef _DEBUG
-    if(v_length == 3)
-      v_length = v_length;
-#endif
+  int_t v_length = CsVectorSizeNoLoad(c,obj);
   dybase_store_object_field(h, ".", dybase_array_type, 0, v_length);
   for( int_t i = 0; i < v_length; i++ )
   {
-    value vel = CsVectorElement(c, obj, i );
+    value vel = CsVectorElementNoLoad(c, obj, i );
     StoreValue( c, vs, h, vel );
   }
   dybase_end_store_object(h);
