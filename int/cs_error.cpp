@@ -62,7 +62,7 @@ static ErrString errStrings[] = {
 {       CsErrIOTimeout,            "IO timeout"                         },
 {       CsErrNoSuchFeature,        "%V does not support %s"             },
 {       CsErrNotAllowed,           "operation %s is not available"      },
-{       CsErrAlreadyDefined,       "const or method %s already defined" },
+{       CsErrAlreadyDefined,       "const, var or method %s already defined" },
 {       CsErrGenericError,         "%s"                                 },
 {       CsErrGenericErrorW,        "%S"                                 },
 {       CsErrTooFewArguments,      "Wrong number of arguments - %V"     },
@@ -320,7 +320,7 @@ static void ErrorScan(VM *c,value obj)
 /* 'Error' pdispatch */
 dispatch CsErrorDispatch = {
     "Error",
-    &CsErrorDispatch,
+    &CsFixedVectorDispatch,
     GetErrorProperty,
     SetErrorProperty,
     CsDefaultNewInstance,

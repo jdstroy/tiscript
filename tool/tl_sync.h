@@ -12,9 +12,6 @@
 #define __tl_sync_h__
 
 #include "tl_basic.h"
-#ifdef SCITER
-#include "threadalloc.h"
-#endif
 
 #ifdef WINDOWS
   #define WIN32_LEAN_AND_MEAN
@@ -92,6 +89,32 @@ inline bool run_thread(void (*start_routine)(void*), void* arg)
 #endif
 }
 
+template <class T>
+  class thread_context 
+  { 
+    public:
+      void  set(T* obj) {
+        TlsSetValue(tls_index, obj);
+      }
+      T* get() { 
+        return (T*)TlsGetValue(tls_index);
+      }
+      thread_context() { 
+        tls_index = TlsAlloc();
+      }
+
+      ~thread_context() { 
+        TlsFree(tls_index);
+      }    
+
+      int is_main_thread() { 
+          return false;
+      }
+    private:
+      int tls_index;    
+  };
+
+
 #else
 
 class mutex {
@@ -160,6 +183,34 @@ inline bool run_thread(void *(*start_routine)(void*), void* arg)
   pthread_t thread = 0;
   return 0 == pthread_create(&thread, 0, start_routine, arg);
 }
+
+template <class T>
+  class thread_context { 
+    public:
+      void  set(T* obj) {
+    pthread_setspecific(key, obj);
+      }
+      
+      T* get() { 
+          return (T*)pthread_getspecific(key);    
+      }
+      thread_context() { 
+          pthread_key_create(&key, cleanup_thread_data);
+          main_thread = pthread_self();
+      }
+
+      ~thread_context() { 
+          pthread_key_delete(key);
+      }    
+
+      int is_main_thread() { 
+          return pthread_self() == main_thread;
+      }
+    private:
+      pthread_key_t key;
+      pthread_t     main_thread;
+  };
+
 
 #endif
 

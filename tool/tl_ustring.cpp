@@ -970,7 +970,7 @@ bool
   ustring::ends_with ( const wchar *s ) const
 {
   int slen = s? int(::wcslen(s)): 0;
-  if( slen ) return false;
+  if( slen == 0 ) return false;
   if( slen > length()) return false;
 
   return wcsncmp(head() - slen, s, slen) == 0;
@@ -1124,7 +1124,7 @@ bool
       if( n >= 0 )
          for(; n > 0; --n ) 
       {
-           if(pos >= buf.length) { pos = buf.length; break; }
+           if(pos >= int(buf.length)) { pos = buf.length; break; }
            if( is_suro_head(buf[pos]) ) 
              pos += 2;
            else

@@ -239,6 +239,24 @@ static value CSF_remove(VM *c)
     return val;
 }
 
+static bool RemoveItem(VM *c, value vector, value idx)
+{
+    if(!CsIntegerP(idx))
+      CsThrowKnownError(c, CsErrUnexpectedTypeError, idx, "only integer as an index");
+    int_t pos = CsIntegerValue(idx);
+    FETCH(c, vector);
+    CsSetModified(vector,true);
+    if (CsMovedVectorP(vector))
+        vector = CsVectorForwardingAddr(vector);
+    int_t size = CsVectorSize(c,vector);
+    if( pos < 0 || pos >= size)
+      return false;
+    CsSetVectorSize(vector,--size);
+    for (value* p = CsVectorAddress(c,vector) + pos; --size >= pos; ++p)
+        *p = p[1];
+    return true;
+}
+
 static value CSF_removeByValue(VM *c)
 {
     value vector;
@@ -268,7 +286,6 @@ static value CSF_removeByValue(VM *c)
         *p = p[1];
     return element;
 }
-
 
 
 /* CSF_length - built-in property 'length' */
@@ -784,7 +801,9 @@ dispatch CsVectorDispatch = {
     CsDefaultHash,
     CsVectorGetItem,
     CsVectorSetItem,
-    VectorNextElement
+    VectorNextElement,
+    0,
+    RemoveItem,
 };
 
 static value CsVectorGetItem(VM *c,value obj,value tag)
@@ -842,6 +861,7 @@ static value VectorNewInstance(VM *c,value proto)
 /* VectorSize - Vector size handler */
 static long VectorSize(value obj)
 {
+    assert(!CsMovedVectorP(obj));
     return sizeof(vector) + CsVectorMaxSize(obj) * sizeof(value);
 }
 
@@ -867,6 +887,12 @@ static value MovedVectorCopy(VM *c,value obj);
 static value CsMovedVectorGetItem(VM *c,value obj,value tag);
 static void     CsMovedVectorSetItem(VM *c,value obj,value tag,value value);
 
+/* VectorSize - Vector size handler */
+static long MovedVectorSize(value obj)
+{
+    assert(CsMovedVectorP(obj));
+    return sizeof(vector);
+}
 
 /* MovedVector pdispatch */
 dispatch CsMovedVectorDispatch = {
@@ -876,7 +902,7 @@ dispatch CsMovedVectorDispatch = {
     SetMovedVectorProperty,
     CsDefaultNewInstance,
     CsDefaultPrint,
-    VectorSize,
+    MovedVectorSize,
     MovedVectorCopy,
     CsDefaultScan,
     CsDefaultHash,
@@ -923,6 +949,7 @@ static bool SetMovedVectorProperty(VM *c,value obj,value tag,value value)
 /* MovedVectorCopy - MovedVector scan handler */
 static value MovedVectorCopy(VM *c,value obj)
 {
+    // Moved vector will become plain vector here:
     value newObj = CsCopyValue(c,CsVectorForwardingAddr(obj));
     CsSetDispatch(obj,&CsBrokenHeartDispatch);
     CsBrokenHeartSetForwardingAddr(obj,newObj);
@@ -934,10 +961,11 @@ value CsMakeFixedVectorValue(VM *c,dispatch *type,int size)
 {
     long allocSize = sizeof(CsFixedVector) + size * sizeof(value);
     value newo = CsAllocate(c,allocSize);
-    value *p = CsFixedVectorAddress(newo);
     CsSetDispatch(newo,type);
+    value *p = CsFixedVectorAddress(newo);
     while (--size >= 0)
         *p++ = UNDEFINED_VALUE;
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 
@@ -1094,6 +1122,7 @@ value CsMakeBasicVector(VM *c,dispatch *type,int_t size)
     CsSetBasicVectorSize(newo,size);
     while (--size >= 0)
         *p++ = UNDEFINED_VALUE;
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 
@@ -1134,6 +1163,7 @@ value CsMakeVector(VM *c,int_t size)
     while (--size >= 0)
         *p++ = UNDEFINED_VALUE;
     _CsInitPersistent(newo);
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 
@@ -1151,6 +1181,7 @@ value CsCloneVector(VM *c,value obj)
     dst = CsVectorAddress(c,newo);
     while (--size >= 0)
         *dst++ = *src++;
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 
@@ -1242,6 +1273,14 @@ int_t CsVectorSize(VM* c, value obj)
     return CsVectorSizeI(obj);
 }
 
+/* CsVectorSize - get the size of a vector */
+int_t CsVectorSizeNoLoad(VM* c, value obj)
+{
+    if (CsMovedVectorP(obj))
+        obj = CsVectorForwardingAddr(obj);
+    return CsVectorSizeI(obj);
+}
+
 /* CsVectorAddress - get the address of the vector data */
 value *CsVectorAddress(VM* c, value obj)
 {
@@ -1251,6 +1290,15 @@ value *CsVectorAddress(VM* c, value obj)
     return CsVectorAddressI(obj);
 }
 
+/* CsVectorAddress - get the address of the vector data */
+value *CsVectorAddressNoLoad(VM* c, value obj)
+{
+    if (CsMovedVectorP(obj))
+        obj = CsVectorForwardingAddr(obj);
+    return CsVectorAddressI(obj);
+}
+
+
 /* CsVectorElement - get a vector element */
 value CsVectorElement(VM* c, value obj,int_t i)
 {
@@ -1259,6 +1307,15 @@ value CsVectorElement(VM* c, value obj,int_t i)
         obj = CsVectorForwardingAddr(obj);
     return CsVectorElementI(obj,i);
 }
+
+/* CsVectorElement - get a vector element */
+value CsVectorElementNoLoad(VM* c, value obj,int_t i)
+{
+    if (CsMovedVectorP(obj))
+        obj = CsVectorForwardingAddr(obj);
+    return CsVectorElementI(obj,i);
+}
+
 
 /* CsSetVectorElement - set a vector element */
 void CsSetVectorElement(VM* c, value obj,int_t i,value val)

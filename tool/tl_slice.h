@@ -3,7 +3,7 @@
 //| Copyright (c) 2001-2005
 //| Andrew Fedoniouk - andrew@terrainformatica.com
 //|
-//| slices, array fragments
+//| slices, array/string fragments
 //|
 //|
 
@@ -23,10 +23,12 @@ namespace tool
  struct slice
  {
     const T* start;
-    uint_ptr length;
+    size_t   length;
 
     slice(): start(0), length(0) {}
+
     slice(const T* start_, uint_ptr length_) { start = start_; length = length_; }
+    slice(const T& single) { start = &single; length = 1; }
 
     slice(const slice& src): start(src.start), length(src.length) {}
     slice(const T* start_, const T* end_): start(start_), length( max(end_-start_,0)) {}
@@ -34,22 +36,26 @@ namespace tool
     slice& operator = (const slice& src) { start = src.start; length = src.length; return *this; }
 
     const T*      end() const { return start + length; }
+    size_t    size() const { return length; }
 
   template<class Y>
       bool operator == ( const slice<Y>& r ) const
     {
-      if( length != r.length )
-        return false;
-
+      if( length != r.length ) return false;
         const T* p1 = end();
         const Y* p2 = r.end();
-        while( p1 > start )
+      while( p1 > start ) { if( *--p1 != *--p2 ) return false; }
+      return true;
+    }
+    bool operator == ( const slice& r ) const
       {
-          if( *--p1 != *--p2 )
-            return false;
-        }
+      if( length != r.length ) return false;
+      const T* p1 = end();
+      const T* p2 = r.end();
+      while( p1 > start ) { if( *--p1 != *--p2 ) return false; }
         return true;
     }
+
 
   /*
   classic Duff's device implementation of the above:
@@ -81,7 +87,13 @@ namespace tool
     }
     */
 
-    bool operator != ( const slice& r ) const { return !operator==(r); }
+    template<class Y>
+      bool operator != ( const slice<Y>& r ) const
+    { return !operator==(r); }
+
+    bool operator != ( const slice& r ) const
+    { return !operator==(r); }
+    
 
     const T& operator[] ( uint idx ) const
     {
@@ -133,7 +145,7 @@ namespace tool
 
     int last_index_of( T e ) const
     {
-      for( uint i = length; i > 0 ;) if( start[--i] == e ) return i;
+      for( uint i = uint(length); i > 0 ;) if( start[--i] == e ) return i;
       return -1;
     }
 
@@ -141,7 +153,7 @@ namespace tool
     {
       if( s.length > length ) return -1;
       if( s.length == 0 ) return -1;
-      uint l = length - s.length;
+      uint l = unsigned(length - s.length);
       for( uint i = 0; i < l ; ++i)
         if( start[i] == *s.start )
         {
@@ -178,10 +190,15 @@ namespace tool
     bool starts_with(const slice& s ) const
     {
       if( length < s.length ) return false;
-      for(uint n = 0; n < s.length; ++n)
-        if(start[n] != s.start[n])
-          return false;
-      return true;
+      slice t(start,s.length);
+      return t == s;
+    }
+
+    bool ends_with ( const slice& s ) const
+    {
+      if( length < s.length ) return false;
+      slice t(start + length - s.length, s.length);
+      return t == s;
     }
 
     void prune(uint from_start, uint from_end = 0)
@@ -401,6 +418,38 @@ inline bool icmp(const chars& s1, const char* s2)
       return false;
   return s2[i] == 0;
 }
+
+// lst="screen,desktop" val="screen" 
+
+template <typename T> 
+  bool list_contains(slice<T> lst,const T* delim, slice<T> val)
+    {
+      if(!val.length || !lst.length)
+        return false;
+      tokens<T> z(lst,delim);
+      slice<T> t, v = val;
+      while(z.next(t))
+      {
+        if(icmp(t,v))
+          return true;
+      }
+      return false;
+    }
+
+// lst="screen,desktop" val_lst="screen,print"  
+
+template <typename T> 
+  bool list_contains_one_of(slice<T> lst,const T* delim, slice<T> val_lst)
+    {
+      tokens<T> z(val_lst,delim);
+      slice<T> t;
+      while(z.next(t))
+      {
+        if(list_contains<T>(lst,delim,t))
+          return true;
+      }
+      return false;
+    }
 
 
 //int match ( chars cr, const char *pattern );
@@ -642,6 +691,147 @@ template <typename T>
    return rv;
 }
 
+template <typename TC, typename TV>
+    class itostr: public slice<TC>
+    {
+      TC buffer[86];
+    public:
+      itostr(TV n, uint radix = 10, uint width = 0, TC padding_char = '0')
+      {
+        buffer[0] = 0;
+        if(radix < 2 || radix > 36) return;
+
+        static char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+        uint i=0; TV sign = n;
+
+        if (sign < 0)
+          n = -n;
+
+        do buffer[i++] = TC(digits[n % radix]);
+        while ((n /= radix) > 0);
+
+        if ( width && i < width)
+        {
+          while(i < width)
+            buffer[i++] = padding_char;
+        }
+        if (sign < 0)
+          buffer[i++] = TC('-');
+        buffer[i] = TC('\0');
+
+        TC* p1 = &buffer[0];
+        TC* p2 = &buffer[i-1];
+        while( p1 < p2 )
+        {
+          swap(*p1,*p2); ++p1; --p2;
+        }
+        start = buffer;
+        length = i;
+      }
+
+      operator const TC*() const { return buffer; }
+    };
+
+    typedef itostr<char,int> itoa;
+    typedef itostr<wchar,int> itow;
+    typedef itostr<char,int64> i64toa;
+    typedef itostr<wchar,int64> i64tow;
+
+    // fixed number to string:
+    template <typename TC, typename TV>
+      class fixedtostr: public slice<TC>
+    {
+      TC   buffer[256]; 
+    public:
+      operator const TC*() const { return buffer; }
+      //const TC* elements() const { return buffer; }
+      //uint      length() const { return buffer_length; }
+
+      fixedtostr(TV i, int fd = 3, const TC* pu = 0)
+      {
+        wchar *p = buffer;
+        bool gotnz = false;
+        bool neg = false; if( i < 0 ) { neg = true; i = -i; }
+        static wchar* digits = L"0123456789";
+        for( int k = 0; k < 3; ++k )
+        {
+          int r = i % 10;
+          if(gotnz)    *p++ = digits[r];
+          else if(r) { *p++ = digits[r]; gotnz = true; }
+          i /= 10;
+        }
+        if( gotnz ) *p++ = '.';
+        do
+        {
+          int r = i % 10;
+          *p++ = digits[r];
+          i /= 10;
+        } while (i > 0);
+        if(neg) *p++ = '-';
+        *p = 0;
+        str_rev(buffer);
+        if(pu) 
+          while( *pu ) *p++ = *pu++;
+        *p = 0;
+        start = buffer;
+        length = p - buffer;
+      }
+    };
+
+    typedef fixedtostr<char,int> fixedtoa;
+    typedef fixedtostr<wchar,int> fixedtow;
+    typedef fixedtostr<char,int64> fixed64toa;
+    typedef fixedtostr<wchar,int64> fixed64tow;
+
+    /** Float to string converter.
+        Use it as ostream << ftoa(234.1); or
+        Use it as ostream << ftoa(234.1,"pt"); or
+    **/
+    class ftoa: public chars
+    {
+      char buffer[64];
+    public:
+      ftoa(double d, const char* units = "", int fractional_digits = 1)
+      {
+        //_snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
+        do_snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
+        buffer[63] = 0;
+        start = buffer;
+        length = strlen(buffer);
+      }
+      operator const char*() { return buffer; }
+    };
+
+    /** Float to wstring converter.
+        Use it as wostream << ftow(234.1); or
+        Use it as wostream << ftow(234.1,"pt"); or
+    **/
+    class ftow: public wchars
+    {
+      wchar_t buffer[64];
+    public:
+      ftow(double d, const wchar_t* units = L"", int fractional_digits = 1)
+      {
+        do_w_snprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+        //_snwprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
+        buffer[63] = 0;
+        start = buffer;
+        length = wcslen(buffer);
+      }
+      operator const wchar_t*() { return buffer; }
+    };
+
+
+  inline int wtoi( const wchar* strz, int base = 0 )
+  {
+    wchar_t *endptr;
+    return (int)wcstol(strz, &endptr, base);
+  }
+  inline double wtof( const wchar* strz )
+  {
+    wchar_t *endptr;
+    return (double)wcstod(strz, &endptr);
+  }
 }
 
 template <typename T>

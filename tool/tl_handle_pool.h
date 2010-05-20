@@ -180,7 +180,9 @@ namespace tool
     for ( i = 0; i < bucket.size (); i++ )
     {
       const hash_item &it = bucket [ i ];
-      if ( (hk == it._key_hash) && (the_key == *(_array[it._index].ptr())) )
+      if ( hk != it._key_hash)
+        continue;
+      if ( the_key == *(_array[it._index].ptr()) )
         return it._index;
     }
 

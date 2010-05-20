@@ -43,6 +43,34 @@
 
 #include "snprintf.h"
 
+inline bool is_space( char c ) { return isspace(c & 0xff) != 0; }
+inline bool is_space( wchar c ) { return iswspace(c) != 0; }
+inline bool is_space( ucode c ) { return iswspace(c) != 0; }
+inline bool is_space( int c ) { return is_space((ucode)c); }
+
+inline bool is_digit( char c ) { return isdigit(c & 0xff) != 0; }
+inline bool is_digit( wchar c ) { return iswdigit(c) != 0; }
+inline bool is_digit( ucode c ) { return iswdigit(c) != 0; }
+inline bool is_digit( int c )   { return is_digit((ucode)c); }
+
+inline bool is_xdigit( char c ) { return isxdigit(c & 0xff) != 0; }
+inline bool is_xdigit( wchar c ) { return iswxdigit(c) != 0; }
+inline bool is_xdigit( ucode c ) { return iswxdigit(c) != 0; }
+inline bool is_xdigit( int c ) { return is_xdigit((ucode)c); }
+
+inline bool is_alpha( char c ) { return isalpha(c & 0xff) != 0; }
+inline bool is_alpha( wchar c ) { return iswalpha(c) != 0; }
+inline bool is_alpha( ucode c ) { return iswalpha(c) != 0; }
+inline bool is_alpha( int c ) { return is_alpha((ucode)c); }
+
+inline bool is_alnum( char c ) { return isalnum(c & 0xff) != 0; }
+inline bool is_alnum( wchar c ) { return iswalnum(c) != 0; }
+inline bool is_alnum( ucode c ) { return iswalnum(c) != 0; }
+inline bool is_alnum( int c ) { return is_alnum((ucode)c); }
+
+inline void str_rev( char* p ) { _strrev(p); }
+inline void str_rev( wchar* p ) { _wcsrev(p); }
+
 namespace tool
 {
 
@@ -104,21 +132,29 @@ template <typename T>
     arg2 = tmp;
   }
 
-
-
-  /****************************************************************************/
-
-  inline void
-    check_mem ( void *ptr )
-  {
-    // Declare string as static so that it isn't defined per instantiation
-    // in case the compiler actually does decide to inline this code.
-    //static const char *const mem_err = "Error allocating memory.\n";
-    if ( ptr == NULL )
+  // nocopy thing
+  template<typename T = int>
+    struct NO_COPY
     {
-      //cerr << mem_err;
-      assert ( 0 );
-    }
+    private:
+        NO_COPY(const NO_COPY&);
+        NO_COPY& operator = (const NO_COPY&);
+    protected:
+        NO_COPY() {}
+    };
+
+  // marker used in inplace CTORs, see below
+  struct NO_INIT {}; 
+
+  // turn_to<B>(A* obj) changes class of the object 
+  // that means it just replaces VTBL of the object to new class:
+  template <typename TO_T, typename FROM_T>
+    inline void turn_to(FROM_T* p) 
+  {
+      assert_static( sizeof(FROM_T) == sizeof(TO_T));
+      p->transforming(); // notify that the object is about to loose old vtbl
+      TO_T* pt = ::new(p) TO_T(NO_INIT()); 
+      pt->transformed(); // variant of ctor, the object just got new class
   }
 
   /****************************************************************************/
@@ -131,10 +167,8 @@ template <typename T>
   {
     locked::counter _ref_cntr;
   public:
-    resource ()
-    {
-      _ref_cntr = 0;
-    }
+    resource (NO_INIT) {}
+    resource ():_ref_cntr(0) {}
     virtual ~resource ()
     {
       assert ( _ref_cntr == 0 );
@@ -166,18 +200,30 @@ template <typename T>
    class resource_x: public resource
    {
     public:
+     resource_x (): resource() {}
+     resource_x (NO_INIT ni): resource(ni) {}
      static  uint_ptr  class_id() { return (uint_ptr)(resource_x<T>::class_id); }
      virtual uint_ptr  type_id() const { return class_id(); }
    };
+
+  // turn_resource_to<RB>(RA* obj) changes class of the object that is a resource
+  template <typename TO_T, typename FROM_T>
+    inline bool turn_object_to(FROM_T* p) 
+    { 
+      assert_static( sizeof(FROM_T) == sizeof(TO_T));
+      if( p->type_id() == TO_T::class_id() ) return false; // no need to change
+      p->transforming(); // notify that the object is about to loose old vtbl
+      TO_T* pt = ::new(p) TO_T(NO_INIT()); 
+      pt->transformed(); // variant of ctor, the object just got new class
+      return true;
+    }
 
   class ext_resource
   {
     locked::counter _ext_ref_cntr;
   public:
-    ext_resource ()
-    {
-      _ext_ref_cntr = 0;
-    }
+    ext_resource (NO_INIT) {}
+    ext_resource ():_ext_ref_cntr(0) {}
     virtual ~ext_resource ()
     {
       assert ( _ext_ref_cntr == 0 );
@@ -294,17 +340,6 @@ template <typename T>
         _ptr->add_ref();
     }
   };
-
-  // nocopy thing
-  template<typename T = int>
-    struct nocopy
-    {
-    private:
-        nocopy(const nocopy&);
-        nocopy& operator = (const nocopy&);
-    protected:
-        nocopy() {}
-    };
 
   //
   // following is a correct implementation of the auto_ptr function
@@ -502,98 +537,6 @@ template <typename T>
       }
     };
 
-template <typename TC, typename TV>
-  class itostr
-    {
-      TC buffer[86];
-      uint buffer_length;
-    public:
-      itostr(TV n, uint radix = 10, uint width = 0, TC padding_char = '0')
-      {
-        buffer[0] = 0;
-        if(radix < 2 || radix > 36) return;
-
-        static char digits[] = "0123456789abcdefghijklmnopqrstuvwxyz";
-        uint i=0; TV sign = n;
-
-        if (sign < 0)
-          n = -n;
-
-        do buffer[i++] = TC(digits[n % radix]);
-        while ((n /= radix) > 0);
-
-        if ( width && i < width)
-        {
-          while(i < width)
-            buffer[i++] = padding_char;
-        }
-        if (sign < 0)
-          buffer[i++] = TC('-');
-        buffer[i] = TC('\0');
-
-        TC* p1 = &buffer[0];
-        TC* p2 = &buffer[i-1];
-        while( p1 < p2 )
-        {
-          swap(*p1,*p2); ++p1; --p2;
-        }
-        buffer_length = i;
-
-      }
-      operator const TC*() const { return buffer; }
-      const TC* elements() const { return buffer; }
-      uint length() const { return buffer_length; }
-    };
-
-    typedef itostr<char,int> itoa;
-    typedef itostr<wchar,int> itow;
-    typedef itostr<char,int64> i64toa;
-    typedef itostr<wchar,int64> i64tow;
-
-    /** Float to string converter.
-        Use it as ostream << ftoa(234.1); or
-        Use it as ostream << ftoa(234.1,"pt"); or
-    **/
-  class ftoa
-    {
-      char buffer[64];
-    public:
-      ftoa(double d, const char* units = "", int fractional_digits = 1)
-      {
-        //_snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
-        do_snprintf(buffer, 64, "%.*f%s", fractional_digits, d, units );
-        buffer[63] = 0;
-      }
-      operator const char*() { return buffer; }
-    };
-
-    /** Float to wstring converter.
-        Use it as wostream << ftow(234.1); or
-        Use it as wostream << ftow(234.1,"pt"); or
-    **/
-  class ftow
-    {
-      wchar_t buffer[64];
-    public:
-      ftow(double d, const wchar_t* units = L"", int fractional_digits = 1)
-      {
-        do_w_snprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
-        //_snwprintf(buffer, 64, L"%.*f%s", fractional_digits, d, units );
-        buffer[63] = 0;
-      }
-      operator const wchar_t*() { return buffer; }
-    };
-
-  inline int wtoi( const wchar* strz, int base = 0 )
-  {
-    wchar_t *endptr;
-    return (int)wcstol(strz, &endptr, base);
-  }
-  inline double wtof( const wchar* strz )
-  {
-    wchar_t *endptr;
-    return (double)wcstod(strz, &endptr);
-  }
 
   #define items_in(a) (sizeof(a)/sizeof(a[0]))
   //chars in sting literal
@@ -778,11 +721,13 @@ template<typename T>
   template< typename T >
     struct l2elem
     {
+        l2elem() { prune(); }
+
         l2elem<T>* _next;
         l2elem<T>* _prev;
         void link_after(l2elem* after) { (_next = after->_next)->_prev = this; (_prev = after)->_next = this; }
         void link_before(l2elem* before) { (_prev = before->_prev)->_next = this; (_next = before)->_prev = this; }
-        void unlink() { _prev->_next = _next; _next->_prev = _prev; }
+        void unlink() { _prev->_next = _next; _next->_prev = _prev; prune(); }
         void prune() { _next = _prev = this;}
         bool is_empty() const { return _next == this;  };
 
@@ -855,30 +800,6 @@ inline void memzero( void *p, size_t sz ) { memset(p,0,sz); }
 template <typename T> 
   inline void memzero( T& t ) {  memzero(&t,sizeof(T)); }
 
-inline bool is_space( char c ) { return isspace(c & 0xff) != 0; }
-inline bool is_space( wchar c ) { return iswspace(c) != 0; }
-inline bool is_space( ucode c ) { return iswspace(c) != 0; }
-inline bool is_space( int c ) { return is_space((ucode)c); }
-
-inline bool is_digit( char c ) { return isdigit(c & 0xff) != 0; }
-inline bool is_digit( wchar c ) { return iswdigit(c) != 0; }
-inline bool is_digit( ucode c ) { return iswdigit(c) != 0; }
-inline bool is_digit( int c )   { return is_digit((ucode)c); }
-
-inline bool is_xdigit( char c ) { return isxdigit(c & 0xff) != 0; }
-inline bool is_xdigit( wchar c ) { return iswxdigit(c) != 0; }
-inline bool is_xdigit( ucode c ) { return iswxdigit(c) != 0; }
-inline bool is_xdigit( int c ) { return is_xdigit((ucode)c); }
-
-inline bool is_alpha( char c ) { return isalpha(c & 0xff) != 0; }
-inline bool is_alpha( wchar c ) { return iswalpha(c) != 0; }
-inline bool is_alpha( ucode c ) { return iswalpha(c) != 0; }
-inline bool is_alpha( int c ) { return is_alpha((ucode)c); }
-
-inline bool is_alnum( char c ) { return isalnum(c & 0xff) != 0; }
-inline bool is_alnum( wchar c ) { return iswalnum(c) != 0; }
-inline bool is_alnum( ucode c ) { return iswalnum(c) != 0; }
-inline bool is_alnum( int c ) { return is_alnum((ucode)c); }
 
 // strtod, modified version of http://www.jbox.dk/sanos/source/lib/strtod.c.html
 // reason: strtod is locale dependent.
@@ -998,7 +919,6 @@ NO_EXPONENT:
 
 
 unsigned int crc32( const unsigned char *buffer, unsigned int count);
-unsigned hashlittle( const void *key, size_t length, unsigned initval);
 
 #define REVERSE_BYTE_BITS(a)\
   ((a << 7) & (1 << 7)) |\

@@ -318,7 +318,15 @@ namespace tis
 
   };
 
+  static value value_to_value(VM *c, const tool::value& v, pvalue& string_map );
+
   value value_to_value(VM *c, const tool::value& v)
+  {
+     pvalue string_map(c);
+     return value_to_value(c, v, string_map );
+  }
+  
+  static value value_to_value(VM *c, const tool::value& v, pvalue& string_map )
   {
     switch(v.type())
     {
@@ -337,7 +345,18 @@ namespace tis
             tool::wchars wc = v.get_chars();
             return CsMakeSymbol(c,wc.start, wc.length);
           }
-          return string_to_value(c,v.get(L""));
+          if( !string_map )
+            string_map = CsMakeObject(c,UNDEFINED_VALUE);
+          CsPush(c, string_to_value(c,v.get(L"")));
+          value ev = 0;
+          if(CsGetProperty(c,string_map,CsTop(c),&ev))
+          {
+            CsPop(c);
+            return ev;
+          }
+          CsSetProperty(c,string_map,CsTop(c),CsTop(c));
+          return CsPop(c);
+
         }
       case tool::value::t_array:      
         {
@@ -345,7 +364,7 @@ namespace tis
           value vo = CsMakeVector(c, sz);
           CsPush(c,vo);
           for(int i=0; i < sz; ++i)
-            CsSetVectorElement(c,CsTop(c),i,value_to_value(c,v.get_element(i)));
+            CsSetVectorElement(c,CsTop(c),i,value_to_value(c,v.get_element(i),string_map));
           vo = CsPop(c);
           return vo;
         }
@@ -357,8 +376,8 @@ namespace tis
           for(int n = 0; n < sz; ++n)
           {
             value key,val;
-            CsPush(c, value_to_value(c, v.key(n)));
-            val = value_to_value(c, v.get_element(n));
+            CsPush(c, value_to_value(c, v.key(n),string_map));
+            val = value_to_value(c, v.get_element(n),string_map);
             key = CsPop(c);
             CsSetObjectProperty(c,CsTop(c),key,val);
           }

@@ -11,6 +11,7 @@
 #define __cs_hash_h
 
 #include "tl_string.h"
+#include "tl_slice.h"
 
 namespace tool
 {
@@ -48,14 +49,11 @@ namespace tool
     return h;
   }
 
-  template<>
-  inline unsigned int
-    hash<chars> ( const chars& value )
+  inline unsigned int hash_value( const chars& value )
   {
-    unsigned int h = 0, g;
+    unsigned int h = unsigned(value.length), g;
     const char *pc  = value.start;
     const char *end = value.end(); 
-
     while ( pc != end )
     {
       h = ( h << 4 ) + *pc++;
@@ -65,12 +63,23 @@ namespace tool
     }
     return h;
   }
-
-  template<>
-  inline unsigned int
-    hash<bytes> ( const bytes& value )
+  inline unsigned int hash_value( const wchars& value )
   {
-    unsigned int h = 0, g;
+    unsigned int h = unsigned(value.length), g;
+    const wchar *pc  = value.start;
+    const wchar *end = value.end(); 
+    while ( pc != end )
+    {
+      h = ( h << 4 ) + *pc++;
+      if ( ( g = h & 0xF0000000 ) != 0 )
+        h ^= g >> 24;
+      h &= ~g;
+    }
+    return h;
+  }
+  inline unsigned int hash_value ( const bytes& value )
+  {
+    unsigned int h = unsigned(value.length), g;
     const byte *pc  = value.start;
     const byte *end = value.end(); 
 
@@ -84,6 +93,39 @@ namespace tool
     return h;
   }
 
+  template<>
+  inline unsigned int
+    hash<uint> ( const uint& the_int )
+  {
+    uint key = the_int;
+    key += ~(key << 16);
+    key ^=  (key >>  5);
+    key +=  (key <<  3);
+    key ^=  (key >> 13);
+    key += ~(key <<  9);
+    key ^=  (key >> 17);
+    return key;
+  }
+
+  inline void hash_combine(uint& seed, uint v)
+  {
+    seed = v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  }
+
+  inline unsigned int hash_value ( const slice<uint>& value )
+  {
+    unsigned int h = unsigned(value.length);
+    const uint *pi  = value.start;
+    const uint *end = value.end(); 
+    while ( pi < end )
+      hash_combine(h,hash<uint>(*pi++));
+    return h;
+  }
+
+  template<> inline unsigned int hash<chars> ( const chars& value ) { return hash_value( value ); } 
+  template<> inline unsigned int hash<wchars> ( const wchars& value ) { return hash_value( value ); } 
+  template<> inline unsigned int hash<bytes> ( const bytes& value ) { return hash_value( value ); } 
+  template<> inline unsigned int hash< slice<uint> > ( const slice<uint>& value ) { return hash_value( value ); } 
 
   template<>
   inline unsigned int
@@ -91,13 +133,13 @@ namespace tool
   {
     return (unsigned int) the_long;
   }
-
-
+    
+   
   template<>
   inline unsigned int
     hash<int> ( const int& the_int )
   {
-    dword key = (dword)the_int;
+    uint key = (uint)the_int;
     
     key += ~(key << 16);
     key ^=  (key >>  5);
@@ -116,58 +158,6 @@ namespace tool
   {
     return (unsigned int) the_word;
   }
-
-  template<>
-  inline unsigned int
-    hash<uint> (uint const& the_uint )
-  {
-    //return (unsigned int) the_dword;
-    unsigned int key = the_uint;
-    
-    key += ~(key << 16);
-    key ^=  (key >>  5);
-    key +=  (key <<  3);
-    key ^=  (key >> 13);
-    key += ~(key <<  9);
-    key ^=  (key >> 17);
-   
-    return key;
-  }
-  /*
-  template<>
-  inline unsigned int
-    hash<dword> (dword const& the_dword )
-  {
-    //return (unsigned int) the_dword;
-    uint key = the_dword;
-    
-    key += ~(key << 16);
-    key ^=  (key >>  5);
-    key +=  (key <<  3);
-    key ^=  (key >> 13);
-    key += ~(key <<  9);
-    key ^=  (key >> 17);
-   
-    return key;
-  }
-  */
-
-  /*template<>
-  inline unsigned int
-    hash<unsigned int> (unsigned int const& the_uint )
-  {
-    //return (unsigned int) the_dword;
-    uint key = the_uint;
-    
-    key += ~(key << 16);
-    key ^=  (key >>  5);
-    key +=  (key <<  3);
-    key ^=  (key >> 13);
-    key += ~(key <<  9);
-    key ^=  (key >> 17);
-   
-    return key;
-  }*/
 
   template<>
   inline unsigned int

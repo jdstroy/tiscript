@@ -111,7 +111,7 @@ dispatch *CsEnterCPtrObjectType(CsScope *scope,dispatch *proto,char *typeName,c_
 }
 
 /* CsEnterMethods - add built-in methods to an obj */
-void CsEnterMethods(VM *c,value obj,c_method *methods)
+void CsEnterMethods(VM *c,value& obj,c_method *methods)
 {
   CsCheck(c,2);
   CsPush(c,obj);
@@ -119,24 +119,25 @@ void CsEnterMethods(VM *c,value obj,c_method *methods)
     methods->pdispatch = &CsCMethodDispatch;
     CsPush(c,CsInternCString(c,methods->name));
     CsSetProperty(c,c->sp[1],CsTop(c),ptr_value(methods));
-    CsDrop(c,1);
+    CsPop(c);
   }
-  CsDrop(c,1);
+  obj = CsPop(c);
 }
 
 /* CsEnterMethod - add a built-in method to an obj */
-void CsEnterMethod(VM *c,value obj,c_method *method)
+void CsEnterMethod(VM *c,value& obj,c_method *method)
 {
     CsCheck(c,2);
     CsPush(c,obj);
     CsPush(c,CsInternCString(c,method->name));
     method->pdispatch = &CsCMethodDispatch;
     CsSetProperty(c,c->sp[1],CsTop(c), ptr_value(method));
-    CsDrop(c,2);
+    CsDrop(c,1);
+    obj = CsPop(c);
 }
 
 /* CsEnterVPMethods - add built-in virtual property methods to an obj */
-void CsEnterVPMethods(VM *c,value obj,vp_method *methods)
+void CsEnterVPMethods(VM *c,value& obj,vp_method *methods)
 {
   CsCheck(c,2);
   CsPush(c,obj);
@@ -146,32 +147,34 @@ void CsEnterVPMethods(VM *c,value obj,vp_method *methods)
     CsSetProperty(c,c->sp[1],CsTop(c), ptr_value(methods));
     CsDrop(c,1);
   }
-  CsDrop(c,1);
+  obj = CsPop(c);
 }
 
 /* CsEnterVPMethod - add a built-in method to an obj */
-void CsEnterVPMethod(VM *c,value obj,vp_method *method)
+void CsEnterVPMethod(VM *c,value& obj,vp_method *method)
 {
     CsCheck(c,2);
     CsPush(c,obj);
     method->pdispatch = &CsVPMethodDispatch;
     CsPush(c,CsInternCString(c,method->name));
     CsSetProperty(c,c->sp[1],CsTop(c), ptr_value(method));
-    CsDrop(c,2);
+    CsDrop(c,1);
+    obj = CsPop(c);
 }
 
 /* CsEnterProperty - add a property to an obj */
-void CsEnterProperty(VM *c,value obj,const char *selector,value value)
+void CsEnterProperty(VM *c,value& obj,const char *selector,value value)
 {
     CsCheck(c,3);
     CsPush(c,obj);
     CsPush(c,value);
     CsPush(c,CsInternCString(c,selector));
     CsSetProperty(c,c->sp[2],CsTop(c),c->sp[1]);
-    CsDrop(c,3);
+    CsDrop(c,2);
+    obj = CsPop(c);
 }
 
-void CsEnterConstants(VM *c, value obj, constant* constants)
+void CsEnterConstants(VM *c, value& obj, constant* constants)
 {
   CsCheck(c,2);
   CsPush(c,obj);
@@ -180,7 +183,7 @@ void CsEnterConstants(VM *c, value obj, constant* constants)
     CsAddConstant(c,CsTop(c), CsInternCString(c,constants->name), constants->val);
     //CsDrop(c,1);
   }
-  CsDrop(c,1);
+  obj = CsPop(c);
 }
 
 

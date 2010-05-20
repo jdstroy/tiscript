@@ -47,6 +47,12 @@ namespace tool
     // Add to hash table association of object with specified name.
     //
     c_element&  operator[] ( const c_key &the_key );
+    c_element   operator() ( const c_key &the_key ) const
+    {
+      c_element el;
+      find ( the_key, el );
+      return el;
+    }
 
     //
     // Search for object with specified name in hash table.

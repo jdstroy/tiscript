@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef WIN64
+  #define X64BITS
+#endif
+
 #ifdef __GNUC__
   typedef unsigned short      word;
   typedef unsigned long       dword;

@@ -528,7 +528,7 @@ namespace tool
     string::ends_with ( const char *s ) const
   {
     int slen = s? int(::strlen(s)): 0;
-    if( slen ) return false;
+    if( slen == 0 ) return false;
     if( slen > length()) return false;
 
     return strncmp(head() - slen, s, slen) == 0;

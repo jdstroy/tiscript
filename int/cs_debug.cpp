@@ -20,6 +20,7 @@ namespace tis
 #define FMT_WORD        3
 #define FMT_LIT         4
 #define FMT_SWITCH      5
+#define FMT_8BYTE       6
 
 typedef struct { int ot_code; char *ot_name; int ot_fmt; } OTDEF;
 OTDEF otab[] = {
@@ -131,6 +132,14 @@ OTDEF otab[] = {
 {       BC_STACK_RVAL,       "STACK_RVAL",          FMT_NONE   }, 
 
 {       BC_ROOT_NS,  "ROOT_NS",   FMT_NONE        },
+
+//#define BC_DELP         0x6d  /* delete property */
+//#define BC_GDEL         0x6e  /* delete global value */
+//#define BC_VDEL         0x6f  /* delete index */
+//#define BC_TRACE        0x70  /* c-val[0] <- stack trace */
+
+{       BC_GSETNEW,     "GSETNEW",         FMT_LIT         },
+
 
 {0,0,0}
 };

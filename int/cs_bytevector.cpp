@@ -24,6 +24,8 @@ static value CSF_load(VM *c);
 static value CSF_length(VM *c,value obj);
 static value CSF_get_type(VM *c,value obj);
 static void  CSF_set_type(VM *c,value obj,value typ);
+static value CSF_get_name(VM *c,value obj);
+static void  CSF_set_name(VM *c,value obj,value typ);
 
 /* String methods */
 static c_method methods[] = {
@@ -41,6 +43,7 @@ C_METHOD_ENTRY( 0,                  0                   )
 static vp_method properties[] = {
 VP_METHOD_ENTRY( "length",    CSF_length, 0         ),
 VP_METHOD_ENTRY( "type",      CSF_get_type, CSF_set_type       ),
+VP_METHOD_ENTRY( "name",      CSF_get_name, CSF_set_name       ),
 VP_METHOD_ENTRY( 0,          0,         0         )
 };
 
@@ -134,6 +137,28 @@ static value CSF_load(VM *c)
     CsParseArguments(c,"**S#",&filename.start, &filename.length);
     if(filename.length == 0) 
       return NULL_VALUE;
+
+    tool::array<byte> buf;
+    stream* s = c->ploader->open(filename,false);
+    if(s)
+    {
+      s->get_content( buf );
+      s->close();
+    }
+    else
+      CsThrowKnownError(c,CsErrFileNotFound,filename.start);
+
+    value obj = CsMakeByteVector(c,buf.head(),buf.size());
+    if( CsByteVectorP(obj) )
+    {
+      CsPush(c,obj);
+      value n = CsMakeString(c,filename);
+      CsSetByteVectorName(CsTop(c),n);
+      return CsPop(c);
+    }
+    return NULL_VALUE;
+
+    /*
     if( filename.like(L"file://*") )
       filename.prune( 7 );
 
@@ -147,9 +172,13 @@ static value CSF_load(VM *c)
     {
       byte* dst = CsByteVectorAddress(obj);
       memcpy(dst,mf.data(),mf.size());
-      return obj;
+      CsPush(c,obj);
+      value n = CsMakeString(c,filename);
+      CsSetByteVectorName(CsTop(c),n);
+      return CsPop(c);
     }
     return NULL_VALUE;
+    */
 }
 
 
@@ -168,6 +197,15 @@ static value CSF_get_type(VM *c,value obj)
 static void  CSF_set_type(VM *c,value obj,value typ)
 {
   CsSetByteVectorType(obj,typ);
+}
+static value CSF_get_name(VM *c,value obj)
+{
+  return CsByteVectorName(obj);
+  //return UNDEFINED_VALUE;
+}
+static void  CSF_set_name(VM *c,value obj,value typ)
+{
+  CsSetByteVectorName(obj,typ);
 }
 
 
@@ -269,6 +307,7 @@ static long ByteVectorSize(value obj)
 static void  ByteVectorScan(VM *c,value obj)
 {
    CsSetByteVectorType(obj, CsCopyValue(c,CsByteVectorType(obj)));
+   CsSetByteVectorName(obj, CsCopyValue(c,CsByteVectorName(obj)));
 }
 
 
@@ -291,6 +330,8 @@ value CsMakeByteVector(VM *c,const byte *data,int_t size)
     else
         memset(p,0,size);
     CsSetByteVectorType(newo,UNDEFINED_VALUE);
+    CsSetByteVectorName(newo,UNDEFINED_VALUE);
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 
@@ -298,13 +339,15 @@ value CsMakeByteVector(VM *c,const byte *data,int_t size)
 /* CsMakeString - make and initialize a new string value */
 value CsMakeFilledByteVector(VM *c, byte fill, int_t size)
 {
-    long allocSize = sizeof(CsByteVector) + CsRoundSize(size + 1); /* space for zero terminator */
+    long allocSize = sizeof(CsByteVector) + CsRoundSize(size); /* space for zero terminator */
     value newo = CsAllocate(c,allocSize);
     byte *p = CsByteVectorAddress(newo);
     CsSetDispatch(newo,&CsByteVectorDispatch);
     CsSetByteVectorSize(newo,size);
     memset(p,fill,size);
     CsSetByteVectorType(newo,UNDEFINED_VALUE);
+    CsSetByteVectorName(newo,UNDEFINED_VALUE);
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 

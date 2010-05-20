@@ -23,7 +23,7 @@
 
   #pragma warning(disable:4996) //'strcpy' was declared deprecated
 
-  #ifdef PLATFORM_DESKTOP
+  #if defined(PLATFORM_DESKTOP) && !defined(WINVER)
     #define WINVER 0x0501
     #define _WIN32_WINNT 0x0501
   #endif

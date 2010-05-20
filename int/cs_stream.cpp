@@ -279,7 +279,7 @@ stream *OpenFileStream(VM *c,const wchar *fname, const wchar *mode)
 
     if( !append && !write && c->ploader != c) 
     {
-      s = c->ploader->open(tool::url::escape(fname), wcschr(mode,'b') == 0);
+      s = c->ploader->open(fname, wcschr(mode,'b') == 0);
     }
     else
     {

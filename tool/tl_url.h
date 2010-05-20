@@ -82,6 +82,7 @@ namespace tool
     static ustring unescape ( const wchar *src ) { return unescape(string(src)); }
     static bool looks_like_encoded(const string& s);
     static bool looks_like_encoded(const ustring& s) { return looks_like_encoded(string(s)); }
+    static bool need_escapement(const ustring& s);
 
     bool equals(const url& doc, bool only_doc = false) 
     {

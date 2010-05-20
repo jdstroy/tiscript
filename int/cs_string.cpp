@@ -33,6 +33,7 @@ static value CSF_lastIndexOf(VM *c);
 static value CSF_localeCompare(VM *c);
 static value CSF_slice(VM *c);
 static value CSF_printf(VM *c);
+static value CSF_$(VM *c);
 static value CSF_scanf(VM *c);
 
 static value CSF_trim(VM *c);
@@ -108,6 +109,7 @@ C_METHOD_ENTRY( "UID",              CSF_UID ),
 //C_METHOD_ENTRY( "toStream",         CSF_toString ),
 
 C_METHOD_ENTRY( "printf",           CSF_printf ),
+C_METHOD_ENTRY( "$",                CSF_$ ),
 C_METHOD_ENTRY( "scanf",            CSF_scanf ),
 C_METHOD_ENTRY( "toFloat",          CSF_toFloat         ),
 C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
@@ -275,10 +277,8 @@ static value CSF_indexOf(VM *c)
     /* parse the arguments */
     CsParseArguments(c,"S#*S#|i",&str,&len,&str2,&len2, &startIndex);
 
-    if(startIndex >= len)
-      startIndex = len - 1;
-    if(startIndex < 0)
-      startIndex = 0;
+    if(startIndex >= len || startIndex < 0)
+      return CsMakeInteger(-1);
 
     /* find the substr */
     p = wcsstr(str + startIndex,str2);
@@ -688,6 +688,17 @@ static value CSF_printf(VM *c)
     return r;
 }
 
+// simple and straightforward stringizer method, example:
+// var msg = String.$(XML error at line {scanner.lineNo});
+static value CSF_$(VM *c)
+{
+    string_stream s;
+    int i, argc = CsArgCnt(c);
+    for( i = 3; i <= argc; ++i )
+       CsToString(c,CsGetArg(c,i),s);
+    return s.string_o(c);
+}
+
 static value CSF_scanf(VM *c)
 {
     tool::wchars str;
@@ -821,6 +832,7 @@ value   CsMakeSubString(VM *c,value s, int start, int length)
     wchar* pdst = CsStringAddress(newo);
     memcpy(pdst,psrc+start,length * sizeof(wchar));
     pdst[length] = L'\0'; /* in case we need to use it as a C string */
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 
@@ -1017,6 +1029,7 @@ value CsMakeCharString(VM *c,const wchar *data,int_t size)
     else
         memset(p,0,size * sizeof(wchar));
     p[size] = L'\0'; /* in case we need to use it as a C string */
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 
@@ -1065,6 +1078,7 @@ value CsMakeFilledString(VM *c, wchar fill, int_t size)
     for(int n = 0; n < size; ++n)
       *p++ = fill;
     *p = '\0'; /* in case we need to use it as a C string */
+    assert(allocSize == ValueSize(newo));
     return newo;
 }
 

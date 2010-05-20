@@ -19,11 +19,11 @@
 //|
 //|
 
-#include "tl_string.h"
 #include "tl_basic.h"
+#include "tl_slice.h"
+#include "tl_string.h"
 #include "tl_array.h"
 #include "tl_streams.h"
-#include "tl_slice.h"
 #include "ucdata/ucdata_lt.h"
 //#include "ucdata/ucpgba_lt.h"
 
@@ -95,6 +95,8 @@ class ustring {
         const wchar operator[](int index) const;
         ustring &operator=(const ustring &s);
         ustring &operator=(const wchar *s);
+        ustring &operator=(wchars s);
+        ustring &operator=(wchar c);
         ustring operator+(const ustring &s) const;
         ustring operator+(const wchar *s) const;
         ustring operator+(wchar c) const;
@@ -365,6 +367,11 @@ inline ustring &ustring::operator=(const wchar *s)
 { const int length = int(::wcslen(s)); replace_data(length);
   ::memcpy(head(), s, length * sizeof(wchar)); return *this; }
 
+inline ustring &ustring::operator=(wchars s)
+{ replace_data(s.length); ::memcpy(head(), s.start, s.length * sizeof(wchar)); return *this; }
+
+inline ustring &ustring::operator=(wchar c)
+{ replace_data(1); head()[0] = c; return *this; }
 
 inline bool ustring::operator==(const ustring &s) const
 { return (my_data == s.my_data) ||
@@ -736,30 +743,30 @@ inline WCHAR_CLASS wchar_class(wchar c)
 
   inline void to_lower( wchars wc )
   {
-  #ifdef WINDOWS
-    CharLowerBuffW( const_cast<wchar*>(wc.start), DWORD(wc.length) );
-  #else
+  //#ifdef WINDOWS
+  //  CharLowerBuffW( const_cast<wchar*>(wc.start), DWORD(wc.length) );
+  //#else
     const wchar* end = wc.end();
     for (wchar *p = const_cast<wchar*>(wc.start); p < end; ++p)
-      *p = towupper(*p);
-  #endif
+      *p = (wchar)uctolower(*p);
+  //#endif
   }
 
   inline void to_upper( wchars wc )
   {
-  #ifdef WINDOWS
-    CharUpperBuffW( const_cast<wchar*>(wc.start), DWORD(wc.length) );
-  #else
+  //#ifdef WINDOWS
+  //  CharUpperBuffW( const_cast<wchar*>(wc.start), DWORD(wc.length) );
+  //#else
     const wchar* end = wc.end();
     for (wchar *p = const_cast<wchar*>(wc.start); p < end; ++p)
-      *p = towlower(*p);
-  #endif
+      *p = (wchar)uctoupper(*p);
+  //#endif
   }
 
   inline char  to_upper( char c ) { return toupper(c); }
-  inline wchar to_upper( wchar c ) { return towupper(c); }
+  inline wchar to_upper( wchar c ) { return (wchar)uctoupper(c); }
   inline char  to_lower( char c ) { return tolower(c); }
-  inline wchar to_lower( wchar c ) { return towlower(c); }
+  inline wchar to_lower( wchar c ) { return (wchar)uctolower(c); }
 
 
   inline void capitalize( wchars wc )

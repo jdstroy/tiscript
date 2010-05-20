@@ -63,10 +63,7 @@ typedef bool  TISAPI tiscript_object_enum(tiscript_VM *c,tiscript_value key, tis
 // destructor of native objects
 typedef void  TISAPI tiscript_finalizer(tiscript_VM *c,tiscript_value obj);
 
-// GC notifier for native objects,
-//   instance_data - value of instance data found in the object before move
-//   new_self - new value of 'self' (a.k.a. 'this') reference. 
-// Define tiscript_on_gc_copy for your native classes when you need to have weak reference to 'self' (e.g. for callbacks from native side) 
+// GC notifier for native objects
 typedef void  TISAPI tiscript_on_gc_copy(void* instance_data, tiscript_value new_self);
 
 // callback used for 
@@ -161,7 +158,7 @@ struct tiscript_native_interface
   bool (TISAPI *get_bool_value)(tiscript_value v, bool* pb);
   bool (TISAPI *get_symbol_value)(tiscript_value v, const char** psz);
   bool (TISAPI *get_string_value)(tiscript_value v, const wchar** pdata, unsigned* plength);
-  bool (TISAPI *get_bytes)(tiscript_value v, const unsigned char** pb, unsigned* pblen); 
+  bool (TISAPI *get_bytes)(tiscript_value v, unsigned char** pb, unsigned* pblen); 
 
   tiscript_value (TISAPI *nothing_value)(); // special value that designates "does not exist" result.
   tiscript_value (TISAPI *undefined_value)();
@@ -171,7 +168,7 @@ struct tiscript_native_interface
   tiscript_value (TISAPI *float_value)(double v);
   tiscript_value (TISAPI *string_value)(tiscript_VM*, const wchar* text, unsigned text_length);
   tiscript_value (TISAPI *symbol_value)(const char* zstr);
-  tiscript_value (TISAPI *bytes_value)(tiscript_VM*, const byte* data_or_null, uint data_length);
+  tiscript_value (TISAPI *bytes_value)(tiscript_VM*, const byte* data, uint data_length);
 
   tiscript_value (TISAPI *to_string)(tiscript_VM*,tiscript_value v);
 
@@ -243,7 +240,13 @@ struct tiscript_native_interface
    // Function at "host_method_path" creates async streams that will serve a role of stdin, stdout and stderr for the alien vm.
    // This way two VMs can communicate with each other.
    //unsigned   (TISAPI *introduce_vm)(tiscript_VM* pvm_host, const char* host_method_path,  tiscript_VM* pvm_alien, const char* alien_method_path);
+
    bool  (TISAPI *set_remote_std_streams)(tiscript_VM* pvm, tiscript_pvalue* input, tiscript_pvalue* output, tiscript_pvalue* error);
+
+   // support of multi-return values from native fucntions, n here is a number 1..64
+   bool  (TISAPI *set_nth_retval)(tiscript_VM* pvm, int n, tiscript_value ns );
+
+
 };
 
 #ifdef TISCRIPT_EXT_MODULE

@@ -46,6 +46,10 @@ static struct { char *kt_keyword; int kt_token; } ktab[] = {
 { "namespace",  T_NAMESPACE     },
 { "this",       T_THIS          },
 { "assert",     T_ASSERT        },
+{ "delete",     T_DELETE        },
+{ "__FILE__",   T___FILE__      },
+{ "__LINE__",   T___LINE__      },
+{ "__TRACE__",  T___TRACE__     },
 { "debug",      T_DEBUG         },
 
 { NULL,         0               }};
@@ -124,6 +128,10 @@ static char *t_names[] = {
 "namespace",
 "this",
 "assert",
+"delete",
+"__FILE__",
+"__LINE__",
+"__TRACE__",
 "debug",
 };
 
@@ -139,7 +147,7 @@ static int  getradixnumber(CsCompiler *c,int radix);
 static bool isradixdigit(int ch,int radix);
 static int  getdigit(int ch);
 static int  skipspaces(CsCompiler *c);
-static int  isidchar(int ch);
+       bool isidchar(int ch);
 static int  getch(CsCompiler *c);
 int  getoutputstring(CsCompiler *c);
 
@@ -398,6 +406,9 @@ static int rtoken(CsCompiler *c)
                         case 'x':
                         case 'X':
                             return getradixnumber(c,16);
+                        case 'b':
+                        case 'B':
+                            return getradixnumber(c,2);
                         default:
                             c->savedChar = ch;
                             if (ch >= '0' && ch <= '7')
@@ -821,7 +832,7 @@ static int skipspaces(CsCompiler *c)
 }
 
 /* isidchar - is this an identifier character */
-static int isidchar(int ch)
+bool isidchar(int ch)
 {
     return isupper(ch)
         || islower(ch)

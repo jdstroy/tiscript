@@ -220,6 +220,11 @@ namespace tool
   inline bool
     date_time::set_date ( int year, int month, int day )
   {
+    if( year == 0 && month == 0 || day == 0 )
+    {
+      *this = now();
+      return true;
+    }
     return set ( year, month, day, 0, 0, 0, 0, 0, 0 );
   }
 

@@ -90,7 +90,13 @@ namespace tis
 #define T_NAMESPACE     324     /* namespace */
 #define T_ASSERT        325
 #define T_THIS          326
-#define T_DEBUG         327
+#define T_DELETE        327
+
+#define T___FILE__      328
+#define T___LINE__      329
+#define T___TRACE__     330
+
+#define T_DEBUG         331
 
 
 #define _TMAX           T_DEBUG
@@ -199,7 +205,7 @@ struct CsCompiler {
     byte *codebuf;                      /* compiler - code buffer */
     byte *cbase,*cptr,*ctop;            /* compiler - code buffer positions */
     pvalue literalbuf;                 /* compiler - literal buffer */
-    long lbase,lptr,ltop;               /* compiler - literal buffer positions */
+    long lbase,lptr;                    /* compiler - literal buffer positions */
     bool emitLineNumbersP;              /* compiler - true to emit line number opcodes */
     LineNumberBlock *lineNumbers;       /* compiler - line number table entries */
     LineNumberBlock *currentBlock;      /* compiler - where to store new line numbers */

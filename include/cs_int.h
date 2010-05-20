@@ -115,6 +115,11 @@
 #define BC_STACK_RVAL   0x6b  /* all c-vals -> push to stack multiple */
 
 #define BC_ROOT_NS       0x6c  /* c->val = c->currentScope->global */
+#define BC_DELP         0x6d  /* delete property */
+#define BC_GDEL         0x6e  /* delete global value */
+#define BC_VDEL         0x6f  /* delete index */
+#define BC_TRACE        0x70  /* c-val[0] <- stack trace */
 
+#define BC_GSETNEW      0x71  /* create global variable and set its value */
 
 #endif

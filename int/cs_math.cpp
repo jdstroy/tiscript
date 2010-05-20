@@ -20,6 +20,7 @@ static value CSF_tan(VM *c);
 static value CSF_asin(VM *c);
 static value CSF_acos(VM *c);
 static value CSF_atan(VM *c);
+static value CSF_atan2(VM *c);
 static value CSF_sqrt(VM *c);
 static value CSF_ceil(VM *c);
 static value CSF_floor(VM *c);
@@ -51,6 +52,7 @@ C_METHOD_ENTRY( "tan",              CSF_tan             ),
 C_METHOD_ENTRY( "asin",             CSF_asin            ),
 C_METHOD_ENTRY( "acos",             CSF_acos            ),
 C_METHOD_ENTRY( "atan",             CSF_atan            ),
+C_METHOD_ENTRY( "atan2",            CSF_atan2           ),
 C_METHOD_ENTRY( "sqrt",             CSF_sqrt            ),
 C_METHOD_ENTRY( "ceil",             CSF_ceil            ),
 C_METHOD_ENTRY( "floor",            CSF_floor           ),
@@ -242,22 +244,21 @@ static value CSF_acos(VM *c)
 static value CSF_atan(VM *c)
 {
     value val;
+    CsCheckArgCnt(c,3);
     CsCheckType(c,3,CsNumberP);
-    switch (CsArgCnt(c)) {
-    case 3:
         val = CsMakeFloat(c,(float_t)atan(FloatValue(CsGetArg(c,3))));
-        break;
-    case 4:
-        CsCheckType(c,2,CsNumberP);
-        val = CsMakeFloat(c,(float_t)atan2(FloatValue(CsGetArg(c,3)),
-                                                 FloatValue(CsGetArg(c,4))));
-        break;
-    default:
-        CsTooManyArguments(c);
-        val = UNDEFINED_VALUE; /* never reached */
-    }
     return val;
+    }
+
+/* CSF_atan - built-in function 'atan2' */
+static value CSF_atan2(VM *c)
+{
+    CsCheckArgCnt(c,4);
+    CsCheckType(c,3,CsNumberP);
+    CsCheckType(c,4,CsNumberP);
+    return CsMakeFloat(c,(float_t)atan2(FloatValue(CsGetArg(c,3)), FloatValue(CsGetArg(c,4))));
 }
+
 
 /* CSF_sqrt - built-in function 'sqrt' */
 static value CSF_sqrt(VM *c)

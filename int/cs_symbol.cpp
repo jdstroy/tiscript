@@ -420,7 +420,7 @@ bool CsGlobalValue(CsScope *scope,value sym,value *pValue)
 */
 
 /* CsSetGlobalValue - set the value of a global symbol */
-bool CsSetGlobalOrNamespaceValue(VM* c,value tag,value val)
+bool CsSetGlobalOrNamespaceValue(VM* c,value tag,value val, bool create)
 {
     //CsSetProperty(scope->c,CsScopeObject(scope),sym,value);
     value obj = c->getCurrentNS();
@@ -451,7 +451,7 @@ bool CsSetGlobalOrNamespaceValue(VM* c,value tag,value val)
       obj = CsObjectClass(obj);
     }
     /* add it as a property of globals */
-    CsSetGlobalValue(CsCurrentScope(c),tag,val);
+    CsSetGlobalValue(CsCurrentScope(c),tag,val,create);
     return true;
 }
 
@@ -490,9 +490,32 @@ bool CsGetGlobalOrNamespaceValue(VM *c,value tag,value *pValue)
 }
 
 
-void CsSetGlobalValue(CsScope *scope,value sym,value value)
+void CsSetGlobalValue(CsScope *scope,value tag,value val, bool create)
 {
-    CsSetProperty(scope->c,CsScopeObject(scope),sym,value);
+    //CsSetProperty(scope->c,CsScopeObject(scope),sym,value);
+
+    value obj = CsScopeObject(scope);
+    int_t hashValue = 0,i = 0;
+    value p;
+
+    if( p = CsFindProperty(scope->c,obj,tag,&hashValue,&i))
+    {
+      if(create)
+        CsAlreadyDefined(scope->c,tag);
+      value propValue = CsPropertyValue(p);
+      if(CsPropertyMethodP(propValue))
+        CsSendMessage(scope->c,obj,propValue,1, val );
+      else if( CsPropertyIsConst(p) )
+        CsThrowKnownError(scope->c,CsErrReadOnlyProperty,tag);
+      else
+        CsSetPropertyValue(p,val);
+      return;
+    }
+
+    if(!create)
+      CsThrowKnownError(scope->c,CsErrUnboundVariable,tag);
+    CsAddProperty(scope->c,CsScopeObject(scope),tag,val,hashValue,i);
+    //return true;
 }
 
 
@@ -500,9 +523,21 @@ void CsSetNamespaceValue(VM *c,value sym,value val)
 {
 #ifdef _DEBUG
     if(sym == UNDEFINED_VALUE)
-      sym = sym;
+    val = val;
 #endif
-    CsSetProperty1(c,c->getCurrentNS(),sym,val);
+
+    value obj = c->getCurrentNS();
+    int_t hashValue = 0,i = 0;
+    value p;
+    if( p = CsFindProperty(c,obj,sym,&hashValue,&i))
+    {
+      CsAlreadyDefined(c,sym);
+      return;
+    }
+    if( sym == UNDEFINED_VALUE && CsClassP(obj) && CsPropertyMethodP(val) )
+      CsSetClassUndefinedPropHandler(obj,val);
+    else
+      CsAddProperty(c,obj,sym,val,hashValue,i);
 }
 
 

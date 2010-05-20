@@ -992,13 +992,13 @@ DATE_LITERAL:
     uint cents = uint(uint64(li) % 10000);
     
     i64tow sd(dollars);
-    out.put(sd,sd.length());
+    out.put(sd,sd.length);
     out.put('$');
     if( cents == 0 )
       return;
 
     itow sc(cents,10,4);
-    wchars scs(sc,sc.length());
+    wchars scs(sc,sc.length);
     while(scs.last() == '0')
       scs.prune(0,1);
     out.put(scs);

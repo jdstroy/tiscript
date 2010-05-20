@@ -117,7 +117,7 @@ namespace tool
     { 
       bytes_value* bv = (bytes_value* ) malloc( sizeof(bytes_value) + bs.length );
       if(bs.start) memcpy(bv->data, bs.start, bs.length);
-      bv->length = bs.length;
+      bv->length = uint(bs.length);
       bv->ref_count = 0;
       return bv;
     }
@@ -196,6 +196,7 @@ namespace tool
     enum unit_type_string
     {
       UT_STRING = 0,
+      UT_FILE_NAME = 1,
       UT_SYMBOL = 0xFFFF, // aka NMTOKEN
     };
 
@@ -221,6 +222,15 @@ namespace tool
     value(const value& cv): _type(t_undefined), _units(0) { _i(0); set(cv); }
     
     static value make_array(uint sz);
+
+    static value make_color(uint c)
+    {
+      value t;
+      t._type= t_int;
+      t._units = clr;
+      t._i(c);
+      return t;
+    }
 
     static value make_currency(int64 fixed, uint u = 0)
     {
@@ -322,6 +332,7 @@ namespace tool
     bool  is_defined() const { return _type != t_undefined; }
     bool  is_null() const { return _type == t_null; }
     bool  is_cancel() const { return _type == t_null && _units == 0xAFED; }
+    bool  is_none() const { return _type == t_null && _units == 0xAFEE; }
     bool  is_color() const { return _type == t_int && _units == clr; } 
     bool  is_inherit() const { return _type == t_null && _units == 0xFFFF; }
     bool  is_int() const { return _type == t_int; }
@@ -399,16 +410,19 @@ namespace tool
       return length_to_string(_i(),units());
     }
 
+
     static ustring   length_to_string(int i, int u)
     {
       switch(u)
       {
         case value::em: 
-          if( i % 1000 == 0 ) return ustring::format(L"%dem",i/1000);
-          else return ustring::format(L"%fem",double(i)/1000.0);
+          //if( i % 1000 == 0 ) return ustring::format(L"%dem",i/1000);
+          //else return ustring::format(L"%fem",double(i)/1000.0);
+          return fixedtow(i,3,L"em");
         case value::ex: 
-          if( i % 1000 == 0 ) return ustring::format(L"%dex",i/1000);
-          else return ustring::format(L"%fex",double(i)/1000.0);
+          //if( i % 1000 == 0 ) return ustring::format(L"%dex",i/1000);
+          //else return ustring::format(L"%fex",double(i)/1000.0);
+          return fixedtow(i,3,L"ex");
         case value::pr:
           return ustring::format(L"%d%%",i);
         case value::sp:
@@ -416,23 +430,29 @@ namespace tool
         case value::px:
           return ustring::format(L"%dpx",i);
         case value::in:
-          if( i % 1000 == 0 ) return ustring::format(L"%din",i/1000);
-          else return ustring::format(L"%fin",double(i)/1000.0);
+          //if( i % 1000 == 0 ) return ustring::format(L"%din",i/1000);
+          //else return ustring::format(L"%fin",double(i)/1000.0);
+          return fixedtow(i,3,L"in");
         case value::pt: //Points (1 point = 1/72 inches). 
-          if( i % 1000 == 0 ) return ustring::format(L"%dpt",i/1000);
-          else return ustring::format(L"%fpt",double(i)/1000.0);
+          //if( i % 1000 == 0 ) return ustring::format(L"%dpt",i/1000);
+          //else return ustring::format(L"%fpt",double(i)/1000.0);
+          return fixedtow(i,3,L"pt");
         case value::dip:
-          if( i % 1000 == 0 ) return ustring::format(L"%ddip",i/1000);
-          else return ustring::format(L"%fdip",double(i)/1000.0);
+          //if( i % 1000 == 0 ) return ustring::format(L"%ddip",i/1000);
+          //else return ustring::format(L"%fdip",double(i)/1000.0);
+          return fixedtow(i,3,L"dip");
         case value::pc: //Picas (1 pica = 12 points). 
-          if( i % 1000 == 0 ) return ustring::format(L"%dpc",i/1000);
-          else return ustring::format(L"%fpc",double(i)/1000.0);
+          //if( i % 1000 == 0 ) return ustring::format(L"%dpc",i/1000);
+          //else return ustring::format(L"%fpc",double(i)/1000.0);
+          return fixedtow(i,3,L"pc");
         case value::cm: // Cm (2.54cm = 1in). 
-          if( i % 1000 == 0 ) return ustring::format(L"%dcm",i/1000);
-          else return ustring::format(L"%fcm",double(i)/1000.0);
+          //if( i % 1000 == 0 ) return ustring::format(L"%dcm",i/1000);
+          //else return ustring::format(L"%fcm",double(i)/1000.0);
+          return fixedtow(i,3,L"cm");
         case value::mm:
-          if( i % 1000 == 0 ) return ustring::format(L"%dmm",i/1000);
-          else return ustring::format(L"%fmm",double(i)/1000.0);
+          //if( i % 1000 == 0 ) return ustring::format(L"%dmm",i/1000);
+          //else return ustring::format(L"%fmm",double(i)/1000.0);
+          return fixedtow(i,3,L"mm");
         default:
           return "{not a length unit}";
       }
@@ -628,6 +648,12 @@ namespace tool
       value t = parse_length(us);
       return t.is_undefined()? value(us) : t;
     }
+
+    inline static value none_value() 
+    { 
+      value v; v._type = t_null; v._units = 0xAFEE; 
+      return v;
+    }
     /*static value parse(const string& us)
     {
       double d;
@@ -690,7 +716,7 @@ namespace tool
       return v;
     }
 
-    static value length(int i, uint ut)
+    static value make_length(int i, uint ut)
     {
       value v; 
       v._type = t_length;
@@ -698,13 +724,15 @@ namespace tool
       v._i(i);
       return v;
     }
-    static value length(double d, uint ut)
+    static value make_length(double d, uint ut)
     {
       value v; 
       v._type = t_length;
       v._units = ut;
       if( ut == px || ut == pr || ut == sp)
-        v._i(int(d));
+      {
+        v._i(int(d+0.5));
+      }
       else
       v._i(int(d * 1000));
       return v;
@@ -1439,6 +1467,7 @@ namespace tool
 
     void inherit(const t_value& v) { if(v.defined()) _v = v._v; }
 
+    T val(const T& v1) const { return defined()? (T)_v: v1; }
     T val(const t_value& v1) const { return defined()? (T)_v: (T)v1; }
 
     static T val(const t_value& v1,T defval) { return v1.defined()? v1._v:defval; }
@@ -1468,6 +1497,7 @@ namespace tool
   };
 
   typedef t_value<int,0,0x80000000, 0x80000001>  int_v;
+  typedef t_value<unsigned int,0,0xFFFFFFFF, 0xFFFFFFFE> uint_v;
   typedef t_value<uint,0,0xFF, 0xFFFFFFFF>       tristate_v;
   typedef int_v                                  enum_v;
   

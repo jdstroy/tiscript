@@ -97,7 +97,7 @@
         <td bgcolor="#ffffff" valign="top" align="right"><strong><em>concat</em></strong></td>
         <td bgcolor="#fffff0" valign="middle">
           <p><strong>( [<a>string1</a>[, string2[, <a>...</a> [, <a>stringN</a>]]]] )</strong> : string</p>
-          <p>Returns string consisting from concatenated arguments: &nbsp;<em>self</em> + <em>string1</em> + <em>string2</em> + <em>string3</em> +<em> </em>РІР‚В¦<em> + stringN</em>.</p></td>
+          <p>Returns string consisting from concatenated arguments: &nbsp;<em>self</em> + <em>string1</em> + <em>string2</em> + <em>string3</em> +<em> </em>Р Р†Р вЂљР’В¦<em> + stringN</em>.</p></td>
         <td></td></tr>
       <tr>
         <td bgcolor="#ffffff" valign="top" align="right"><strong><em>charAt</em></strong></td>
@@ -216,6 +216,17 @@ stdout.printf(&quot;%V\n&quot;, s.replace(test, f2c ));
         <td bgcolor="#fffff0" valign="middle">
           <div><strong>()</strong> : string</div>
           <p>Returns string where <a href="http://www.w3.org/TR/REC-html40/sgml/entities.html">html entities</a> replaced by correspondent character codes.</p></td>
+        <td></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>$</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>(</strong> ... <strong>)</strong> : string</p>
+          <p>static method, returns composed string. Note, this is a &quot;stringizer&quot; method.</p>
+          <p>Example, this:</p>
+          <pre>var pt = { x:12, y:42  };
+var msg = String.$(coordinates are x:{ pt.x } y:{ pt.y });
+</pre>
+          <p>produces string <code>&quot;coordinates are x:12 y:42&quot;</code> &nbsp;in <code>msg</code> variable.</p></td>
         <td></td></tr>
       <tr>
         <td bgcolor="#ffffff" valign="top" align="right"><a name="printf"><strong><em>printf</em></strong></a></td>

@@ -83,6 +83,12 @@ namespace tis
         while( (c = get()) != EOS )
           buf.push( (wchar) c );
       }
+      void get_content( tool::array<byte>& buf )
+      {
+        int c;
+        while( (c = get()) != EOS )
+          buf.push( (byte) c );
+      }
       value   scanf(VM* c, const wchar* fmt);
 
       virtual bool put(VM* c, value v);
@@ -222,13 +228,19 @@ namespace tis
     const byte*   ptr;
     const byte*   end;
     tool::ustring name;
-    binary_i_stream(tool::array<byte> data, const tool::ustring& fname, bool auto_del = true): 
+    binary_i_stream(tool::array<byte>& data, const tool::ustring& fname, bool auto_del = true): 
       name(fname), auto_delete(auto_del)
       {
       buffer.swap(data);
       start = ptr = buffer.head();
       end = ptr + buffer.size();
       }
+    binary_i_stream(tool::bytes data, const tool::ustring& fname, bool auto_del = true): 
+      name(fname), auto_delete(auto_del)
+    {
+      start = ptr = data.start;
+      end = ptr + data.length;
+    }
     virtual void rewind() { ptr = start; }
     virtual int read() {  if( ptr >= end ) return EOS; else return *ptr++;  }
     virtual const wchar* stream_name() const { return name; }

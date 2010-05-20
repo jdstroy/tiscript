@@ -498,7 +498,7 @@ static value CSF_putc(VM *c)
     return true;
   }
 
-  static bool PrintData( VM *c, value val, stream* s, int* tabs, tool::pool<value>& emited );
+  static bool PrintData( VM *c, value val, stream* s, int* tabs, tool::pool<value>& emited, bool on_right_side = true);
 
   static bool PrintVectorData(VM *c,value val,stream *s, int *tabs, tool::pool<value>& emited)
   {
@@ -580,33 +580,78 @@ static value CSF_putc(VM *c)
       */
 
       int  n = 0;
+      bool is_large = CsObjectPropertyCount(obj) > 4;
+
+      if(!is_large)
+      {
       each_property gen(c, obj);
       for( value key,val; gen(key,val);)
       {
-          if (n++) s->put(','); if(tabs) s->put('\n');
-          if(tabs) for( int t = 0; t < *tabs; ++t ) s->put('\t');
-          if (!PrintData(c,key,s,tabs,emited)) break;
-          if (!s->put_str(":")) return false;
-          if (!PrintData(c,val,s,tabs,emited)) break;
+          if( CsObjectP(val) || 
+              CsVectorP(val) || CsMovedVectorP(val) )
+          {
+            is_large = true;
+            break;
+          }
+        }
       }
 
-      if(tabs)
+      each_property gen(c, obj);
+      for( value key,val; gen(key,val);)
+      {
+          if (n++) s->put(','); 
+          if(tabs && is_large) 
+          { 
+            s->put('\n'); 
+            for( int t = 0; t < *tabs; ++t ) s->put('\t'); 
+          }
+          if (!PrintData(c,key,s,tabs,emited,false)) break;
+          if (!s->put_str(":")) return false;
+          if (!PrintData(c,val,s,tabs,emited,true)) break;
+      }
+
+      if(tabs && is_large)
       {
         s->put('\n');
-        (*tabs)--;
         for( int t = 0; t < *tabs; ++t ) s->put('\t');
       }
+      if(tabs)
+        (*tabs)--;
+
       if (!s->put('}'))
         return false;
       return true;
   }
 
-  static bool PrintData( VM *c, value val, stream* s, int* tabs, tool::pool<value>& emited )
+  extern bool isidchar(int ch); 
+  static bool is_name_token(const char* str)
+  {
+    while(str && *str)
+    {
+      if( !isidchar(*str) )
+        return false;
+      ++str;
+    }
+    return true;
+  }
+
+  static bool PrintData( VM *c, value val, stream* s, int* tabs, tool::pool<value>& emited, bool right_side )
   {
      if( CsIntegerP(val) || CsFloatP(val) )
        return PrintNumericData(c,val,s,tabs);
-     else if(CsSymbolP(val))
+     else if( val == UNDEFINED_VALUE ||
+              val == NULL_VALUE || 
+              val == TRUE_VALUE || 
+              val == FALSE_VALUE )
+     {
        s->put_str(CsSymbolName(val));
+     }
+     else if(CsSymbolP(val))
+     {
+       if( right_side || !is_name_token(CsSymbolName(val)) )
+         s->put_str("#"); 
+       s->put_str(CsSymbolName(val));
+     }
      else if(CsStringP(val))
        return PrintStringData(c,val,s,tabs);
      else if(CsVectorP(val))

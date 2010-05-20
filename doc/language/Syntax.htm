@@ -157,7 +157,6 @@ var str2 = &quot;The quick brown fox jumps over the lazy dog&quot;;
 </pre>
   <p>is a precise equivalent of the statement above.</p>
   <p>If the first token after the opening <code>{</code> bracket &nbsp;is <code>:</code> (semicolon), &nbsp;the expression that follows is treated as a class name. This allows to define objects of user-defined classes in literal form:</p>
-  <blockquote><strong>Clarify what the last sentence means</strong></blockquote>
   <pre>var myObj = {:MyClass one:1, two:2, three: &quot;three&quot;, four:4 };
 </pre>
   <p>The formal definition of the object literal:</p>
@@ -169,5 +168,16 @@ var str2 = &quot;The quick brown fox jumps over the lazy dog&quot;;
   <p>The kind-of-formal definition of RE literal:</p>
   <p><code>/</code> &lt;re-expression&gt; <code>/</code>[<code>i</code>][<code>g</code>]</p>
   <p>where <em>i</em> means case-insensitive match, and <em>g</em> enables &quot;global&quot; matching. When using the <em>RegExp.exec()</em> method, specify this modifier to return all matches, rather than the first one.</p>
+  <h3>Macro variables</h3>
+  <p>There are three macro variables that can be used for logging and debugging purposes:</p>
+  <ul>
+    <li><code>__FILE__</code> - name of current file;</li>
+    <li><code>__LINE__</code> - current line number in the file;</li>
+    <li><code>__TRACE__</code> - actually is an instruction that creates current call trace snapshot as a vector of triplets. Each triplet is a vector of three elements where:</li>
+    <ul>
+      <li><code>[0]</code> - integer, line number;</li>
+      <li><code>[1]</code> - symbol, function name;</li>
+      <li><code>[2]</code> - symbol, file name.</li></ul></ul>
+  <p></p>
 </body>
 </html>

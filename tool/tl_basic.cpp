@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #include "tl_basic.h"
+#include "tl_slice.h"
 #include "snprintf.h"
 
 #ifdef _DEBUG
@@ -18,6 +19,10 @@
 static char THIS_FILE[] = __FILE__;
 #endif
 
+#if defined(WINDOWS) && !defined(PLATFORM_WINCE)
+#include <mmsystem.h>
+#pragma comment(lib, "winmm.lib")
+#endif
 
 namespace tool
 {
@@ -132,6 +137,13 @@ namespace tool
       }
       return osname;
   }
+
+  void play_sound(bytes sound_data) {
+#if defined(WINDOWS)
+    PlaySound((LPCTSTR)sound_data.start,0,SND_ASYNC | SND_MEMORY | SND_NOWAIT);
+#endif
+  }
+
 
 
 };

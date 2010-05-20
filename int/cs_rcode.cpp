@@ -113,11 +113,9 @@ int CsLoadObjectFile(CsScope *scope,const wchar *fname)
     CATCH_ERROR(e)
     {
       e;
-      s->close();
       return false;
     }
     /* return successfully */
-    s->close();
     return true;
 }
 
@@ -130,6 +128,8 @@ int CsLoadObjectStream(CsScope *scope, stream *s)
     /* check the file type */
     if(!CsReadBytecodePreamble(scope->c,s,true))
       return false;
+
+    tool::auto_state<tool::ustring> _(c->script_url,s->stream_name());    
 
     read_ctx rctx(c,s,false);
     if(!rctx.readSymbolTable())
