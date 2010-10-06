@@ -1,58 +1,46 @@
-<HTML>
-  <HEAD>
-    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <META name="GENERATOR" content="BLOCKNOTE.NET">
-    <META name="source">
-    <BASEFONT face="Verdana" size="2">
-    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-</STYLE>
-  </HEAD>
-<BODY>
-<H1>Storage object</H1>
-<P>Represents persistent storage.</P><DIV align="left">
-<TABLE border="0" cellpadding="4" cellspacing="0" width="100%">
-  <TR>
-    <TD colspan="2"><STRONG><FONT size="4">Properties</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>root</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">- <EM>object</EM>, root object in the storage. Read/write property.</TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>autocommit</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">- <EM>boolean</EM>, indicates if storage commits all associated objects into storage automatically. Read-only property.</TD>
-  </TR>
-  <TR>
-    <TD colspan="2" valign="top"><STRONG><FONT size="4">Methods</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>open</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<P><STRONG>( </STRONG><EM>file-name</EM><STRONG> </STRONG>&nbsp;[, autocommit] ) returns: storage | null</P>
-<P>Static method. Opens the storage, which name is stored in the <EM>file-name</EM> string and returns an instance of Storage object.<BR><EM>autocommit</EM> indicates if storage commits all associated objects into storage automatically. Default value is <EM>true</EM>.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>close</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>()</STRONG></DIV>
-<P>Closes underlying Storage object. Commits all data if <EM>autocommit</EM> is set to <EM>true</EM>.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>commit</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<P><STRONG>()</STRONG></P>
-<P>Commits all related objects into storage.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>createIndex</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV><STRONG>(</STRONG><EM>type [, unique]</EM><STRONG>)</STRONG> returns: <EM>Index | null</EM></DIV>
-<P>Creates an index of type 'type' and returns <EM>Index</EM> object. <EM>Index</EM> could have unique or duplicated keys depending on <EM>unique</EM> argument. Default value for <EM>unique</EM> is <EM>true</EM>. Supported types: #<EM>integer, #float, #date, #string</EM>.</P></TD>
-  </TR>
-</TABLE>
-</DIV>
-</BODY>
-</HTML>
+<html>
+  <head>
+    <meta name="GENERATOR" content="BLOCKNOTE.NET"/>
+    <meta name="source"/>
+    <basefont face="Verdana" size="2"/>
+    <meta name="generator" content="h-smile:richtext"/>
+  </head>
+<body>
+  <h1>Storage object</h1>
+  <p>Represents persistent storage.</p>
+  <div align="left">
+    <table border="0" cellpadding="4" cellspacing="0" width="100%">
+      <tr>
+        <td colspan="2">
+          <h2>Properties</h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>root</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- <em>object</em>, root object in the storage. Read/write property.</td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>autocommit</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- <em>boolean</em>, indicates if storage commits all associated objects into storage automatically. Read-only property.</td></tr>
+      <tr>
+        <td colspan="2" valign="top">
+          <h2>Methods</h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>open</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>( </strong><em>file-name</em><strong> </strong>&nbsp;[, autocommit] ) returns: storage | null</p>
+          <p>Static method. Opens the storage, which name is stored in the <em>file-name</em> string and returns an instance of Storage object.<br/><em>autocommit</em> indicates if storage commits all associated objects into storage automatically. Default value is <em>true</em>.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>close</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>()</strong></div>
+          <p>Closes underlying Storage object. Commits all data if <em>autocommit</em> is set to <em>true</em>.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>commit</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p><strong>()</strong></p>
+          <p>Commits all related objects into storage.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>createIndex</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div><strong>(</strong><em>type [, unique]</em><strong>)</strong> returns: <em>Index | null</em></div>
+          <p>Creates an index of type 'type' and returns <em>Index</em> object. <em>Index</em> could have unique or duplicated keys depending on <em>unique</em> argument. Default value for <em>unique</em> is <em>true</em>. Supported types: #<em>integer, #float, #date, #string</em>.</p></td></tr></table></div>
+</body>
+</html>

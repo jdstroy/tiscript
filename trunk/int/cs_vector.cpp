@@ -25,14 +25,17 @@ static value CSF_slice(VM *c);
 static value CSF_splice(VM *c);
 static value CSF_sort(VM *c);
 static value CSF_indexOf(VM *c);
+static value CSF_lastIndexOf(VM *c);
 static value CSF_remove(VM *c);
 static value CSF_removeByValue(VM *c);
-
+static value CSF_map(VM *c);
+static value CSF_reduce(VM *c);
+static value CSF_reduceRight(VM *c);
+static value CSF_filter(VM *c);
 
 #define FETCH(c,obj) if( _CsIsPersistent(obj) ) obj = CsFetchVectorData(c, obj);
 #define FETCH_P(c,obj,p1) if( _CsIsPersistent(obj) ) { CsPush(c,p1); obj = CsFetchVectorData(c, obj); p1 = CsPop(c); }
 #define FETCH_PP(c,obj,p1,p2) if( _CsIsPersistent(obj) ) { CsPush(c,p2); CsPush(c,p1); obj = CsFetchVectorData(c, obj); p1 = CsPop(c); p2 = CsPop(c); }
-
 
 /* virtual property methods */
 static value CSF_length(VM *c,value obj);
@@ -61,8 +64,14 @@ C_METHOD_ENTRY( "slice",            CSF_slice           ),
 C_METHOD_ENTRY( "splice",           CSF_splice          ),
 C_METHOD_ENTRY( "sort",             CSF_sort            ),
 C_METHOD_ENTRY( "indexOf",          CSF_indexOf         ),
+C_METHOD_ENTRY( "lastIndexOf",      CSF_lastIndexOf     ),
 C_METHOD_ENTRY( "remove",           CSF_remove          ),
 C_METHOD_ENTRY( "removeByValue",    CSF_removeByValue   ),
+C_METHOD_ENTRY( "map",              CSF_map             ),
+C_METHOD_ENTRY( "reduce",           CSF_reduce          ),
+C_METHOD_ENTRY( "reduceRight",      CSF_reduceRight     ),
+C_METHOD_ENTRY( "filter",           CSF_filter          ),
+
 
 C_METHOD_ENTRY( 0,                  0                   )
 };
@@ -253,37 +262,38 @@ static bool RemoveItem(VM *c, value vector, value idx)
       return false;
     CsSetVectorSize(vector,--size);
     for (value* p = CsVectorAddress(c,vector) + pos; --size >= pos; ++p)
-        *p = p[1];
+        p[0] = p[1];
     return true;
 }
 
 static value CSF_removeByValue(VM *c)
 {
-    value vector;
-    value element;
+    value vector = 0, element = 0;
+    protect2 _(c,vector, element);
+
     CsParseArguments(c,"V=*V",&vector,&CsVectorDispatch,&element);
-    FETCH_P(c, vector,element);
+    FETCH(c, vector);
       CsSetModified(vector,true);
 
     if (CsMovedVectorP(vector))
         vector = CsVectorForwardingAddr(vector);
 
-    value *p = CsVectorAddress(c,vector);
     int_t size = CsVectorSize(c,vector);
     int n = 0;
     for( ; n < size; ++n )
     {
-      if( CsEqualOp(c, p[n], element ) ) 
+      if( CsEqualOp(c, CsVectorElement(c,vector,n), element ) ) 
       {
-        element = p[n];
+        element = CsVectorElement(c,vector,n);
         break;
       }
     }
     if( n >= size)
       return NOTHING_VALUE;
     CsSetVectorSize(vector,--size);
+    value *p = CsVectorAddress(c,vector);
     for (p += n; --size >= n; ++p)
-        *p = p[1];
+        p[0] = p[1];
     return element;
 }
 
@@ -317,7 +327,8 @@ static value CSF_first(VM *c,value obj)
 /* CSF_set_first - built-in property 'size' */
 static void CSF_set_first(VM *c,value obj,value val)
 {
-    FETCH_P(c, obj,val);
+    protect1 _(c,val);
+    FETCH(c,obj);
     CsSetModified(obj,true);
     if( CsVectorSize(c,obj) == 0 )
       obj = CsResizeVector(c,obj,1);
@@ -336,7 +347,8 @@ static value CSF_last(VM *c,value obj)
 /* CSF_set_first - built-in property 'size' */
 static void CSF_set_last(VM *c,value obj, value val)
 {
-    FETCH_P(c, obj, val);
+    protect1 _(c,val);
+    FETCH(c, obj);
     CsSetModified(obj,true);
     if( CsVectorSize(c,obj) == 0 )
       obj = CsResizeVector(c,obj,1);
@@ -363,8 +375,8 @@ static value CSF_concat(VM *c)
       else
         extra ++; 
     }
-
     value nvector = CsMakeVector(c,d+extra);
+    protect2 _(c,vector,nvector);
     n = d;
     for( i = 0; i < d; ++i )
       CsSetVectorElement(c,nvector, i, CsVectorElement(c,vector,i));
@@ -385,16 +397,15 @@ static value CSF_concat(VM *c)
 
 static value CSF_join(VM *c)
 {
-    value vector;
+    value vector = 0;
+    protect1 _(c,vector);
     wchar *str = 0;
-
     CsParseArguments(c,"V=*|S",&vector,&CsVectorDispatch,&str);
-    //vector = CsMovedVectorP(vector)? CsVectorForwardingAddr(vector): vector;
+    tool::ustring dlm = str?str:L",";
+
     FETCH(c, vector);
 
     int_t n = CsVectorSize(c,vector);
-
-    tool::ustring dlm = str?str:L",";
 
     value r;
     string_stream s(20);
@@ -461,12 +472,11 @@ value CsVectorSlice(VM *c, value vector, int start, int end)
       return CsMakeVector(c,0);
 
     /* return the slice */
+    protect1 _(c,vector);
     value vdst = CsMakeVector(c,end - start);
     value* src = CsVectorAddress(c,vector) + start;
     value* dst = CsVectorAddress(c,vdst);
-
     tool::copy(dst,src, end - start);
-
     return vdst;
 
 }
@@ -504,6 +514,7 @@ static value CSF_slice(VM *c)
       return CsMakeVector(c,0);
 
     /* return the slice */
+    protect1 _(c,vector);
     value vdst = CsMakeVector(c,end - start);
     value* src = CsVectorAddress(c,vector) + start;
     value* dst = CsVectorAddress(c,vdst);
@@ -557,7 +568,9 @@ static value CSF_splice(VM *c)
 
 
     /* return the slice */
+    protect1 _(c,vector);
     value vdst = CsMakeVector(c,cnt);
+
     value* p1 = CsVectorAddress(c,vector) + start;
     value* p2 = CsVectorAddress(c,vdst);
     tool::copy(p2,p1,cnt);
@@ -571,7 +584,6 @@ static value CSF_splice(VM *c)
       value* p1src = CsVectorAddress(c,vector) + start + cnt;
       value* p1dst = CsVectorAddress(c,vector) + start + cnt_to_insert;
       tool::move(p1dst,p1src,cnt_copy );
-      
       value* p3 = CsVectorAddress(c,vector) + start;
       for( int n = 5; n <= CsArgCnt(c); ++n )
       {
@@ -619,7 +631,7 @@ static value CSF_splice(VM *c)
     cmpValuesProxy( VM *pvm, value f ): fun(pvm,f) {}
     bool less( const value& v1, const value& v2)
     {
-      value r = CsCallFunction(CsCurrentScope(fun.pvm),fun.val,2,v1,v2);
+      value r = CsCallFunction(CsCurrentScope(fun.pvm),fun,2,v1,v2);
       if(CsIntegerP(r))
         return CsIntegerValue(r) < 0;
       return false;
@@ -627,83 +639,268 @@ static value CSF_splice(VM *c)
   };
 
 
+  struct vector_GC_protector: public gc_callback
+  {
+    tool::array<value>& elements;
+    vector_GC_protector(VM* c, tool::array<value>& elems):gc_callback(c),elements(elems) {}
+    virtual void on_GC(VM* c)
+    {
+      for( int n = 0; n < elements.size(); ++n ) 
+        elements[n] = CsCopyValue(c,elements[n]);
+    }
+  };
+
 static value CSF_sort(VM *c)
 {
-    value vector;
-    value cmpf = 0;
+    value vector = 0,cmpf = 0;
+    protect2 _(c,vector,cmpf);
 
     CsParseArguments(c,"V=*|V",&vector,&CsVectorDispatch,&cmpf);
     //vector = CsMovedVectorP(vector)? CsVectorForwardingAddr(vector): vector;
-    FETCH_P(c, vector, cmpf);
+    FETCH(c, vector);
     CsSetModified(vector,true);
 
     int_t d = CsVectorSize(c,vector);
     value *p = CsVectorAddress(c,vector);
-    value *p_end = p + d;
-
-    if(cmpf == 0)
+    if(!cmpf)
     {
       simple_sorter::sort(p, d,cmpValues(c));
     }
     else if(CsMethodP(cmpf))
     {
       cmpValuesProxy comparator(c,cmpf);
-      tool::sorter<value,cmpValuesProxy>::sort(p, d, comparator);
+      tool::array<value> arr = tool::slice<value>(p,d);
+      vector_GC_protector _(c,arr);
+      tool::sorter<value,cmpValuesProxy>::sort(arr.head(), arr.size(), comparator);
+      tool::copy(CsVectorAddress(c,vector),arr.head(),arr.size());
     }
     else
       CsTypeError(c,cmpf);
-
-    //qsort(
 
     return vector;
 }
 
 static value CSF_indexOf(VM *c)
 {
-    value vector;
-    value v, dv = CsMakeInteger(-1);
+    value vector = 0, v = 0, dv = CsMakeInteger(-1);
+    protect3 _(c,vector, v, dv);
 
     CsParseArguments(c,"V=*V|V",&vector,&CsVectorDispatch,&v, &dv);
 
-    FETCH_P(c, vector,v);
+    FETCH(c,vector);
 
     int_t d = CsVectorSize(c,vector);
-    value *p = CsVectorAddress(c,vector);
-
     for( int n = 0; n < d; ++n )
     {
-      if( CsEqualOp(c, p[n], v ) ) return CsMakeInteger(n);
+      if( CsEqualOp(c, CsVectorElement(c,vector,n), v ) ) 
+        return CsMakeInteger(n);
     }
     return dv;
+}
+
+static value CSF_lastIndexOf(VM *c)
+{
+    value vector = 0, v = 0, dv = CsMakeInteger(-1);
+    protect3 _(c,vector, v, dv);
+
+    CsParseArguments(c,"V=*V|V",&vector,&CsVectorDispatch,&v, &dv);
+
+    FETCH(c,vector);
+
+    int_t d = CsVectorSize(c,vector);
+    for( int n = d - 1; n >= 0; --n )
+    {
+      if( CsEqualOp(c, CsVectorElement(c,vector,n ), v ) ) return CsMakeInteger(n);
+    }
+    return dv;
+}
+
+static value CSF_map(VM *c)
+{
+    value vector = 0 ,cmpf = 0, cmpf_this = 0, r_vector = 0;
+    protect4 _(c,vector,cmpf,cmpf_this,r_vector);
+
+    CsParseArguments(c,"V=*V=|V",&vector,&CsVectorDispatch,&cmpf,&CsMethodDispatch,&cmpf_this);
+
+    FETCH(c, vector);
+
+    int_t d = CsVectorSize(c,vector);
+
+    r_vector = CsMakeVector(c,d);
+
+    int_t ndst = 0;
+    //value *p = CsVectorAddress(c,vector);
+    if(cmpf_this)
+    {
+      for( int n = 0; n < d; ++n )
+      {
+        value r = CsCallMethod(c,cmpf_this, cmpf, cmpf_this, 3, 
+           CsVectorElement(c,vector,n), 
+           CsMakeInteger(n),
+           vector);
+        if( r == NOTHING_VALUE )
+          continue;
+        CsSetVectorElement(c,r_vector,ndst++,r);
+      }
+    }
+    else
+    {
+      CsScope* scope = CsCurrentScope(c);
+      for( int n = 0; n < d; ++n )
+      {
+        value r = CsCallFunction(scope,cmpf,3,
+          CsVectorElement(c,vector,n), 
+          CsMakeInteger(n),
+          vector);
+        if( r == NOTHING_VALUE )
+          continue;
+        CsSetVectorElement(c,r_vector,ndst++,r);
+      }
+    }
+    if( ndst != d)
+      return CsResizeVector(c,r_vector,ndst);
+    return r_vector;
+}
+
+static value CSF_reduce(VM *c)
+{
+    value vector = 0, cmpf = 0, last = 0;
+    protect3 _(c,vector, cmpf, last);
+
+    CsParseArguments(c,"V=*V=|V",&vector,&CsVectorDispatch,&cmpf,&CsMethodDispatch,&last);
+
+    FETCH(c, vector);
+
+    int_t d = CsVectorSize(c,vector);
+
+    CsScope* scope = CsCurrentScope(c);
+    if( last )
+      for( int n = 0; n < d; ++n )
+      {
+        last = CsCallFunction(scope,cmpf,4, // previousValue, currentValue, index, array
+          last,
+          CsVectorElement(c,vector,n), 
+          CsMakeInteger(n),
+          vector);
+      }
+    else if( d )
+    {
+      last = CsVectorElement(c,vector,0);
+      for( int n = 1; n < d; ++n )
+      {
+        last = CsCallFunction(scope,cmpf,4, // previousValue, currentValue, index, array
+          last,
+          CsVectorElement(c,vector,n), 
+          CsMakeInteger(n),
+          vector);
+      }
+    }
+    return  last;
+}
+
+static value CSF_reduceRight(VM *c)
+{
+    value vector = 0, cmpf = 0, last = 0;
+    protect3 _(c,vector, cmpf, last);
+
+    CsParseArguments(c,"V=*V=|V",&vector,&CsVectorDispatch,&cmpf,&CsMethodDispatch,&last);
+
+    FETCH(c, vector);
+
+    int_t d = CsVectorSize(c,vector);
+
+    CsScope* scope = CsCurrentScope(c);
+    if( last )
+      for( int n = d - 1; n >= 0; --n )
+      {
+        last = CsCallFunction(scope,cmpf,4, // previousValue, currentValue, index, array
+          last,
+          CsVectorElement(c,vector,n), 
+          CsMakeInteger(n),
+          vector);
+      }
+    else if( d )
+    {
+      last = CsVectorElement(c,vector,d - 1);
+      for( int n = d - 2; n >= 0; --n )
+      {
+        last = CsCallFunction(scope,cmpf,4, // previousValue, currentValue, index, array
+          last,
+          CsVectorElement(c,vector,n), 
+          CsMakeInteger(n),
+          vector);
+      }
+    }
+    return  last;
+}
+
+static value CSF_filter(VM *c)
+{
+    value vector = 0, cmpf = 0, cmpf_this = 0,r_vector = 0;
+    protect4 _(c,vector, cmpf, cmpf_this,r_vector);
+
+    CsParseArguments(c,"V=*V=|V",&vector,&CsVectorDispatch,&cmpf,&CsMethodDispatch,&cmpf_this);
+
+    FETCH(c, vector);
+
+    int_t d = CsVectorSize(c,vector);
+
+    r_vector = CsMakeVector(c,d);
+    int ndst = 0;
+    //value *p = CsVectorAddress(c,vector);
+    if(cmpf_this)
+    {
+      for( int n = 0; n < d; ++n )
+      {
+        value r = CsCallMethod(c,cmpf_this, cmpf, cmpf_this, 3, 
+           CsVectorElement(c,vector,n), 
+           CsMakeInteger(n),
+           vector);
+        if( CsToBoolean(c,r) == TRUE_VALUE)
+          CsSetVectorElement(c,r_vector,ndst++,CsVectorElement(c,vector,n));
+      }
+    }
+    else
+    {
+      CsScope* scope = CsCurrentScope(c);
+      for( int n = 0; n < d; ++n )
+      {
+        value r = CsCallFunction(scope,cmpf,3,
+          CsVectorElement(c,vector,n), 
+          CsMakeInteger(n),
+          vector);
+        if( CsToBoolean(c,r) == TRUE_VALUE)
+          CsSetVectorElement(c,r_vector,ndst++,CsVectorElement(c,vector,n));
+      }
+    }
+    return CsResizeVector(c,r_vector,ndst);
 }
 
 bool CsVectorsEqual(VM *c, value v1, value v2)
 {
   if( CsVectorSize(c,v1) != CsVectorSize(c,v2) )
     return false;
+  protect2 _(c,v1,v2);
   FETCH(c,v1);
-  FETCH_P(c,v2,v1);
-  value* p1 = CsVectorAddress(c,v1);
-  value* p1_end = p1 + CsVectorSize(c,v1);
-  value* p2 = CsVectorAddress(c,v2);
-
-  while( p1 < p1_end )
+  FETCH(c,v2);
+  int d = CsVectorSize(c,v1);
+  for( int n = 0; n < d; ++n )
   {
-    if(!CsEqualOp(c, *p1++, *p2++ )) return false;
+    if(!CsEqualOp(c,CsVectorElement(c,v1,n), CsVectorElement(c,v2,n))) 
+      return false;
   }
   return true;
 }
 
 int CsCompareVectors(VM* c, value v1, value v2, bool suppressError)
 {
+  protect2 _(c,v1,v2);
   FETCH(c,v1);
-  FETCH_P(c,v2,v1);
-  value* p1 = CsVectorAddress(c,v1);
-  value* p1_end = p1 + CsVectorSize(c,v1);
-  value* p2 = CsVectorAddress(c,v2);
-  while( p1 < p1_end )
+  FETCH(c,v2);
+  int d = CsVectorSize(c,v1);
+  for( int n = 0; n < d; ++n )
   {
-    int r = CsCompareObjects(c, *p1++, *p2++, suppressError );
+    int r = CsCompareObjects(c, CsVectorElement(c,v1,n), CsVectorElement(c,v2,n), suppressError );
     if( r ) return r;
   }
   return tool::limit(int(CsVectorSize(c,v1) - CsVectorSize(c,v2)),-1,1);

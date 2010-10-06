@@ -85,19 +85,16 @@ namespace tiscript
 
   inline wchar oem2wchar(char c)
   {
-    //wchar wc = '?';
-    //MultiByteToWideChar(CP_OEMCP,0,&c,1,&wc,1);
-    //return wc;
-    return c;
+    wchar wc = '?';
+    MultiByteToWideChar(CP_OEMCP,0,&c,1,&wc,1);
+    return wc;
   }
   inline char wchar2oem(wchar wc)
   {
-    //char c = '?';
-    //WideCharToMultiByte(CP_OEMCP,0,&wc,1,&c,1,0,0);
-    //return c;
-    return char(wc);
+    char c = '?';
+    WideCharToMultiByte(CP_OEMCP,0,&wc,1,&c,1,0,0);
+    return c;
   }
-
   class console: public stream 
   {
   public:

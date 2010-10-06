@@ -113,18 +113,18 @@ namespace tool
       return;
     release_data();
     my_data = data;
-    my_data->ref_count++;
+    ++my_data->ref_count;
   }
 
   string::string(string::data *dta)
   {
     my_data = dta;
-    my_data->ref_count++;
+    ++my_data->ref_count;
   }
 
   string::data* string::get_data() const
   {
-    my_data->ref_count++;
+    ++my_data->ref_count;
     return my_data;
   }
 
@@ -135,7 +135,7 @@ namespace tool
     {
       data *data = new_data ( length(), 1 );
       ::memcpy ( data->chars, head(), length() );
-      my_data->ref_count--;
+      --my_data->ref_count;
       my_data = data;
     }
   }

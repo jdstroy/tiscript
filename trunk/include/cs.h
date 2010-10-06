@@ -13,7 +13,6 @@
 #include <stdarg.h>
 #include "config.h"
 #include "tool.h"
-#include "config.h"
 
 #pragma pack(push, 8) // is a must for x64!
 
@@ -52,6 +51,7 @@ struct  error_event
 {
   int  number;
   error_event(int n):number(n) {}
+  error_event(const error_event& e):number(e.number) {}
 };
 
 struct not_enough_memory_error
@@ -62,7 +62,7 @@ struct not_enough_memory_error
 
 
 #define TRY try
-#define CATCH_ERROR(e) catch(tis::error_event& e)
+#define CATCH_ERROR(e) catch(tis::error_event e)
 #define RETHROW(e) throw e
 #define THROW_ERROR(code) throw tis::error_event(code)
 
@@ -326,7 +326,12 @@ typedef struct c_method c_method;
 typedef struct vp_method vp_method;
 typedef struct constant constant;
 
-struct debug_peer;
+struct debug_peer
+{
+  virtual void enter_execution(VM *vm) = 0;
+  virtual void leave_execution(VM *vm) = 0;
+  virtual void check_bytecode_position(VM *vm, byte *pc) = 0;
+};
 
 /* round a size up to a multiple of the size of a int64 */
 #define CsRoundSize(x)   (((x) + 0x7) & ~0x7)
@@ -408,6 +413,40 @@ void CsUnexpectedTypeError(VM *c,value v, const char* expectedTypes);
 void CsStackOverflow(VM *c);
 void CsBadValue(VM *c, value v);
 void CsAlreadyDefined(VM *c, value tag);
+//void CsAddValueRef(VM* c,value* pval);
+//void CsFreeValueRef(value* pval);
+
+// protected value on C stack
+/*struct svalue
+{
+private:
+  value   val;
+  svalue(const svalue& pv) {;}
+public:
+  explicit svalue(VM* c):val(0) { CsAddValueRef(c,&val); }
+  explicit svalue(VM* c, value v):val(v) { CsAddValueRef(c,&val); val = v; }
+  ~svalue() {}
+
+  operator value() const { return val; }
+  svalue& operator =( value v) { val = v; return *this; }
+  value*  operator& () { return &val; }
+  bool is_set() const { return val != 0; }
+  operator bool() const { return is_set(); }
+};*/
+
+
+struct protector
+{
+private:
+  protector();
+  protector(const protector&);
+public: 
+  VM        *vm;
+  protector *prev;
+  protector(VM* c );
+  virtual void on_gc() = 0;
+  virtual ~protector();
+};
 
 class storage;
 
@@ -431,9 +470,11 @@ class storage;
       return r2;
 
 
+//struct stack_value_block;
+
 struct _VM
 {
-    unsigned int valid; /* must be first memner */
+    unsigned int valid;            /* must be a first member */
 
     CsScope currentScope;          /* current scope */
     CsScope globalScope;           /* the global scope */
@@ -480,7 +521,6 @@ struct _VM
     value regexpObject;          /* obj for the Regexp type */
     value byteVectorObject;      /* obj for the Bytes type */
 
-
     // suggest to declare it as storage* storage_list; - this needs l2elem enabled in storage class.
     tool::array<value> storages; /* obj for opened storages */
 
@@ -506,10 +546,13 @@ struct _VM
     void *protectData;
 
     pvalue pins;
+    protector *protector_top; /* values on C stack */
 
     bool      collecting_garbage; /* true if in GC */
 
     unsigned int features; /* must be very last */
+
+    void*     extraData;
 };
 
 struct loader
@@ -520,6 +563,9 @@ struct loader
 
 struct gc_callback
 {
+  VM* pvm;
+  gc_callback(VM* c = 0);
+  ~gc_callback();
   virtual void on_GC(VM* c) = 0; 
 };
 
@@ -589,6 +635,10 @@ struct VM: _VM, loader, tool::resource_x<VM>
 
 
 };
+
+inline gc_callback::gc_callback(VM* c): pvm(c) { if(pvm) pvm->add_gc_callback(this);  }
+inline gc_callback::~gc_callback() { if(pvm) pvm->remove_gc_callback(this); }
+
 
 /*enum CONNECT_RESULT
 {
@@ -886,6 +936,7 @@ inline value  CsMakeColor(int_t colorref)  { return unit_value( colorref, tool::
        value  CsMakeColor(byte r, byte g, byte b, byte a);
 
 inline int    CsLengthValue(value o,int& u) { return (uint)to_unit(o,u); }
+         bool CsLengthPrintFx(VM *c,value obj,stream *s, bool toLocale = false);
 
 /* NUMBER */
 
@@ -1053,6 +1104,8 @@ void    CsSetNamespaceConst(VM *c,value sym,value val);
 
 value   CsGetGlobalValueByPath(VM *c,const char* path);
 value   CsGetGlobalValueByPath(VM *c,value root_ns, const char* path);
+// for(var el in coll) enumerator
+value   CsGetNextMember(VM *c, value* index, value collection, int nr);
 
 // get_prop helper, fetches property value 
 inline  bool _CsGetProp(VM* c, value o, const char* name, value* pv) { return CsGetDispatch(o)->getProperty(c,o,CsSymbolOf(name),pv); }
@@ -1717,7 +1770,7 @@ int CsDisplay(VM *c,value val,stream *s);
 stream *CsMakeIndirectStream(VM *c,stream **pStream);
 stream *CsMakeFileStream(VM *c,FILE *fp);
 stream *OpenFileStream(VM *c,const wchar *fname,const wchar *mode);
-stream *OpenSocketStream(VM *c, const wchar *domainAndPort, int timeoutSeconds, bool binstream);
+stream *OpenSocketStream(VM *c, const wchar *domainAndPort, int timeoutSeconds, int maxattempts, bool binstream);
 
 /* cs_stdio.c prototypes */
 void CsUseStandardIO(VM *c);
@@ -2113,17 +2166,19 @@ value CsDbIndexSlice(VM* c, value obj, value start, value end, bool ascent, bool
 
   inline long ValueSize(value o) { return CsQuickGetDispatch(o)->size(o); }
 
-  inline bool CsDetProperty(VM* c, value o, value sym)
+  inline bool CsDelProperty(VM* c, value o, value sym)
   {
     dispatch* pd = CsGetDispatch(o);
     if(pd->delItem) 
       return pd->delItem(c,o,sym); 
     return false;
   }
-  inline bool CsDelGlobalOrNamespaceValue(VM* c, value sym)
-  {
-    return false; //?
-  }
+  //inline bool CsDelGlobalOrNamespaceValue(VM* c, value sym)
+  //{
+  //  return false; //?
+  //}
+  bool CsDelGlobalOrNamespaceValue(VM* c, value sym);
+
   inline bool CsDelItem(VM* c, value o, value sym_or_index)
   {
     dispatch* pd = CsGetDispatch(o);
@@ -2132,6 +2187,47 @@ value CsDbIndexSlice(VM* c, value obj, value start, value end, bool ascent, bool
     return false;
   }
 
+  struct protect1: protector
+  {
+    value& ref;
+    protect1(VM* c, value& p1 ): protector(c), ref(p1) {}
+    virtual void on_gc() { if(ref) ref = CsCopyValue(vm,ref); }
+  };
+
+  struct protect2: protect1
+  {
+    value& ref;
+  public: 
+    protect2(VM* c, value& p1, value& p2 ): protect1(c,p1), ref(p2) {}
+    virtual void on_gc() { protect1::on_gc(); if(ref) ref = CsCopyValue(vm,ref); }
+  };
+
+  struct protect3: protect2
+  {
+    value& ref;
+  public: 
+    protect3(VM* c, value& p1, value& p2, value& p3 ): protect2(c,p1,p2), ref(p3) {}
+    virtual void on_gc() { protect2::on_gc(); if(ref) ref = CsCopyValue(vm,ref); }
+  };
+
+  struct protect4: protect3
+  {
+    value& ref;
+  public: 
+    protect4(VM* c, value& p1, value& p2, value& p3, value& p4 ): protect3(c,p1,p2,p3), ref(p4) {}
+    virtual void on_gc() { protect3::on_gc(); if(ref) ref = CsCopyValue(vm,ref); }
+  };
+
+  inline protector::protector(VM* c ):vm(c)
+  {
+    prev = vm->protector_top;
+    vm->protector_top = this;
+  }
+
+  inline protector::~protector()
+  {
+    vm->protector_top = prev;
+  }
 
 
 }

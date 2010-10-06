@@ -291,7 +291,7 @@ public:
           thread_handles.push(_beginthread(thread, 0,this));
 #endif
             //thread_handles.push(CreateThread(NULL, 0, thread, this, 0, &threadID));
-          locked::inc(active);
+          ++active;
         }
     }
 
@@ -325,7 +325,7 @@ public:
 
     void stop()
     {
-       locked::set(terminate, 1);
+       terminate = 1;
 
        {
          critical_section cs(guard);
@@ -422,7 +422,7 @@ protected:
             }
                delete t;
             }
-        locked::dec(pthis->active);
+        --pthis->active;
 #ifdef WINDOWS
         ExitThread(0);
         return 0;

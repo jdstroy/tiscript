@@ -23,12 +23,20 @@ namespace tis
 /* prototypes */
 static void InitInterpreter(VM *c);
 
-
 #ifndef USE_VIRTUAL_MEMORY_ON_WINDOWS
 static CsMemorySpace *NewMemorySpace(VM *c,size_t size);
 #endif
 /* create/destroy - make/destroy a virtual machine */
 
+  void CopyStackRefValues(VM* c)
+  {
+    protector *pr = c->protector_top;
+    while( pr )
+    {
+      pr->on_gc();
+      pr = pr->prev;
+    }
+  }
 
 /*
 VM* VM::create(unsigned int features, long size,long expandSize,long stackSize)
@@ -798,6 +806,9 @@ void CsCollectGarbage(VM *c)
         t = t;
       t = t->next;
     }
+
+    /* copy values referred from C stack */
+    CopyStackRefValues(c);
 
     /* copy the saved interpreter states */
     for (ss = c->savedState; ss != NULL; ss = ss->next) {

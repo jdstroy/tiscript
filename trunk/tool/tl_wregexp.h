@@ -38,7 +38,6 @@ namespace tool
       ustring       m_test;
       ustring       m_test_input; // if 'i' (m_ignorecase) then this is lowercase version of the m_test 
                                   // otherwise m_test itself
-
       int           m_next_index;
       int           m_index;
       ustring       m_error;
@@ -46,8 +45,10 @@ namespace tool
       bool          m_global;
 
       wregexp():m_compiled(0),m_ignorecase(false),m_global(false) {}
+      wregexp(const wchar* pattern, bool ignorecase = true, bool global = true): m_ignorecase(ignorecase),m_global(global) 
+      { compile(pattern,ignorecase,global); }
       ~wregexp();
-      wregexp(const wchar* pattern, bool ignorecase = true, bool global = true) { compile(pattern,ignorecase,global); }
+
 
       bool compile(const wchar* pattern, bool ignorecase, bool global);
       bool exec(const wchar* text);

@@ -138,8 +138,8 @@ template<> struct COMPILE_TIME_ERROR<true> {};
 
 #endif
 
-typedef int                   int32;
-typedef unsigned int          uint32;
+typedef long                  int32;
+typedef unsigned long         uint32;
 typedef float                 float32;
 typedef signed char           int8;
 typedef short                 int16;
@@ -203,32 +203,47 @@ namespace locked
 
 #if defined(PLATFORM_WIN32_GNU)
 
-  typedef long counter;
-  inline long inc(counter& v)               {    return InterlockedIncrement(&v);  }
-  inline long dec(counter& v)               {    return InterlockedDecrement(&v);  }
-  inline long set(counter &v, long nv)      {    return InterlockedExchange(&v, nv);  }
+  typedef long counter_t;
+  inline long _inc(counter_t& v)               {    return InterlockedIncrement(&v);  }
+  inline long _dec(counter_t& v)               {    return InterlockedDecrement(&v);  }
+  inline long _set(counter_t &v, long nv)      {    return InterlockedExchange(&v, nv);  }
 
 #elif defined(WINDOWS) && !defined(_WIN32_WCE) // lets try to keep things for wince simple as much as we can
 
-  typedef volatile long counter;
-  inline long inc(counter& v)               {    return InterlockedIncrement((LPLONG)&v);  }
-  inline long dec(counter& v)               {    return InterlockedDecrement((LPLONG)&v);  }
-  inline long set(counter& v, long nv)      {    return InterlockedExchange((LPLONG)&v, nv);  }
+  typedef volatile long counter_t;
+  inline long _inc(counter_t& v)               {    return InterlockedIncrement((LPLONG)&v);  }
+  inline long _dec(counter_t& v)               {    return InterlockedDecrement((LPLONG)&v);  }
+  inline long _set(counter_t& v, long nv)      {    return InterlockedExchange((LPLONG)&v, nv);  }
 
 #else
 
-  typedef long counter;
-  inline long inc(counter& v)               {    return ++v;  }
-  inline long dec(counter& v)               {    return --v;  }
-  inline long set(counter& v, long nv)      {    long t = v; v = nv;  return t;  }
+  typedef long counter_t;
+  inline long _inc(counter_t& v)               {    return ++v;  }
+  inline long _dec(counter_t& v)               {    return --v;  }
+  inline long _set(counter_t& v, long nv)      {    long t = v; v = nv;  return t;  }
 
 #endif
+
+  struct counter
+  {
+    counter_t cv;
+    counter():cv(0) {}
+    counter(long iv):cv(iv) {}
+    counter& operator=(long nv) { _set(cv,nv); return *this; }
+    operator long() const { return cv; }
+    long operator++() { return _inc(cv); } 
+    long operator--() { return _dec(cv); } 
+  };
+
+  inline long inc(counter& v)               {    return ++v;  }
+  inline long dec(counter& v)               {    return --v;  }
+  inline void set(counter& v, long nv)      {    v = nv;  }
 
   struct auto_lock
   {
     counter& cnt;
-    auto_lock( counter& c ): cnt(c) { inc(cnt); }
-    ~auto_lock() { dec(cnt); }
+    auto_lock( counter& c ): cnt(c) { ++cnt; }
+    ~auto_lock() { --cnt; }
   };
 
 }

@@ -106,6 +106,8 @@ static value CSF_symbol(VM *c)
     value v = CsGetArg(c,3);
     if( CsStringP(v) )
       return CsIntern(c,v);
+    if( CsSymbolP(v) )
+      return v;
     CsTypeError(c,v);
     return UNDEFINED_VALUE;
 }

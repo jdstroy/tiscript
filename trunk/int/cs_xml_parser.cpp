@@ -58,6 +58,8 @@ static constant constants[] =
   CONSTANT_ENTRY("PI"           , int_value(markup_scanner::TT_PI        )),
   CONSTANT_ENTRY("WORD"         , int_value(markup_scanner::TT_WORD      )),
   CONSTANT_ENTRY("SPACE"        , int_value(markup_scanner::TT_SPACE     )),
+  CONSTANT_ENTRY("DOCTYPE"      , int_value(markup_scanner::TT_DOCTYPE   )),
+  
 
   CONSTANT_ENTRY(0, 0)
 };

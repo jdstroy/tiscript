@@ -493,7 +493,7 @@ value CsInclude(CsScope *scope, const tool::ustring& path_in, bool no_throw)
   {
     // this is source stream.
     s->set_encoder( stream::utf8_encoder() );
-  val = CsLoadStream(scope, s, 0);
+    val = CsLoadStream(scope, s, 0, 1);
   }
   s->close();
   return val;

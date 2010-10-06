@@ -101,8 +101,8 @@ void  TISAPI set_std_streams(tiscript_VM* pvm, tiscript_stream* input, tiscript_
 
 tiscript_VM* TISAPI get_current_vm()
 {
-  //return (xvm*)VM::get_current();
-  return 0;
+  return (tiscript_VM*)tis::VM::get_current();
+  //return 0;
 }
 
 tiscript_value TISAPI get_global_ns(tiscript_VM* pvm)
@@ -610,6 +610,68 @@ bool TISAPI set_nth_retval(tiscript_VM* pvm, int n, tiscript_value ns )
   return true;
 }
 
+bool TISAPI set_extra_data(tiscript_VM* pvm, void* p)
+{
+  if( !pvm )
+    return false;
+  ((tis::VM*)pvm)->extraData = p;
+  return true;
+}
+void* TISAPI get_extra_data(tiscript_VM* pvm)
+{
+  if( !pvm )
+    return 0;
+  return ((tis::VM*)pvm)->extraData;
+}
+
+int TISAPI get_length(tiscript_VM* pvm, tiscript_value obj)
+{
+  if( tis::CsVectorP(obj) )
+    return tis::CsVectorSize((tis::VM*)pvm,obj);
+  else if( tis::CsObjectP(obj))
+    return tis::CsObjectSize(obj);
+  else if( tis::CsByteVectorP(obj))
+    return tis::CsByteVectorSize(obj);
+  return 0;
+}
+
+bool TISAPI get_next_key_value(tiscript_VM* pvm, tiscript_value* obj, tiscript_value* pos, tiscript_value* key, tiscript_value* val)
+{
+  if(! *pos ) 
+  {
+    //tis::protect((tis::VM*)pvm,*obj,*pos,*key,*val);
+    *pos = NOTHING_VALUE;
+  }
+  tis::value r = tis::CsGetNextMember((tis::VM*)pvm, pos, *obj, 2);
+  if( r != NOTHING_VALUE )
+  {
+    *val = r;
+    *key = ((tis::VM*)pvm)->val[1];
+    return true;
+  }
+  return false;
+}
+
+bool TISAPI get_next(tiscript_VM* pvm, tiscript_value* obj, tiscript_value* pos, tiscript_value* val)
+{
+  if(! *pos ) 
+  {
+    //tis::protect((tis::VM*)pvm,*obj,*pos,*val);
+    *pos = NOTHING_VALUE;
+  }
+  tis::value r = tis::CsGetNextMember((tis::VM*)pvm, pos, *obj, 1);
+  if( r != NOTHING_VALUE )
+  {
+    *val = r;
+    return true;
+  }
+  return false;
+}
+
+
+
+
+
 
 /*struct tiscript_method_def
 {
@@ -713,6 +775,14 @@ tiscript_native_interface native_interface =
   set_remote_std_streams,
 
   set_nth_retval,
+
+  get_length,
+  get_next,
+  get_next_key_value,
+
+  set_extra_data,
+  get_extra_data,
+
 };
 
 namespace tis 

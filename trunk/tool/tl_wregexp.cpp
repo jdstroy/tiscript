@@ -41,40 +41,36 @@ namespace tool
 
   bool wregexp::exec(const wchar* sMatch)
   {
-      tool::ustring tst = m_test;   
+      //tool::ustring tst = m_test;
       
       if(sMatch)
       {
+        m_index = m_next_index = 0;
         m_test = sMatch;
-        tst = m_test;
-        tool::ustring cvt;   
+        m_test_input = m_test;
         if(m_ignorecase)
-        {
-          cvt = m_test;
-          cvt.to_lower();
-          tst = cvt;
-        }
+          m_test_input.to_lower();
       }
-      
+      else      
       m_index = m_global? m_next_index: 0;
 
       m_matches.clear();
       memset(m_rsubs,0,sizeof(m_rsubs));
       
-      if(m_index < 0 || m_index >= tst.length())
+      if(m_index < 0 || m_index >= m_test_input.length())
       {
         m_next_index = 0;
         return false;
       }
       
-      int res = tool::reimpl::regexec(m_compiled, tst.c_str() + m_index, m_rsubs, NSUBEXP);
+      int res = tool::reimpl::regexec(m_compiled, m_test_input.c_str() + m_index, m_rsubs, NSUBEXP);
       if( res <= 0) 
       { 
         m_next_index = 0; 
         return false; 
       }
 
-      m_next_index = m_rsubs[0].ep - tst.c_str();
+      m_next_index = m_rsubs[0].ep - m_test_input.c_str();
         
       for(int n = 0; n < NSUBEXP; ++n)
       {
@@ -82,8 +78,8 @@ namespace tool
         {
           m_matches.size( n + 1 );
           regmatch_r rm;
-          rm.begin = m_rsubs[n].sp - tst.c_str();
-          rm.end = m_rsubs[n].ep - tst.c_str();
+          rm.begin = m_rsubs[n].sp - m_test_input.c_str();
+          rm.end = m_rsubs[n].ep - m_test_input.c_str();
           m_matches[n] = rm;
         }
       }
@@ -93,13 +89,12 @@ namespace tool
   bool wregexp::exec_all(const wchar* sMatch)
   {
       m_test = sMatch;
-      tool::ustring tst = m_test; 
-      tool::ustring cvt;   
+      m_test_input = m_test;
+      //tool::ustring tst = m_test; 
+      //tool::ustring cvt;   
       if(m_ignorecase)
       {
-        cvt = m_test;
-        cvt.to_lower();
-        tst = cvt;
+        m_test_input.to_lower();
       }
       
       m_next_index = 0;
@@ -110,20 +105,20 @@ namespace tool
       {
         memset(m_rsubs,0,sizeof(m_rsubs));
         m_index = m_next_index;
-        if(m_index < 0 || m_index >= tst.length())
+        if(m_index < 0 || m_index >= m_test_input.length())
           break;
-        int res = tool::reimpl::regexec(m_compiled, tst.c_str() + m_index, m_rsubs, NSUBEXP);
+        int res = tool::reimpl::regexec(m_compiled, m_test_input.c_str() + m_index, m_rsubs, NSUBEXP);
         if( res <= 0) 
         { 
           m_next_index = 0; 
           break; 
         }
-        m_next_index = m_rsubs[0].ep - tst.c_str();
+        m_next_index = m_rsubs[0].ep - m_test_input.c_str();
         if( m_rsubs[0].sp && m_rsubs[0].ep )
         {
           regmatch_r rm;
-          rm.begin = m_rsubs[0].sp - tst.c_str();
-          rm.end = m_rsubs[0].ep - tst.c_str();
+          rm.begin = m_rsubs[0].sp - m_test_input.c_str();
+          rm.end = m_rsubs[0].ep - m_test_input.c_str();
           m_matches.push(rm);
         }
       }

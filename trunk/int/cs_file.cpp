@@ -38,6 +38,11 @@ static value CSF_proxy(VM *c,value obj);
 static void  CSF_set_proxy(VM *c,value obj,value val);
 static value CSF_pending(VM *c,value obj);
 
+static value CSF_encoding(VM *c,value obj);
+static void  CSF_set_encoding(VM *c,value obj,value val);
+
+static value CSF_name(VM *c,value obj);
+
 /* file methods */
 static c_method methods[] = {
 //C_METHOD_ENTRY( "this",      CSF_ctor            ),
@@ -68,6 +73,8 @@ VP_METHOD_ENTRY( "isOutput",  CSF_isOutput,          0  ),
 VP_METHOD_ENTRY( "isPipe",    CSF_isPipe,            0  ),
 VP_METHOD_ENTRY( "proxy",     CSF_proxy,             CSF_set_proxy ),
 VP_METHOD_ENTRY( "pending",   CSF_pending,           0 ),
+VP_METHOD_ENTRY( "encoding",  CSF_encoding,          CSF_set_encoding ),
+VP_METHOD_ENTRY( "name",      CSF_name,              0 ),
 
 //set_request_handler
 
@@ -172,9 +179,10 @@ static value CSF_openSocket(VM *c)
 {
     wchar *address;
     int tout = 10;
+    int maxattempts = 1;
     stream *s;
-    CsParseArguments(c,"**S|i",&address,&tout);
-    s = OpenSocketStream(c,address,tout,true);
+    CsParseArguments(c,"**S|i|i",&address,&tout,&maxattempts);
+    s = OpenSocketStream(c,address,tout,maxattempts,true);
     if( !s )
       return NULL_VALUE;
     return CsMakeFile(c,s);
@@ -253,6 +261,34 @@ static void CSF_set_proxy(VM *c,value obj,value val)
     as->request_cb.pin(c,val);
 }
 
+static value CSF_encoding(VM *c,value obj)
+{
+  stream *s = (stream *)CsCObjectValue(obj);
+  if(!s) return UNDEFINED_VALUE;
+  return CsSymbolOf(s->get_encoder()->name());
+}
+
+static value CSF_name(VM *c,value obj)
+{
+  stream *s = (stream *)CsCObjectValue(obj);
+  if(!s) return UNDEFINED_VALUE;
+  return string_to_value(c, s->stream_name());
+}
+
+
+
+static void CSF_set_encoding(VM *c,value obj,value val)
+{
+  stream *s = (stream *)CsCObjectValue(obj);
+  tool::ustring name = value_to_string(val);
+  if( name.equals(L"raw") )
+    s->set_encoder( stream::null_encoder() );
+  else if( name.equals(L"utf-8") )
+    s->set_encoder( stream::utf8_encoder() );
+  else
+    CsThrowKnownError(c,CsErrUnexpectedTypeError,val, "unsupported encoding" );
+}
+
 /* DestroyFile - destroy a file obj */
 static void DestroyFile(VM *c,value obj)
 {
@@ -264,15 +300,28 @@ static void DestroyFile(VM *c,value obj)
 /* CSF_Close - built-in method 'Close' */
 static value CSF_close(VM *c)
 {
-    value val;
+    pvalue  val(c);
     stream *s;
-    int sts;
-    CsParseArguments(c,"V=*",&val,c->fileDispatch);
+    bool    sts;
+    bool    return_string = false;
+    value   retval = TRUE_VALUE;
+
+    CsParseArguments(c,"V=*|B",&val.val,c->fileDispatch,&return_string);
     s = (stream *)CsCObjectValue(val);
     if (!s) return FALSE_VALUE;
+    if( return_string )
+    {
+      if ( s->is_string_stream() )
+      {
+         string_stream_sd* ps = static_cast<string_stream_sd*>( s );
+         retval = ps->string_o(c);
+      }
+      else
+         retval = CsMakeCString(c,s->stream_name());
+    }
     sts = s->close();
     CsSetCObjectValue(val,0);
-    return sts == 0 ? TRUE_VALUE : FALSE_VALUE;
+    return sts? retval : FALSE_VALUE;
 }
 
 /* CSF_toString - built-in method 'toString' */
@@ -303,23 +352,28 @@ static value CSF_print(VM *c)
     if (!(s = CsFileStream(CsGetArg(c,1))))
         return FALSE_VALUE;
     for (i = 3; i <= CsArgCnt(c); ++i)
+    {
+       if(i > 3) s->put_str(" ");
         CsDisplay(c,CsGetArg(c,i),s);
+    }
     return TRUE_VALUE;
 }
 
 /* CSF_println - built-in function 'Display' */
 static value CSF_println(VM *c)
 {
-    value r;
+    int_t i;
     stream *s;
-
+    CsCheckArgMin(c,2);
     CsCheckArgType(c,1,c->fileDispatch);
     if (!(s = CsFileStream(CsGetArg(c,1))))
         return FALSE_VALUE;
-
-    r = CSF_print(c);
-    s->put_str("\r\n");
-
+    for (i = 3; i <= CsArgCnt(c); ++i)
+    {
+       if(i > 3) s->put_str(" ");
+       CsDisplay(c,CsGetArg(c,i),s);
+    }
+    s->put_str("\n");
     return TRUE_VALUE;
 }
 
@@ -337,7 +391,7 @@ static value CSF_$println(VM *c)
        CsToString(c,CsGetArg(c,i),*s);
 
     //r = CSF_print(c);
-    return s->put_str("\r\n")? TRUE_VALUE : FALSE_VALUE;
+    return s->put_str("\n")? TRUE_VALUE : FALSE_VALUE;
 }
 
 /* CSF_println - built-in function '$' */
@@ -432,8 +486,14 @@ static value CSF_putc(VM *c)
         ch = s->get();
       }
 
+      if( buf.size() && buf[0] == 0xFEFF) //BOM handling.
+        buf.remove(0);
       if( ch == '\n' && buf.size() && buf.last() == '\r')
         buf.size( buf.size() - 1 );
+#ifdef _DEBUG
+      if( buf().starts_with(WCHARS("Content-Type")))
+        ch = ch;
+#endif
 
       return CsMakeCharString(c,buf.head(),buf.size());
 
@@ -635,6 +695,8 @@ static value CSF_putc(VM *c)
     return true;
   }
 
+  extern void CsColorToString(char* buf, value obj );
+
   static bool PrintData( VM *c, value val, stream* s, int* tabs, tool::pool<value>& emited, bool right_side )
   {
      if( CsIntegerP(val) || CsFloatP(val) )
@@ -679,6 +741,16 @@ static value CSF_putc(VM *c)
        s->put_str("new Date(\"");
        CsPrintDate(c,val,s);
        return s->put_str("\")");
+     }
+     else if(CsLengthP(val))
+     {
+       return CsLengthPrintFx(c,val,s);
+     }
+     else if(CsColorP(val))
+     {
+        char buf[256];
+        CsColorToString(buf,val);
+        return s->put_str(buf);
      }
      else
      {

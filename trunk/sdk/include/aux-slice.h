@@ -32,6 +32,7 @@ template <typename T >
       slice(): start(0), length(0) {}
       slice(const T* start_, unsigned int length_) { start = start_; length = length_; }
 
+
       slice(const slice& src): start(src.start), length(src.length) {}
       slice(const T* start_, const T* end_): start(start_), length( max(end_-start_,0)) {}
 
@@ -226,9 +227,6 @@ template <typename T >
   inline wchars  chars_of( const wchar_t *t ) {  return t? wchars(t,(unsigned int)wcslen(t)):wchars(); }
   inline chars   chars_of( const char *t ) {  return t? chars(t,(unsigned int)strlen(t)):chars(); }
 
-  template<typename T>
-     slice<T> chars_of( const std::basic_string<T> &s ) {  return slice<T>(s.c_str(), s.length()); }
-
    // simple tokenizer
   template <typename T >
       class tokens
@@ -284,7 +282,7 @@ template <typename T >
   template <typename CT, CT sep = '-', CT end = ']' >
     struct charset
     {
-      #define SET_SIZE (1 << (sizeof(CT) * CHAR_BIT))
+      #define SET_SIZE (1 << ((2<sizeof(CT)?2:sizeof(CT)) * CHAR_BIT))
       #define SIGNIFICANT_BITS_MASK unsigned( SET_SIZE - 1 ) 
       
       unsigned char codes[ SET_SIZE / CHAR_BIT ];

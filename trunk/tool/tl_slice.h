@@ -94,7 +94,6 @@ namespace tool
     bool operator != ( const slice& r ) const
     { return !operator==(r); }
     
-
     const T& operator[] ( uint idx ) const
     {
       assert( idx < length );
@@ -108,6 +107,14 @@ namespace tool
     {
       if(length)
         return start[length-1];
+      assert(false);
+      return black_hole();
+    }
+
+    const T& first() const
+    {
+      if(length)
+        return start[0];
       assert(false);
       return black_hole();
     }
@@ -220,6 +227,15 @@ namespace tool
       return slice(start + d + delimeter.length, length - d - delimeter.length);
     }
 
+    bool split( T delimeter, slice& head, slice& tail ) const
+    {
+      int d = index_of( delimeter );
+      if( d < 0 ) return false;
+      head = slice(start,d);
+      tail = slice(start + d + 1, length - d - 1);
+      return true;
+    }
+
     bool split( const slice& delimeter, slice& head, slice& tail ) const
     {
       int d = index_of( delimeter );
@@ -228,6 +244,7 @@ namespace tool
       tail = slice(start + d + delimeter.length, length - d - delimeter.length);
       return true;
     }
+
 
     slice head( const slice& s ) const
     {
@@ -451,6 +468,15 @@ template <typename T>
       return false;
     }
 
+template <typename T> 
+   inline bool only_spaces( slice<T> s)
+   { 
+     const T* p = s.start;
+     const T* end = s.end();
+     while( p < end ) 
+       if( !is_space(*p++) ) return false;
+     return true;
+   }
 
 //int match ( chars cr, const char *pattern );
 //int match ( wchars cr, const wchar *pattern );
@@ -747,9 +773,13 @@ template <typename TC, typename TV>
       //const TC* elements() const { return buffer; }
       //uint      length() const { return buffer_length; }
 
-      fixedtostr(TV i, int fd = 3, const TC* pu = 0)
+      //fixedtostr(TV i, int fd = 3, const TC* pu = 0) { format(i,fd,0,pu); }
+      fixedtostr(TV i, int fd = 3, const TC* preffix = 0, const TC* suffix = 0) 
       {
         wchar *p = buffer;
+        if( preffix )
+          while( *preffix ) *p++ = *preffix++;
+        wchar* pnum_start = p; 
         bool gotnz = false;
         bool neg = false; if( i < 0 ) { neg = true; i = -i; }
         static wchar* digits = L"0123456789";
@@ -769,9 +799,9 @@ template <typename TC, typename TV>
         } while (i > 0);
         if(neg) *p++ = '-';
         *p = 0;
-        str_rev(buffer);
-        if(pu) 
-          while( *pu ) *p++ = *pu++;
+        str_rev(pnum_start);
+        if(suffix) 
+          while( *suffix ) *p++ = *suffix++;
         *p = 0;
         start = buffer;
         length = p - buffer;

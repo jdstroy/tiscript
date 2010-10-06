@@ -21,9 +21,9 @@ value DB_open(VM* vm)
   if( SQLITE_OK != sqlite3_open16( db_path.c_str(), &pDb )) 
     return v_null();
 
-  value obj = create_object(vm,cls);
-  set_native_data(obj,pDb);
-  
+  object_ref obj(vm);
+  obj.create(cls);
+  obj.data(pDb);
   return obj;
 }
 
@@ -35,31 +35,29 @@ inline sqlite3 * self(value obj)
 // function DB.close() - closes the DB
 value DB_close(VM* vm)
 {
-  pinned      obj;
-  args(vm) >> obj         // 'this' is the DB here, instance method. 
-           >> args::skip; // skip 'super'
+  object_ref  obj;
+  args(vm) >> obj;        // 'this' is the DB here, instance method. 
 
-  sqlite3 *pdb = self(obj);
+  sqlite3 *pdb = obj.data<sqlite3*>();
   int result = 0;
   if( pdb )
   {
     result = sqlite3_close( pdb );
-    set_native_data(obj,0);
+    obj.data<sqlite3*>(0);
   }
   return v_int(result);
 }
 
 value DB_last(VM *vm)
 {
-  pinned      obj;
-  args(vm) >> obj         // 'this' is the DB here, instance method. 
-           >> args::skip; // skip 'super'
+  object_ref  obj;
+  args(vm) >> obj;         // 'this' is the DB here, instance method. 
 
-  sqlite3 *pdb = self(obj);
+  sqlite3 *pdb = obj.data<sqlite3*>();
   int result = 0;
   if( pdb )
   {
-    result = sqlite3_last_insert_rowid( pdb );
+    result = (int)sqlite3_last_insert_rowid( pdb );
     return v_int(result);
   } else
   {
@@ -71,7 +69,7 @@ value DB_last(VM *vm)
 bool bind_value(VM* vm, sqlite3_stmt *pst, int &n, value arg)
 {
     if( is_array(arg) )
-      for(int i = 0; i < get_length(vm, arg); ++i)
+      for(int i = 0; i < (int)get_length(vm, arg); ++i)
       {
         if( !bind_value(vm, pst, n, get_elem(vm, arg, i) ) )
           return false;
@@ -188,7 +186,7 @@ value DB_exec(VM* vm)
     r = sqlite3_step( pst );
     if( r && r != SQLITE_ROW && r != SQLITE_DONE && r != SQLITE_MISUSE )
     {
-      // SQLITE_MISUSE may mean that something wrong with sql, but we should continue anyway
+      // SQLITE_MISUSE may mean that something is wrong with the sql, but we should continue anyway
       throw_error(vm, (const wchar*)sqlite3_errmsg16(pdb));
       sqlite3_finalize(pst);
       return v_int(r);
@@ -209,6 +207,7 @@ value DB_exec(VM* vm)
   return v_int(r);
 }
 
+// GC detected that the db object is not used by anyone so ... 
 static void finalize(VM *vm,value db_obj)
 {
   sqlite3 *pdb = self(db_obj);

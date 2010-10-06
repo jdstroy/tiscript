@@ -18,6 +18,11 @@ namespace tool
   //#define POOL_TRAITS pool_traits<c_element>  
 
   template <typename c_element>
+    inline bool handle_pool_equal(const c_element& l, const c_element& r) { return l == r; }
+  template <typename c_element>
+    inline uint handle_pool_hash(const c_element& l) { return l.hash(); }
+
+  template <typename c_element>
   class handle_pool
   {
 
@@ -160,7 +165,7 @@ namespace tool
     handle_pool<c_element>::get_index ( const c_element& the_key,
                                               bool create )
   {
-    uint hk = the_key.hash();
+    uint hk = handle_pool_hash(the_key);
     uint h;
 #ifdef UNDER_CE    
     switch(_hash_size)
@@ -182,7 +187,9 @@ namespace tool
       const hash_item &it = bucket [ i ];
       if ( hk != it._key_hash)
         continue;
-      if ( the_key == *(_array[it._index].ptr()) )
+
+      if( handle_pool_equal( the_key,*(_array[it._index].ptr()) ))
+      //if ( the_key == *(_array[it._index].ptr()) )
         return it._index;
     }
 

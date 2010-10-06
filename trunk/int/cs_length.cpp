@@ -197,7 +197,6 @@ static value CSF_toString(VM *c)
     return CsMakeCString(c, tool::value::length_to_string(v,u));
 }
 
-
 value CSF_em(VM *c) { return length_value( c, tool::value::em ); }
 value CSF_ex(VM *c) { return length_value( c, tool::value::ex ); }
 value CSF_pr(VM *c) { return length_value( c, tool::value::pr ); }
@@ -251,6 +250,14 @@ static bool LengthPrint(VM *c,value obj,stream *s, bool toLocale)
     v = to_unit(obj,u);
     return s->put_str(tool::value::length_to_string(v,u));
 }
+
+bool CsLengthPrintFx(VM *c,value obj,stream *s, bool toLocale)
+{
+    int v,u;
+    v = to_unit(obj,u);
+    return s->put_str(tool::value::length_to_string_fx(v,u));
+}
+
 
 /* LengthSize - Length size handler */
 static long LengthSize(value obj)

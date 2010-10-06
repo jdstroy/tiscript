@@ -1,66 +1,52 @@
-<HTML>
-  <HEAD>
-    <META http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <META name="GENERATOR" content="BLOCKNOTE.NET">
-    <META name="source">
-    <BASEFONT face="Verdana" size="2">
-    <TITLE></TITLE><STYLE>BODY { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-P { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-DIV { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-TD { FONT-FAMILY:Verdana; FONT-SIZE:10pt }
-</STYLE>
-  </HEAD>
-<BODY>
-<H1>Index object</H1>
-<P>Index object in persistent storage.</P><DIV align="left">
-<TABLE border="0" cellpadding="4" cellspacing="4" width="100%">
-  <TR>
-    <TD colspan="2"><STRONG><FONT size="4">Properties</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>length</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">- <EM>integer</EM>, length of an index, number of objects associated represented by the index. Read-only property.</TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>asc</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">- <EM>boolean</EM>, direction of access of objects from the index. Write-only property.</TD>
-  </TR>
-  <TR>
-    <TD width="117" bgcolor=#ffffff valign="top" align="right"><STRONG><EM>[key]</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle"><STRONG>- </STRONG><EM>value</EM>, element of the DbIndex at the <EM>key</EM> position. Read/Write accessor by <EM>key</EM>. <EM>key</EM> has to be of the same type as the type of <EM>DbIndex</EM> object</TD>
-  </TR>
-  <TR>
-    <TD width="117" bgcolor=#ffffff valign="top" align="right"><STRONG><EM>[begin..end]</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle"><STRONG>- </STRONG><EM>keys</EM>, keys of first and last element of the range. Returns slice of DbIndex which contains elements from <EM>start</EM> key and up to <EM>end</EM> key. <BR><EM>begin is a </EM>low<EM> boundary of key value (if null then there is no low boundary)</EM>.<BR><EM>end</EM> is a high boundary of key value (if <EM>null</EM> then there is no high boundary).</TD>
-  </TR>
-  <TR>
-    <TD colspan="2" valign="top"><STRONG><FONT size="4">Methods</FONT></STRONG></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>add</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<P>( key, val [, replace: true|false ] ) : true|false</P>
-<P>Inserts <EM>val</EM> object into <EM>Index</EM> and associates it with <EM>key</EM> value. Optionally replaces it with existing object if it exists.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>remove</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<DIV>( key [,obj] ) returns: true | false</DIV>
-<P>Method removes object <EM>obj</EM> by <EM>key</EM> from the index. Method returns <EM>true</EM> on success, otherwise <EM>false</EM>.<BR>If <EM>Index</EM> is unique, <EM>obj</EM> is optional.</P></TD>
-  </TR>
-  <TR>
-    <TD bgcolor=#ffffff valign="top" align="right"><STRONG><EM>select</EM></STRONG></TD>
-    <TD bgcolor=#fffff0 valign="middle">
-<P>( min-key, max-key [, ascent [, start-inclusive [, end-inclusive]]] ) returns: selection object.</P>
-<P>Returns selection in the <EM>Index</EM> based on criteria <EM>min-key, max-key, ascent </EM>or<EM> descent </EM>order<EM>, start-inclusive, end-inclusive</EM>. Default values:</P>
-<UL>
-<LI><EM>ascent = true</EM></LI>
-<LI><EM>start-inclusive = true</EM></LI>
-<LI><EM>end-inclusive = true</EM></LI></UL>
-
-<P>Example:<BR>var sel = index.select(minVal, maxVal, true);<BR>for( var obj in sel ) { ... }</P></TD>
-  </TR>
-</TABLE>
-</DIV>
-</BODY>
-</HTML>
+<html>
+  <head>
+    <meta name="GENERATOR" content="BLOCKNOTE.NET"/>
+    <meta name="source"/>
+    <basefont face="Verdana" size="2"/>
+    <meta name="generator" content="h-smile:richtext"/>
+  </head>
+<body>
+  <h1>Index object</h1>
+  <p>Index object in persistent storage.</p>
+  <div align="left">
+    <table border="0" cellpadding="4" cellspacing="4" width="100%">
+      <tr>
+        <td colspan="2">
+          <h2>Properties</h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>length</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- <em>integer</em>, length of an index, number of objects associated represented by the index. Read-only property.</td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>asc</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">- <em>boolean</em>, direction of access of objects from the index. Write-only property.</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>[key]</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle"><strong>- </strong><em>value</em>, element of the DbIndex at the <em>key</em> position. Read/Write accessor by <em>key</em>. <em>key</em> has to be of the same type as the type of <em>DbIndex</em> object</td></tr>
+      <tr>
+        <td width="117" bgcolor="#ffffff" valign="top" align="right"><strong><em>[begin..end]</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle"><strong>- </strong><em>keys</em>, keys of first and last element of the range. Returns slice of DbIndex which contains elements from <em>start</em> key and up to <em>end</em> key. <br/><em>begin is a </em>low<em> boundary of key value (if null then there is no low boundary)</em>.<br/><em>end</em> is a high boundary of key value (if <em>null</em> then there is no high boundary).</td></tr>
+      <tr>
+        <td colspan="2" valign="top">
+          <h2>Methods</h2></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>add</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p>( key, val [, replace: true|false ] ) : true|false</p>
+          <p>Inserts <em>val</em> object into <em>Index</em> and associates it with <em>key</em> value. Optionally replaces it with existing object if it exists.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>remove</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <div>( key [,obj] ) returns: true | false</div>
+          <p>Method removes object <em>obj</em> by <em>key</em> from the index. Method returns <em>true</em> on success, otherwise <em>false</em>.<br/>If <em>Index</em> is unique, <em>obj</em> is optional.</p></td></tr>
+      <tr>
+        <td bgcolor="#ffffff" valign="top" align="right"><strong><em>select</em></strong></td>
+        <td bgcolor="#fffff0" valign="middle">
+          <p>( min-key, max-key [, ascent [, start-inclusive [, end-inclusive]]] ) returns: selection object.</p>
+          <p>Returns selection in the <em>Index</em> based on criteria <em>min-key, max-key, ascent </em>or<em> descent </em>order<em>, start-inclusive, end-inclusive</em>. Default values:</p>
+          <ul>
+            <li><em>ascent = true</em></li>
+            <li><em>start-inclusive = true</em></li>
+            <li><em>end-inclusive = true</em></li></ul>
+          <p>Example:<br/>var sel = index.select(minVal, maxVal, true);<br/>for( var obj in sel ) { ... }</p></td></tr></table></div>
+</body>
+</html>

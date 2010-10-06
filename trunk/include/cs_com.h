@@ -91,12 +91,13 @@ namespace tis
 #define T_ASSERT        325
 #define T_THIS          326
 #define T_DELETE        327
+#define T_OTHERWISE     328
 
-#define T___FILE__      328
-#define T___LINE__      329
-#define T___TRACE__     330
+#define T___FILE__      329
+#define T___LINE__      330
+#define T___TRACE__     331
 
-#define T_DEBUG         331
+#define T_DEBUG         332
 
 
 #define _TMAX           T_DEBUG

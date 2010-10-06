@@ -254,8 +254,8 @@ namespace tool
     struct data
     {
       data () : ref_count ( 0 ), allocated(0), length ( 0 ) { chars [ 0 ] = '\0'; }
-      void add_ref() { ref_count++; }
-      unsigned int ref_count;
+      void add_ref() { ++ref_count; }
+      locked::counter ref_count;
       int allocated;
       int length;
       char chars [ 1 ];

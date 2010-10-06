@@ -14,7 +14,7 @@ namespace tis
   static int putcbyte(CsCompiler *c,int b);
   static int putcword(CsCompiler *c,int w);
   static void discard_codes(CsCompiler *c,int codeaddr);
-  static void fixup(CsCompiler *c,int chn,int val);
+  static int fixup(CsCompiler *c,int chn,int val);
 
   // return last char read, level - level of '(',')' brackets. Has to be eq 1 initially.
   int scan_lookahead(CsCompiler *c);
@@ -384,6 +384,8 @@ void CsFreeCompiler(CsCompiler *c)
   c->literalbuf.unpin();
   if (c->codebuf)
     CsFree(c->ic,c->codebuf);
+  c->t_wtoken.destroy();
+  c->line.destroy();
   CsFree(c->ic,c);
 }
 
@@ -525,7 +527,7 @@ value CsCompileExpressions(CsScope *scope, bool serverScript, int line_no)
         addliteral(c,UNDEFINED_VALUE);*/
 
       /* generate the argument frame */
-      c->lineNumberChangedP = false;
+      c->lineNumberChangedP = true;
       putcbyte(c,BC_AFRAME);
       putcbyte(c,2);
       putcbyte(c,0);
@@ -1077,14 +1079,21 @@ static void do_while(CsCompiler *c)
 static void do_dowhile(CsCompiler *c)
 {
     SENTRY *ob,*oc;
-    int nxt,end=0;
+    int nxt,end=0,body,tst=0;
 
     tool::string name;
     if(optName(c))
       name = c->t_token;
 
+    putcbyte(c,BC_BR); // jump straight to the body of the loop
+    body = putcword(c,NIL);
+
     /* remember the start of the loop */
     nxt = codeaddr(c);
+    putcbyte(c,BC_BR);
+    tst = putcword(c,NIL);
+
+    body = fixup(c,body,codeaddr(c));
 
     /* compile the loop body */
     ob = addbreak(c,0, name);
@@ -1093,6 +1102,7 @@ static void do_dowhile(CsCompiler *c)
     end = rembreak(c,ob,end);
     remcontinue(c,oc);
 
+    fixup(c,tst,codeaddr(c));
     /* compile the test expression */
     frequire(c,T_WHILE);
     do_test(c);
@@ -1101,7 +1111,7 @@ static void do_dowhile(CsCompiler *c)
 
     /* branch to the top if the expression is true */
     putcbyte(c,BC_BRT);
-    putcword(c,nxt);
+    putcword(c,body);
 
     /* handle the end of the statement */
     fixup(c,end,codeaddr(c));
@@ -1213,6 +1223,9 @@ END:
 }
 
 /* do_for_in - compile the 'for' .. 'in' statement */
+
+#if 0
+// old variant, no 'otherwise' support
 static void do_for_in(CsCompiler *c, PVAL* pv, const tool::string& name)
 {
     int end,body;
@@ -1270,9 +1283,12 @@ static void do_for_in(CsCompiler *c, PVAL* pv, const tool::string& name)
 
 }
 
-#if 0
+#else
 
-static void do_for_in(CsCompiler *c, PVAL* pv)
+// new variant, with 'otherwise' support
+
+/* do_for_in - compile the 'for' .. 'in' statement */
+static void do_for_in(CsCompiler *c, PVAL* pv, const tool::string& name)
 {
     int end,body;
     int nxt;
@@ -1280,36 +1296,55 @@ static void do_for_in(CsCompiler *c, PVAL* pv)
 
     chklvalue(c,pv);
 
-    putcbyte(c,BC_NOTHING);
-    (*pv->fcn)(c,STORE,pv);
-    nxt = codeaddr(c);
     PVAL pv2;
-    (*pv->fcn)(c,LOAD,pv);
-    putcbyte(c,BC_PUSH);
     do_right_side_expr(c,&pv2);
     rvalue(c,&pv2);
-    putcbyte(c,BC_NEXT);
-    (*pv->fcn)(c,STORE,pv);
+
+    putcbyte(c,BC_PUSH);         // sp-1  - our collection object
 
     frequire(c,')');
 
-    /* branch to the loop body if the expression === defined_value */
+    putcbyte(c,BC_NOTHING);
+    //(*pv->fcn)(c,STORE,pv);
+    pv->store_l_value(c);
+    putcbyte(c,BC_PUSH);         // sp-0  - index variable
+
+// intial next
+    putcbyte(c,BC_NEXT);         // val  <- nextelement( index, collection, num_of_returns )
+    putcword(c,pv->count());     // num_of_returns
+    //(*pv->fcn)(c,STORE,pv);
+    pv->store_l_value(c);
+    // branch to the loop body if the expression != nothingValue
     putcbyte(c,BC_BRDEF);
     body = putcword(c,NIL);
+    /* branch to the else */
+    putcbyte(c,BC_BR);
+    int else_body = putcword(c,NIL);
 
-    /* branch to the end if the expression is false */
+//  next iteration
+    nxt = codeaddr(c);
+
+    putcbyte(c,BC_NEXT);         // val  <- nextelement( index, collection, num_of_returns )
+    putcword(c,pv->count());     // num_of_returns
+    //(*pv->fcn)(c,STORE,pv);
+    pv->store_l_value(c);
+
+    // branch to the loop body if the expression != nothingValue
+    putcbyte(c,BC_BRDEF);
+    body = putcword(c,body);
+
+    /* branch to the end */
     putcbyte(c,BC_BR);
     end = putcword(c,NIL);
 
-    /* branch back to the test code */
-    putcbyte(c,BC_BR);
-    putcword(c,nxt);
-
     /* compile the loop body */
     fixup(c,body,codeaddr(c));
-    ob = addbreak(c,end);
+    ob = addbreak(c,end,name);
     oc = addcontinue(c,nxt);
     do_statement(c);
+    if(c->savedToken == ';')
+      CsToken(c);
+
     end = rembreak(c,ob,end);
     remcontinue(c,oc);
 
@@ -1317,8 +1352,26 @@ static void do_for_in(CsCompiler *c, PVAL* pv)
     putcbyte(c,BC_BR);
     putcword(c,nxt);
 
+    int tkn = CsToken(c);
+    if( tkn == T_OTHERWISE )
+    {
+      fixup(c,else_body,codeaddr(c));
+      do_statement(c);
+      if(c->savedToken == ';')
+        CsToken(c);
+    }
+    else
+    {
+      CsSaveToken(c,tkn);
+      fixup(c,else_body,codeaddr(c));
+    }
+
     /* handle the end of the statement */
     fixup(c,end,codeaddr(c));
+
+    putcbyte(c,BC_DROP);       // index variable
+    putcbyte(c,BC_DROP);       // sp-1  - our collection object
+
 }
 
 
@@ -1461,7 +1514,6 @@ static void UnwindTryStack(CsCompiler *c, int& retaddr)
     }
     putcbyte ( c, BC_BR);
     retaddr = putcword(c,retaddr);
-
 }
 
 
@@ -2575,7 +2627,7 @@ static void do_return(CsCompiler *c)
   putcbyte(c,BC_RETURN);
 }
 
-/* do_return - handle the 'return' statement */
+/* do_return - handle the 'delete' */
 static void do_delete(CsCompiler *c)
 {
   PVAL pv;
@@ -2664,11 +2716,12 @@ static void do_right_side_expr(CsCompiler *c,PVAL *pv)
     tool::auto_state<bool> _(c->atRightSide,true);
 
     CsSaveToken(c,tkn);
-    if(tkn == '[' || tkn == '{')
-      do_literal(c,pv);
-    else if(tkn == '/' || tkn == T_DIVEQ)
-      do_literal(c,pv);
-    else if(c->JSONonly)
+    //if(tkn == '[' || tkn == '{')
+    //  do_literal(c,pv);
+    //else if(tkn == '/' || tkn == T_DIVEQ)
+    //  do_literal(c,pv);
+    //else 
+    if(c->JSONonly)
       do_primary_json(c,pv);
     else
       //do_right_side_expr_list(c,pv);
@@ -3231,7 +3284,7 @@ static void do_expr14(CsCompiler *c,PVAL *pv)
         do_expr15(c,pv); rvalue(c,pv);
         break;
     case '!':
-        do_expr15(c,pv); rvalue(c,pv);
+        do_expr14(c,pv); rvalue(c,pv);
         putcbyte(c,BC_NOT);
         break;
     case '~':
@@ -3455,6 +3508,12 @@ static void do_primary(CsCompiler *c,PVAL *pv)
         pv->fcn = NULL;
         break;
     case T_IDENTIFIER:
+        if(c->t_token[0] == '@')
+        {
+          CsSaveToken(c,tkn);
+          do_decorator(c);
+          break;
+        }
 #ifdef _DEBUG
         if( c->t_token[0] == '$' )
           c = c;
@@ -4871,7 +4930,11 @@ static void code_argument(CsCompiler *c,int fcn,PVAL *pv)
                 putcbyte(c,pv->val);
                 putcbyte(c,pv->val2);
                 break;
-    case DEL:CsParseError(c,"attempt to delete argument");
+    case DEL:   //CsParseError(c,"attempt to delete argument");
+                putcbyte(c,BC_UNDEFINED);
+                putcbyte(c,BC_ESET);
+                putcbyte(c,pv->val);
+                putcbyte(c,pv->val2);
                 break;
     }
 }
@@ -4923,6 +4986,7 @@ static void code_variable(CsCompiler *c,int fcn,PVAL *pv)
                 putcword(c,pv->val);
                 break;
     case DEL:putcbyte(c,BC_GDEL);
+                putcword(c,pv->val);
                 break;
     }
 }
@@ -4937,6 +5001,7 @@ static void code_namespace_variable(CsCompiler *c,int fcn,PVAL *pv)
                 putcword(c,pv->val);
                 break;
     case DEL:putcbyte(c,BC_GDEL);
+                putcword(c,pv->val);
                 break;
     }
 }
@@ -5027,7 +5092,7 @@ static int putcword(CsCompiler *c,int w)
 }
 
 /* fixup - fixup a reference chain */
-static void fixup(CsCompiler *c,int chn,int val)
+static int fixup(CsCompiler *c,int chn,int val)
 {
     int hval,nxt;
     for (hval = val >> 8; chn != NIL; chn = nxt) {
@@ -5035,6 +5100,7 @@ static void fixup(CsCompiler *c,int chn,int val)
         c->cbase[chn] = val;
         c->cbase[chn+1] = hval;
     }
+    return val;
 }
 
 /* AddLineNumber - add a line number entry */

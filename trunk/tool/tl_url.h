@@ -76,8 +76,8 @@ namespace tool
       password.clear();
     }
 
-    static string escape ( const char *url, bool space_to_plus = false );
-    static string escape ( const wchar *url, bool space_to_plus = false );
+    static string escape ( const char *url, bool space_to_plus = false, bool normalize_slash = true );
+    static string escape ( const wchar *url, bool space_to_plus = false, bool normalize_slash = true );
     static ustring unescape ( const char *src );
     static ustring unescape ( const wchar *src ) { return unescape(string(src)); }
     static bool looks_like_encoded(const string& s);
@@ -119,6 +119,7 @@ namespace tool
 
     bool is_absolute() const 
     { 
+      if(protocol == "file" && !filename.is_empty()) return true;
       return port < 0 || (protocol.length() != 0 && hostname.length() != 0); 
     }
 

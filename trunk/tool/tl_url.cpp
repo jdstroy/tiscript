@@ -274,7 +274,7 @@ data_scheme:
       return false;
     if ( iswalnum ( c ) )
       return true;
-    if ( strchr ( "/:$-_.!*'(),?&=@#", c ) )
+    if ( strchr ( "/:$-_.!*'(),?&=@#%", c ) )
       return true;
     return false;
   }
@@ -297,6 +297,8 @@ data_scheme:
 
   bool url::need_escapement(const ustring& s)
   {
+    if(s.starts_with(L"data:"))
+      return false;
     for( int n = 0; n < s.length(); ++n )
     {
       wchar c = s[n];
@@ -307,7 +309,7 @@ data_scheme:
   }
 
   string
-    url::escape ( const char *src, bool space_to_plus )
+    url::escape ( const char *src, bool space_to_plus, bool norm_slash )
   {
     const char *cp;
     static const char *hex = "0123456789ABCDEF";
@@ -318,7 +320,7 @@ data_scheme:
     {
       if ( *cp == ' ' && space_to_plus )
         buffer.push ( '+' );
-      else if ( *cp == '\\')
+      else if ( *cp == '\\' && norm_slash)
         buffer.push ( '/' );
       else if ( is_url_char ( (unsigned char) *cp ) || ( *cp == '+' && !space_to_plus ) )
       {
@@ -347,10 +349,10 @@ data_scheme:
    as "%E3%82%A2". */
 
   string
-    url::escape ( const wchar* src, bool space_to_plus )
+    url::escape ( const wchar* src, bool space_to_plus, bool norm_slash )
   {
     string utf8 = ustring::utf8(chars_of(src));
-    return escape ( utf8, space_to_plus );
+    return escape ( utf8, space_to_plus, norm_slash );
   }
 
 

@@ -35,6 +35,8 @@ Andrew Fedoniouk @ terrainformatica.com
 
 #include "ucdata_lt.h"
 #include "ucdata_data.inl"
+#include "../tl_sync.h"
+#include "../tl_hash_table.h"
 
 
 /*
@@ -99,7 +101,7 @@ static int _ucprop_lookup(unsigned long code, unsigned long n)
     return 0;
 }
 
-int ucprops(unsigned long code, unsigned long mask1, unsigned long mask2,
+static int _ucprops(unsigned long code, unsigned long mask1, unsigned long mask2,
         unsigned long *mask1_out, unsigned long *mask2_out)
 {
     int ret = 0;
@@ -130,7 +132,7 @@ int ucprops(unsigned long code, unsigned long mask1, unsigned long mask2,
     return ret;
 }
 
-int ucisprop(unsigned long code, unsigned long mask1, unsigned long mask2)
+static int _ucisprop(unsigned long code, unsigned long mask1, unsigned long mask2)
 {
     unsigned long i;
 
@@ -148,6 +150,50 @@ int ucisprop(unsigned long code, unsigned long mask1, unsigned long mask2)
     }
 
     return 0;
+}
+
+struct char_table_rec 
+{
+  unsigned long mask1; 
+  unsigned long mask2;
+  char_table_rec():mask1(0), mask2(0) {}
+};
+
+int ucprops(unsigned long code, unsigned long mask1, unsigned long mask2,
+        unsigned long *mask1_out, unsigned long *mask2_out)
+{
+    //return _ucprops(code, mask1, mask2, mask1_out, mask2_out);
+
+    if (mask1 == 0 && mask2 == 0)
+      return 0;
+
+    static tool::mutex char_table_guard;
+
+    tool::critical_section _(char_table_guard);
+
+    static tool::hash_table<uint,char_table_rec> char_table(8037);
+    
+    bool created = false;
+    char_table_rec& masks = char_table.get_ref(code,created);
+
+    if( created )
+      _ucprops(code, 0xFFFFFFFF, 0xFFFFFFFF, &masks.mask1,&masks.mask2);
+
+    unsigned long v1 = masks.mask1 & mask1;
+    unsigned long v2 = masks.mask2 & mask2;
+
+    if (mask1_out)
+      *mask1_out = v1;
+    if (mask2_out)
+      *mask2_out = v2;
+
+    return v1 || v2;
+}
+
+int ucisprop(unsigned long code, unsigned long mask1, unsigned long mask2)
+{
+  //return _ucisprop(code, mask1, mask2);
+  return ucprops(code,mask1,mask2,0,0);
 }
 
 

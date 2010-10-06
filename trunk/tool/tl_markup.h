@@ -58,6 +58,8 @@ template< typename CHAR_TYPE >
       TT_WORD,        // in details mode these will be generated 
       TT_SPACE,       // instead of TT_TEXT above
 
+      TT_DOCTYPE      // "<!DOCTYPE ...value... >" 
+      
     };
 
     enum $ { MAX_NAME_SIZE = 128 };
@@ -303,6 +305,8 @@ template< typename CHAR_TYPE >
         case 8:
           if( equal(tag_name,"![CDATA[",8) ) 
             return scan_cdata();
+            else if(equal(tag_name,"!DOCTYPE",8) ) 
+              return scan_doctype();
           break;
         }
         c = get_char();
@@ -455,6 +459,20 @@ template< typename CHAR_TYPE >
       }
       //c_scan = &scan_body;
       return TT_PI;
+    }
+
+    inline token_type scan_doctype()
+    {
+      while(true)
+      {
+        char_type c = get_char();
+        if( c == 0) return TT_EOF;
+        if( c == '>') 
+          break;
+        value.push(c);
+      }
+      c_scan = &scanner<char_type>::scan_body;
+      return TT_DOCTYPE;
     }
 
 
