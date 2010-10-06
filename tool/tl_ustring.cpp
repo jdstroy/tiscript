@@ -143,7 +143,7 @@ ustring::replace_data(data *data)
         delete[] (byte *)my_data;
 
     if (data != &null_data)
-        data->ref_count++;
+        ++data->ref_count;
     my_data = data;
 }
 
@@ -153,21 +153,21 @@ ustring::make_unique()
     if (my_data->ref_count > 1) {
         data *data = new_data(length());
         umemcpy(data->chars, head(), length());
-        my_data->ref_count--;
+        --my_data->ref_count;
         my_data = data;
-        my_data->ref_count++;
+        my_data->ref_count = 1;
     }
 }
 
 ustring::ustring(ustring::data *dta)
 {
   my_data = dta;
-  my_data->ref_count++;
+  ++my_data->ref_count;
 }
 
 ustring::data* ustring::get_data() const
 {
-  my_data->ref_count++;
+  ++my_data->ref_count;
   return my_data;
 }
 
@@ -1141,9 +1141,6 @@ bool
       }
       return n == 0;
     }
-  
   }
-
-
 
 };

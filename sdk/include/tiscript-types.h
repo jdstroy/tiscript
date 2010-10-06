@@ -26,8 +26,8 @@
   typedef unsigned __int64    uint64;
 #endif
 
-typedef int                   int32;
-typedef unsigned int          uint32;
+  typedef long                int32;
+  typedef unsigned long       uint32;
 typedef float                 float32;
 typedef signed char           int8;
 typedef short                 int16;

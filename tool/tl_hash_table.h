@@ -85,6 +85,10 @@ namespace tool
 
     int   get_index ( const c_key& the_key, bool create = false );
 
+    // get reference to existing or newly created element (created == true in this case)
+    c_element& get_ref( const c_key& the_key, bool& created );
+
+
     void  clear ();
 
     int   size () const  { return _array.size (); }
@@ -220,6 +224,17 @@ namespace tool
       return 0;
     return &_array [ idx ];
   }
+
+  template <class c_key, class c_element>
+  inline c_element&
+    hash_table<c_key, c_element>::get_ref( const c_key& the_key, bool& created )
+  {
+    int prev_size = _array.size();
+    int idx = get_index ( the_key, true );
+    created = prev_size != _array.size();
+    return _array [ idx ];
+  }
+
 
   template <class c_key, class c_element>
   inline int

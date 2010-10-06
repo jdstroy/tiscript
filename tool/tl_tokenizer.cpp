@@ -645,23 +645,29 @@ DATE_LITERAL:
       // *pos is '\'
           switch( *(++pos) )
           {
-        case 't': return '\t';
-        case 'r': return '\r';
-        case 'n': return '\n';
-        case 'f': return '\f';
-        case 'b': return '\b';
-        case '\\': return '\\'; 
+            case 't': ++pos; return '\t';
+            case 'r': ++pos; return '\r';
+            case 'n': ++pos; return '\n';
+            case 'f': ++pos; return '\f';
+            case 'b': ++pos; return '\b';
+            case '\\': ++pos; return '\\'; 
             case 'u':  
-            {
+               ++pos;
               if(pos < (end - 4) && isxdigit(pos[0]) && isxdigit(pos[1]) && isxdigit(pos[2]) && isxdigit(pos[3]))
               {
-            char *e; char bf[5]; bf[0] = char(pos[0]); bf[1] = char(pos[1]); bf[2] = char(pos[2]); bf[3] = char(pos[3]); bf[4] = 0;
+                  char *e; char bf[5]; 
+                  bf[0] = char(pos[0]); 
+                  bf[1] = char(pos[1]); 
+                  bf[2] = char(pos[2]); 
+                  bf[3] = char(pos[3]); 
+                  bf[4] = 0;
                 pos += 4;
             return (wchar)strtol(bf,&e,16);
               }
-        }
         default: 
-          return *pos; 
+              {
+                return *pos++; 
+              }
       }
       return '?'; // to make compiler happy
     }
@@ -679,11 +685,14 @@ DATE_LITERAL:
         else if( *pos == '\\' )
           token_value.push( scan_escape() );
               else
+        {
           token_value.push( *pos );
         ++pos;
             }
+      }
       return T_STRING;
           }
+
     scanner::token_t 
        scanner::scan_parenthesis()
     {

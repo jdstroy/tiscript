@@ -181,7 +181,7 @@ int ucisprop (unsigned long code, unsigned long mask1, unsigned long mask2);
  */
 #define ucisrtl(cc) ucisprop(cc, UC_R, UC_AL)
 #define ucisltr(cc) ucisprop(cc, UC_L, 0)
-#define ucisstrong(cc) ucisprop(cc, UC_L|UC_R, UC_AL)
+#define ucisstrong(cc) ucisprop(cc, UC_L|UC_R|UC_ND, UC_AL)
 #define ucisweak(cc) ucisprop(cc, UC_EN|UC_ES, UC_ET|UC_AN|UC_CS)
 #define ucisneutral(cc) ucisprop(cc, 0, UC_B|UC_S|UC_WS|UC_ON)
 #define ucisseparator(cc) ucisprop(cc, 0, UC_B|UC_S)

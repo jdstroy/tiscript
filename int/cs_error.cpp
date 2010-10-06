@@ -30,8 +30,8 @@ static ErrString errStrings[] = {
 {       CsErrStackOverflow,        "Stack overflow"       },
 {       CsErrTooManyArguments,     "Too many arguments - %V"        },
 //{       CsErrTooFewArguments,      "Too few arguments - %V"       },
-{       CsErrTypeError,            "Wrong type - (%V)"            },
-{       CsErrUnexpectedTypeError,  "Wrong type - (%V), expected instance of %s"   },
+{       CsErrTypeError,            "Wrong type - %V"            },
+{       CsErrUnexpectedTypeError,  "Wrong type - %V, expected instance of %s"   },
 {       CsErrUnboundVariable,      "Variable not found - %V"            },
 {       CsErrIndexOutOfBounds,     "Index out of bounds - %V"       },
 {       CsErrNoMethod,             "%s (%V) has no method - %V"          },
@@ -182,10 +182,15 @@ void CsStreamError(VM *c,stream *s, int code,va_list ap)
                 case 'V':
                     {
                       value v = va_arg(ap,value);
-                      //s->put_str(CsTypeName(v));
-                      //s->put_str("(");
+                      if(CsSymbolP(v))
+                        s->put_str(CsSymbolName(v));
+                      else
+                      {
+                        s->put_str(CsTypeName(v));
+                        s->put_str("(");
                       CsPrint(c,v,s);
-                      //s->put_str(")");
+                        s->put_str(")");
+                      }
                     }
                     break;
                 case 's':

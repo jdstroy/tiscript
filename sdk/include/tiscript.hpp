@@ -21,25 +21,37 @@ namespace tiscript
 
   typedef tiscript_value  value;
   typedef tiscript_VM     VM;
+  typedef VM*             HVM;
 
-  inline VM*  create_vm(unsigned features = 0xffffffff, unsigned heap_size = 1*1024*1024, unsigned stack_size = 64*1024 ) 
+  inline HVM  create_vm(unsigned features = 0xffffffff, unsigned heap_size = 1*1024*1024, unsigned stack_size = 64*1024 ) 
   { 
      return ni()->create_vm(features,heap_size, stack_size); 
   }
-  inline void destroy_vm(VM* vm) { ni()->destroy_vm(vm); }
+  inline void destroy_vm(HVM vm) { ni()->destroy_vm(vm); }
 
-  /* 
     // set stdin, stdout and stderr for this VM
-    void  (TISAPI *set_std_streams)(VM* pvm, stream_t* input, stream_t* output, stream_t* error);
-    // get VM attached to the current thread
-    */
+  inline void  set_std_streams(HVM vm, stream* input, stream* output, stream* error) {  ni()->set_std_streams(vm, input, output, error); }
 
-  inline void  set_std_streams(VM* vm, stream* input, stream* output, stream* error) {  ni()->set_std_streams(vm, input, output, error); }
+  inline HVM   get_current_vm()         { return ni()->get_current_vm(); }
+  inline value get_global_ns(HVM vm)    { return ni()->get_global_ns(vm); }
+  inline value get_current_ns(HVM vm)   { return ni()->get_current_ns(vm); }
+  inline void  invoke_gc(HVM vm)        { ni()->invoke_gc(vm); }
 
-  inline VM*   get_current_vm()         { return ni()->get_current_vm(); }
-  inline value get_global_ns(VM* vm)    { return ni()->get_global_ns(vm); }
-  inline value get_current_ns(VM* vm)   { return ni()->get_current_ns(vm); }
-  inline void  invoke_gc(VM* vm)        { ni()->invoke_gc(vm); }
+  struct runtime
+  {
+    HVM vm;
+    runtime(unsigned features = 0xffffffff, unsigned heap_size = 1*1024*1024, unsigned stack_size = 64*1024)
+    {
+      vm = create_vm(features, heap_size,stack_size);
+      assert(vm);
+    }
+    ~runtime() { destroy_vm(vm); }
+    operator HVM() { return vm; } // so runtime reference can be used in places where HVM is required
+
+    value global_ns()          { assert(vm); return get_global_ns(vm); }
+    value current_ns()         { assert(vm); return get_current_ns(vm); }
+    void  run_gc()             { assert(vm); invoke_gc(vm); }
+  };
 
   inline bool  is_int(value v)          { return ni()->is_int(v); }
   inline bool  is_float(value v)        { return ni()->is_float(v); }
@@ -57,7 +69,7 @@ namespace tiscript
   inline bool  is_true(value v)         { return ni()->is_true(v); }
   inline bool  is_false(value v)        { return ni()->is_false(v); }
   inline bool  is_bool(value v)         { return is_true(v) || is_false(v); }
-  inline bool  is_class(VM* vm,value v) { return ni()->is_class(vm,v); }
+  inline bool  is_class(HVM vm,value v) { return ni()->is_class(vm,v); }
   inline bool  is_error(value v)        { return ni()->is_error(v); }
   inline bool  is_bytes(value v)        { return ni()->is_bytes(v); }
 
@@ -82,48 +94,43 @@ namespace tiscript
                                                                                   // symbol is not GCable, once created can be stored anywhere and
                                                                                   // yet shared between different VMs.
 
-  inline value        v_string(VM* vm, const wchar* str, unsigned len = 0) { return ni()->string_value(vm,str,len); }
+  inline value        v_string(HVM vm, const wchar* str, unsigned len = 0) { return ni()->string_value(vm,str,len); }
                                                                                   // the string of course.  
-  inline value        v_bytes(VM* vm, const unsigned char* data, unsigned datalen) { return ni()->bytes_value(vm,data,datalen); }
+  inline value        v_string(const wchar* str, unsigned len = 0) { HVM vm = get_current_vm(); assert(vm); return v_string(vm,str,len); }
+                                                                                  // the string of course.  
+
+  inline value        v_bytes(HVM vm, const unsigned char* data, unsigned datalen) { return ni()->bytes_value(vm,data,datalen); }
                                                                                   // make instance of Bytes object in script - 
                                                                                   // sequence of bytes. 
                                                                                   // Be notified: Bytes is a citizen of GCable heap. Use pinned thing to hold it
+  inline value        v_bytes(const unsigned char* data, unsigned datalen) { HVM vm = get_current_vm(); assert(vm); 
+                                                                             return v_bytes(vm,data,datalen); }
 
   // convert value to string represenatation.
-  inline std::wstring to_string(VM* vm,value v) { return c_string(ni()->to_string(vm,v)); }
+  inline std::wstring to_string(HVM vm,value v) { return c_string(ni()->to_string(vm,v)); }
+  inline std::wstring to_string(value v) { HVM vm = get_current_vm(); assert(vm); 
+                                           return to_string(vm,v); }
 
   // path here is a global "path" of the object, something like: "one", "one.two", etc.
-  inline value        value_by_path(VM* vm, const char* path) { value r = v_undefined(); ni()->get_value_by_path(vm, &r, path); return r; }
+  inline value        value_by_path(HVM vm, const char* path) { value r = v_undefined(); ni()->get_value_by_path(vm, &r, path); return r; }
+  inline value        value_by_path(const char* path) { HVM vm = get_current_vm(); assert(vm); value r = v_undefined(); ni()->get_value_by_path(vm, &r, path); return r; }
   
 //@region Object
 
   // object creation, of_class == 0 - "Object"
-  inline value  create_object(VM* vm, value of_class = 0) { return ni()->create_object(vm, of_class); }
-  inline value  create_object(VM* vm, const char* class_path ) 
+  inline value  create_object(HVM vm, value of_class = 0) { return ni()->create_object(vm, of_class); }
+  inline value  create_object(HVM vm, const char* class_path ) 
   { 
       value cls = value_by_path(vm, class_path); assert( is_class(vm,cls) );
       return ni()->create_object(vm, cls); 
   }
 
   // object propery access.
-  inline bool  set_prop(VM* vm, value obj, value key, value value) { return ni()->set_prop(vm,obj,key,value); }
-  inline value get_prop(VM* vm, value obj, value key) { return ni()->get_prop(vm,obj,key); }
+  inline bool  set_prop(HVM vm, value obj, value key, value value) { return ni()->set_prop(vm,obj,key,value); }
+  inline value get_prop(HVM vm, value obj, value key) { return ni()->get_prop(vm,obj,key); }
   
-  inline bool  set_prop(VM* vm, value obj, const char* key, value value) { return set_prop(vm,obj,v_symbol(key),value); }
-  inline value get_prop(VM* vm, value obj, const char* key)              { return get_prop(vm,obj,v_symbol(key)); }
-
-  // enumeration of object properties
-  struct object_enum
-  {
-    VM *vm;
-    virtual bool operator()(value key, value val) = 0; // true - continue enumeartion
-    inline static bool TISAPI _enum(VM *vm, value key, value val, void* tag)
-    {
-      object_enum* oe = reinterpret_cast<object_enum*>(tag);
-      oe->vm = vm; return oe->operator()(key,val);
-    }
-  };
-  inline bool for_each_prop(VM* vm, value obj, object_enum& cb) { return ni()->for_each_prop(vm, obj, object_enum::_enum, &cb); }
+  inline bool  set_prop(HVM vm, value obj, const char* key, value value) { return set_prop(vm,obj,v_symbol(key),value); }
+  inline value get_prop(HVM vm, value obj, const char* key)              { return get_prop(vm,obj,v_symbol(key)); }
 
   // get/set users data associated with instance of native object
   inline void* get_native_data( value obj ) { assert(is_native_object(obj)); return ni()->get_instance_data(obj); }
@@ -131,17 +138,17 @@ namespace tiscript
 
 //@region Array
 
-  inline value     create_array(VM* vm, unsigned of_size) { return ni()->create_array(vm,of_size); }
-  inline bool      set_elem(VM* vm, value arr, unsigned idx, value val) { return ni()->set_elem(vm,arr,idx,val); }
-  inline value     get_elem(VM* vm, value arr, unsigned idx) { return ni()->get_elem(vm,arr,idx); }
-  inline unsigned  get_length(VM* vm, value arr) { return ni()->get_array_size(vm,arr); }
+  inline value     create_array(HVM vm, unsigned of_size) { return ni()->create_array(vm,of_size); }
+  inline bool      set_elem(HVM vm, value arr, unsigned idx, value val) { return ni()->set_elem(vm,arr,idx,val); }
+  inline value     get_elem(HVM vm, value arr, unsigned idx) { return ni()->get_elem(vm,arr,idx); }
+  inline unsigned  get_length(HVM vm, value arr) { return ni()->get_array_size(vm,arr); }
   // reallocates the array and returns reallocated (if needed) array
-  inline value     set_length(VM* vm, value arr, unsigned of_size) { return ni()->set_array_size(vm,arr,of_size); }
+  inline value     set_length(HVM vm, value arr, unsigned of_size) { return ni()->set_array_size(vm,arr,of_size); }
 
   // informs VM that native method got an error condition. Native method should return from the function after the call.
-  inline void      throw_error( VM* vm, const wchar* error_text) { ni()->throw_error( vm, error_text ); }
+  inline void      throw_error( HVM vm, const wchar* error_text) { ni()->throw_error( vm, error_text ); }
 
-  inline value     eval(VM* vm, value ns, stream* input, bool template_mode = false)
+  inline value     eval(HVM vm, value ns, stream* input, bool template_mode = false)
   {
     value rv = 0;
     if(ni()->eval(vm, ns, input, template_mode, &rv))
@@ -149,8 +156,8 @@ namespace tiscript
     else
       return v_undefined();
   }
-  inline value     eval(VM* vm, stream& input, bool template_mode = false) { return eval( vm, get_current_ns(vm), &input, template_mode); }
-  inline value     eval(VM* vm, value ns, const wchar_t* text)
+  inline value     eval(HVM vm, stream& input, bool template_mode = false) { return eval( vm, get_current_ns(vm), &input, template_mode); }
+  inline value     eval(HVM vm, value ns, const wchar_t* text)
   {
     value rv = 0;
     if(ni()->eval_string(vm, ns, text, wcslen(text), &rv))
@@ -158,10 +165,10 @@ namespace tiscript
     else
       return v_undefined();
   }
-  inline value     eval(VM* vm, const wchar_t* text) { return eval( vm, get_current_ns(vm), text); }
+  inline value     eval(HVM vm, const wchar_t* text) { return eval( vm, get_current_ns(vm), text); }
 
   // call method
-  inline value     call(VM* vm, value This, value function, const value* argv = 0, unsigned argn = 0)
+  inline value     call(HVM vm, value This, value function, const value* argv = 0, unsigned argn = 0)
   {
     value rv = 0;
     if( ni()->call(vm, This, function, argv, argn,&rv) )
@@ -169,7 +176,7 @@ namespace tiscript
     else
       return v_undefined();
   }
-  inline value     call(VM* vm, value obj, const char* funcname, const value* argv = 0, unsigned argn = 0)
+  inline value     call(HVM vm, value obj, const char* funcname, const value* argv = 0, unsigned argn = 0)
   {
     value rv = 0;
     value function = get_prop(vm, obj, funcname);
@@ -181,8 +188,8 @@ namespace tiscript
 
   // call global function
 
-  inline value     call(VM* vm, value function, const value* argv = 0, unsigned argn = 0) { return call(vm, get_current_ns(vm), function, argv, argn); }
-  inline value     call(VM* vm, const char* funcpath, const value* argv = 0, unsigned argn = 0) 
+  inline value     call(HVM vm, value function, const value* argv = 0, unsigned argn = 0) { return call(vm, get_current_ns(vm), function, argv, argn); }
+  inline value     call(HVM vm, const char* funcpath, const value* argv = 0, unsigned argn = 0) 
   { 
     value function  = value_by_path(vm,funcpath);
     if(is_function(function))
@@ -192,20 +199,21 @@ namespace tiscript
   }
 
   // compile bytecodes
-  inline bool     compile( VM* vm, stream& input, stream& output_bytecodes, bool template_mode = false )
+  inline bool     compile( HVM vm, stream& input, stream& output_bytecodes, bool template_mode = false )
     { return ni()->compile( vm, &input, &output_bytecodes, template_mode); }
   // load bytecodes
-  inline bool     loadbc( VM* vm, stream* input_bytecodes )
+  inline bool     loadbc( HVM vm, stream* input_bytecodes )
     { return ni()->loadbc(vm,input_bytecodes); }
   
   // Schedule execution of the pfunc(prm) in the thread owning this VM.
   // Used when you need to call scripting methods from threads other than main (GUI) thread
   // It is safe to call tiscript functions inside the pfunc. 
   // returns 'true' if scheduling of the call was accepted, 'false' when failure (VM has no dispatcher attached). 
-  inline bool      post( VM* pvm, tiscript_callback* pfunc, void* prm)
+  inline bool      post( HVM pvm, tiscript_callback* pfunc, void* prm)
     { return ni()->post(pvm,pfunc,prm); }
   
   // pinned value, a.k.a. gc root variable.
+  // use pinned values when you need to store the value for long time
   class pinned: public tiscript_pvalue
   {
     friend class args; 
@@ -214,15 +222,124 @@ namespace tiscript
     pinned operator = (const pinned& p) {}  
   public:
     pinned()          { val = 0, vm = 0, d1 = d2 = 0; }
-    pinned(VM* c)     { val = 0, vm = 0, d1 = d2 = 0;  ni()->pin(c,this); }
+    pinned(HVM c)           { val = 0, vm = 0, d1 = d2 = 0;  ni()->pin(c,this); }
+    pinned(HVM c, value v)  { val = 0, vm = 0, d1 = d2 = 0;  ni()->pin(c,this); val = v; }
     virtual ~pinned() { detach(); }
 
-    void attach(VM* c){ detach(); ni()->pin(c,this); }
+    void attach(HVM c){ detach(); ni()->pin(c,this); }
     void detach()     { if(vm) ni()->unpin(this); }
-    VM*  get_vm()     { return vm; }
+    HVM  get_vm()     { return vm; }
 
     operator value()  { return val; } 
     pinned& operator = (value v) { val = v; assert(vm); return *this; } 
+    bool is_set() const { return val != 0; }
+  };
+
+  // object reference wrapper + object related accessor functions
+
+  class object_ref: pinned
+  {
+    friend class args; 
+  private:
+    object_ref(const object_ref& p) {}  
+    object_ref operator = (const object_ref& p) {}
+    void assign( value v ) { val = v; assert( is_object(v) || is_native_object(v) ); }
+  public:
+    object_ref():pinned()                 { }
+    object_ref(HVM c):pinned(c)           { }
+    object_ref(HVM c,value obj):pinned(c) { assign(obj); }
+
+    // create new object [of class]
+    void create(value of_class = 0) { val = ni()->create_object(get_vm(), of_class); }
+    void create(const char* class_path ) 
+    { 
+        value cls = value_by_path(get_vm(), class_path); assert( is_class(vm,cls) );
+        val = ni()->create_object(get_vm(), cls); 
+    }
+
+    operator value()  { return val; } 
+    object_ref& operator = (value v) {  assert(get_vm()); assign(v); return *this; } 
+
+    // accessors
+
+    int length()  { return (val && vm) ? ni()->get_length(vm,val) : 0; } 
+
+    // var v = obj[key]; obj[key] = v;
+    value get(value key)              { assert(is_set()); return ni()->get_prop(vm,val,key); }
+    bool  set(value key, value value) { assert(is_set()); return ni()->set_prop(vm,val,key,value); }
+
+    // var v = obj.key; obj.key = v;
+    bool  set(const char* key, value value) { assert(is_set()); return ni()->set_prop(vm,val,v_symbol(key),value); }
+    value get(const char* key)              { assert(is_set()); return ni()->get_prop(vm,val,v_symbol(key)); }
+
+    // var v = obj["key"; obj["key"] = v;
+    bool  set(const wchar_t* key, value value) { assert(is_set()); return ni()->set_prop(vm,val,v_string(get_vm(),key),value); }
+    value get(const wchar_t* key)              { assert(is_set()); return ni()->get_prop(vm,val,v_string(get_vm(),key)); }
+   
+    //void* native_data()        { assert(is_set()); return get_native_data(val); }
+    //bool  native_data(void* p) { assert(is_set()); return set_native_data(val,p); }
+
+    // native data accessors.
+    // use them as:
+    //   custom_type *ptr = obj.data<custom_type*>();
+    //   obj.data(ptr);
+
+    template <typename NDT>
+      NDT  data()        { assert(is_set()); return static_cast<NDT>(get_native_data(val)); }
+    template <typename NDT>  
+      void data(NDT ptr) { assert(is_set()); return set_native_data(val,static_cast<void*>(ptr)); }
+  };
+
+  // array reference wrapper + array related accessor functions
+  class array_ref: pinned
+  {
+    friend class args; 
+  private:
+    array_ref(const array_ref& p) {}  
+    array_ref operator = (const array_ref& p) {}
+    void assign( value v ) { val = v; assert( is_array(v)); }
+  public:
+    array_ref():pinned(get_current_vm())     { }
+    array_ref(HVM c):pinned(c)     { }
+    array_ref(HVM c,value obj):pinned(c) { assign(obj); }
+    operator value()  { return val; } 
+    array_ref& operator = (value v) {  assert(get_vm()); assign(v); return *this; } 
+
+    // create new array 
+    void create(unsigned num_elements = 0) { val = ni()->create_array(get_vm(), num_elements); }
+
+    // accessors
+    unsigned length()  { return (val && vm)? (unsigned)ni()->get_length(vm,val) : 0; } 
+
+    // var v = arr[n]; arr[n] = v;
+    value get(unsigned i)              { assert(is_set()); return ni()->get_elem(vm,val,i); }
+    bool  set(unsigned i, value value) { assert(is_set()); return ni()->set_elem(vm,val,i, value); }
+    // arr.push(v);
+    bool  push(value value)
+    {
+      assert(is_set()); 
+      unsigned l = length();
+      val = ni()->set_array_size(vm,val,l + 1);
+      return ni()->set_elem(vm,val,l,value);
+    }
+  };
+
+  // enumerator, allows to enumerate key/value pairs in object or elements of array. 
+  // Itended to be used as:
+  // pinned collection = ...
+  // enumerator each(pinned); 
+  // for(value key,val; each(key,val);) { ... }
+  //
+  class enumerator 
+  {
+    value   col;//lection
+    value   pos;
+    HVM     vm;
+  public:
+    enumerator(pinned& collection):col(collection), vm(collection.get_vm()), pos(0) {}
+    enumerator(HVM c, value collection):col(collection), vm(c), pos(0) {}
+    bool operator()(value& key, value& val) { return ni()->get_next_key_value(vm,&col,&pos,&key,&val); }
+    bool operator()(value& val)             { return ni()->get_next(vm,&col,&pos,&val); }
   };
 
   // arguments access inside native function imeplentations: 
@@ -243,7 +360,7 @@ namespace tiscript
     //    arg[1] -> 'super' - usually you will just args::skip it.
     //    arg[2..argc] -> params defined in script
 
-    args(VM* c):vm(c),n(0),opt(false) { argc = ni()->get_arg_count(vm); }
+    args(HVM c):vm(c),n(0),opt(false) { argc = ni()->get_arg_count(vm); }
     
     int   length() const { return argc; }
     value get(int pn) const { return ni()->get_arg_n(vm,pn); }
@@ -259,6 +376,14 @@ namespace tiscript
     // use pinned values for movable things: object, array, string, etc.
     args& operator >> (pinned& v) { if( opt && (n >= argc) ) return *this;  
                                     ni()->pin(vm,&v); v.val = get(n++); return *this; }
+    args& operator >> (object_ref& v) { if( opt && (n >= argc) ) return *this;  
+                                        ni()->pin(vm,&v); v.val = get(n++); 
+                                        if( !is_object(v.val) && !is_native_object(v.val) ) throw error(n,L"object");
+                                        return *this; }
+    args& operator >> (array_ref& v) { if( opt && (n >= argc) ) return *this;  
+                                        ni()->pin(vm,&v); v.val = get(n++); 
+                                        if( !is_array(v.val) ) throw error(n,L"array");
+                                        return *this; }
     // use non-pinned values only as a storage for non-movable things: symbol, int, float.
     args& operator >> (value& v)  { if( opt && (n >= argc) ) return *this;   v = get(n++); return *this; }
 
@@ -271,7 +396,7 @@ namespace tiscript
     args& operator >> (skip_e m)     { ++n; return *this; }
     
   private:
-    VM*  vm; 
+    HVM  vm; 
     int  n;
     int  argc;
     bool opt;
@@ -310,26 +435,43 @@ namespace tiscript
   };
 
   // define native class
-  inline value  define_class( VM* vm, class_def* cd, value zns = 0) // in this namespace object (or 0 if global)
+  inline value  define_class( HVM vm, class_def* cd, value zns = 0) // in this namespace object (or 0 if global)
   {
     return ni()->define_class(vm,cd,zns);
   }
 
-  inline void  set_remote_std_streams(VM* vm, pinned& input, pinned& output, pinned& error) {  ni()->set_remote_std_streams(vm, &input, &output, &error); }
+  inline void  set_remote_std_streams(HVM vm, pinned& input, pinned& output, pinned& error) {  ni()->set_remote_std_streams(vm, &input, &output, &error); }
 
   // defines native function that can be accessed globally  
-  inline void define_global_function( VM* vm, method_def* md, value zns = 0) // in this namespace object (or 0 if global)
+  inline void define_global_function( HVM vm, method_def* md, value zns = 0) // in this namespace object (or 0 if global)
   {
     if( !zns ) zns = get_global_ns(vm);
     set_prop(vm,zns,md->name, ni()->native_function_value(vm,md));
   }
 
   // defines native controlled property (variable if you wish) that can be accessed globally  
-  inline void define_global_property( VM* vm, prop_def* pd, value zns = 0) // in this namespace object (or 0 if global)
+  inline void define_global_property( HVM vm, prop_def* pd, value zns = 0) // in this namespace object (or 0 if global)
   {
     if( !zns ) zns = get_global_ns(vm);
     set_prop(vm,zns,pd->name, ni()->native_property_value(vm,pd));
   }
+
+/* OBSOLETE stuff: */
+
+  // use enumerator instead!
+  struct object_enum
+  {
+    VM *vm;
+    virtual bool operator()(value key, value val) = 0; // true - continue enumeartion
+    inline static bool TISAPI _enum(VM *vm, value key, value val, void* tag)
+    {
+      object_enum* oe = reinterpret_cast<object_enum*>(tag);
+      oe->vm = vm; return oe->operator()(key,val);
+    }
+  };
+  inline bool for_each_prop(HVM vm, value obj, object_enum& cb) { return ni()->for_each_prop(vm, obj, object_enum::_enum, &cb); }
+
+
 }
 
 // multi return macros. Used to return multiple values from native functions.

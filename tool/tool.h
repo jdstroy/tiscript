@@ -138,6 +138,10 @@ namespace tool
   void get_ext_for_mime(chars mimetype, array<chars>& exts);
   string guess_mime_type(const ustring& filename, bytes data);
 
+  int  get_lang_id(const string& name);
+  // returns false if encoding is not recognized
+  bool decode_bytes(bytes bs, ustring& str, const string& encoding);
+
 }
 
 //#define assert(cond, msg) { if (~(cond)) _assertion_failed(msg, __FILE__, __LINE__, #cond); abort(3); }

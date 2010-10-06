@@ -125,8 +125,8 @@ value CSF_color(VM *c)
 
 static value CSF_rgba(VM *c)
 {
-#ifdef SCITER
     value first = CsGetArg(c,3);
+#ifdef SCITER
     if( CsStringP(first) )
     {
       const wchar* s = L"";
@@ -134,6 +134,9 @@ static value CSF_rgba(VM *c)
       return unit_value( (COLORREF)gool::parse_color( string(s)), tool::value::clr );
     }
 #endif
+
+    if( CsColorP(first) )
+      return first;
 
     unsigned vr,vg,vb;
     unsigned va = 0;
@@ -291,7 +294,7 @@ static value CSF_toString(VM *c)
     else if( sym == CsSymbolOf("rgb"))
       swprintf(buf,L"rgb(%d,%d,%d)", r(clr), g(clr), b(clr) );
     else if( sym == CsSymbolOf("rgba"))
-      swprintf(buf,L"rgb(%d,%d,%d,%f)", r(clr), g(clr), b(clr), double(255-a(clr))/255.0);
+      swprintf(buf,L"rgba(%d,%d,%d,%f)", r(clr), g(clr), b(clr), double(255-a(clr))/255.0);
 #else
     if( !sym || sym == CsSymbolOf("RGB"))
       swprintf(buf,100,L"#%02x%02x%02x", r(clr), g(clr), b(clr) );
@@ -344,7 +347,10 @@ void CsColorToString(char* buf, value obj )
   int_t u;
   int_t cv = to_unit(obj,u);
   assert(u == tool::value::clr);
-  sprintf(buf,"#%02x%02x%02x",r(cv),g(cv),b(cv));  
+  if( cv & 0xff000000 )
+    sprintf(buf,"color(%d,%d,%d,%f)",r(cv),g(cv),b(cv),255-a(cv));
+  else
+    sprintf(buf,"color(%d,%d,%d)",r(cv),g(cv),b(cv));  
 }
 
 /* ColorPrint - Color print handler */

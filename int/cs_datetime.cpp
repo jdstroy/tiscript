@@ -57,7 +57,9 @@ static value CSF_setUTCSeconds(VM *c);
 static value CSF_setUTCMilliseconds(VM *c); */
 
 static value CSF_toGMTString(VM *c);
+static value CSF_toString(VM* c);
 static value CSF_toUTCString(VM *c);
+static value CSF_toISOString(VM *c);
 static value CSF_toLocaleString(VM *c);
 static value CSF_monthName(VM *c);
 static value CSF_dayOfWeekName(VM *c);
@@ -137,7 +139,8 @@ C_METHOD_ENTRY( "setUTCSeconds",       CSF_setUTCSeconds      ),
 C_METHOD_ENTRY( "setUTCMilliseconds",  CSF_setUTCMilliseconds ),
 */
 
-C_METHOD_ENTRY( "toString",       CSF_toUTCString ),
+C_METHOD_ENTRY( "toString",       CSF_toString ),
+C_METHOD_ENTRY( "toISOString",    CSF_toISOString ),
 C_METHOD_ENTRY( "toUTCString",    CSF_toUTCString ),
 C_METHOD_ENTRY( "toGMTString",    CSF_toGMTString ),
 C_METHOD_ENTRY( "toLocaleString", CSF_toLocaleString ),
@@ -225,7 +228,7 @@ static int64 ms1970()
   if(!v)
   {
     tool::date_time dt;
-    dt.set_date(1,1,1970); 
+    dt.set_date(1970,1,1); 
     v = dt.absolute_millis();
   }
   return v;
@@ -262,7 +265,7 @@ static value CSF_ctor(VM *c)
     {
     case 0: 
   {
-    t = tool::date_time::now().time();
+          t = tool::date_time::now(true).time();
   } break;
     case 1: 
         if( CsFloatP(p1) )
@@ -303,6 +306,7 @@ static value CSF_ctor(VM *c)
             }
           }
         }
+        ts.to_utc();
   t = ts.time();
         //SystemTimeToFileTime(&ts,&t);
         break;
@@ -1067,6 +1071,40 @@ static value CSF_toUTCString(VM *c)
     return CsMakeCString(c,time_buf);
 }
 
+static value CSF_toString(VM *c)
+{
+    value d;
+    CsParseArguments(c,"V=*",&d,c->dateDispatch);
+
+    tool::date_time st = get_local(c,d); 
+
+    char time_buf[48];
+    sprintf(time_buf, "%s,%d %s %d %02d:%02d:%02d",
+      week_days[st.day_of_week()],
+      st.day(), short_months[st.month() - 1], st.year(),
+      st.hours(), st.minutes(), st.seconds() );
+
+    return CsMakeCString(c,time_buf);
+}
+
+static value CSF_toISOString(VM *c)
+{
+    value d;
+    bool utc = false;
+    CsParseArguments(c,"V=*|B",&d,c->dateDispatch,&utc);
+
+    tool::date_time dt = utc? get_utc(c,d) : get_local(c,d); 
+
+    uint flags = 0;
+    if( utc )
+      flags |= tool::date_time::DT_UTC;
+    if( dt.has_date() )
+      flags |= tool::date_time::DT_HAS_DATE;
+    if( dt.has_time() )
+      flags |= tool::date_time::DT_HAS_TIME | tool::date_time::DT_HAS_SECONDS;
+    return CsMakeCString(c,dt.emit_iso(flags));
+}
+
 bool CsPrintDate(VM *c,value v, stream* s)
 {
     tool::date_time st = get_utc(c,v); 
@@ -1094,11 +1132,11 @@ static value CSF_toLocaleString(VM *c)
     value d;
     CsParseArguments(c,"V=*|B",&d,c->dateDispatch,&longFmt);
     tool::datetime_t ft = CsDateValue(c,d);
-    //FileTimeToLocalFileTime((FILETIME*)&ft,(FILETIME*)&ft);
+    FileTimeToLocalFileTime((FILETIME*)&ft,(FILETIME*)&ft);
     SYSTEMTIME st;
     FileTimeToSystemTime((FILETIME*)&ft,&st);
 
-    wchar str[64];
+    wchar str[64]; memset(str,0,sizeof(wchar)*64);
    
     int n = GetDateFormatW(
       LOCALE_USER_DEFAULT,       // locale
@@ -1106,7 +1144,7 @@ static value CSF_toLocaleString(VM *c)
       &st,    // date
       NULL,    // date format
       str,    // formatted string buffer
-      64      // size of buffer
+      63      // size of buffer
     );
 
     if(n == 0)
@@ -1121,7 +1159,7 @@ static value CSF_toLocaleString(VM *c)
       &st,                // time
       NULL,               // time format string
       str + n,            // formatted string buffer
-      64 - n              // size of string buffer
+      63 - n              // size of string buffer
     );
     return CsMakeCString(c,str);
 #endif
@@ -1967,6 +2005,9 @@ static bool ParseDateTime(value s, tool::datetime_t& utc)
     if(dcomponents == tool::date_time::DT_UNKNOWN)
       return false;
     utc = dt.time();
+    if( (dcomponents & tool::date_time::DT_UTC) == 0 )
+      utc -= tool::date_time::local_offset();
+      
     return true;
   }
 
@@ -1974,7 +2015,7 @@ static bool ParseDateTime(value s, tool::datetime_t& utc)
 
   //if(!SystemTimeToFileTime(&tms,&utc))
   //  return false;
-  utc += tz_minutes * 60 * 1000 * 10 * 1000;
+  utc += int64(tz_minutes) * 60 * 1000 * 1000 * 10;
   return true;
 }
 

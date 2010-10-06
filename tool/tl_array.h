@@ -46,6 +46,9 @@ public:
   inline const element &operator[] ( int index ) const;
   inline element &operator[] ( int index );
   
+  inline const element &operator[] ( uint index ) const { return operator[](int(index)); }
+  inline element &operator[] ( uint index ) { return operator[](int(index)); }
+
   element   remove ( int index );
   void      remove ( int index, int length );
   int       insert ( int index, const element& elem );
@@ -493,6 +496,9 @@ inline void
       if( toallocate < new_size ) toallocate = new_size;
 
       int *d = (int *)malloc(sizeof(int) * 2 + toallocate * sizeof(element));
+      assert(d);
+      if( !d )
+        return; // Hmm... throw error? But who will handle it?
 
       element *new_space = (element *) ( d + 2);
       

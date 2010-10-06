@@ -47,6 +47,8 @@ static struct { char *kt_keyword; int kt_token; } ktab[] = {
 { "this",       T_THIS          },
 { "assert",     T_ASSERT        },
 { "delete",     T_DELETE        },
+{ "otherwise",  T_OTHERWISE     },
+
 { "__FILE__",   T___FILE__      },
 { "__LINE__",   T___LINE__      },
 { "__TRACE__",  T___TRACE__     },

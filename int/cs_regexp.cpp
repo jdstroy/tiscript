@@ -110,15 +110,15 @@ inline void SetRegExpValue(value obj, tool::wregexp* pw)
 /* CSF_ctor - built-in method 'initialize' */
 static value CSF_ctor(VM *c)
 {
-    value src,flags;
+    value src,flags = 0;
     value val;
-    CsParseArguments(c,"V=*VV?",&val,c->regexpDispatch,&src,&flags);
+    CsParseArguments(c,"V=*V|V",&val,c->regexpDispatch,&src,&flags);
 
     //tool::wregexp* pre = RegExpValue(c,val);
     //pre->source = src;
     //pre->flags = flags;
     
-    tool::ustring f = value_to_string(flags);
+    tool::ustring f; if(flags) f = value_to_string(flags);
     tool::ustring s = value_to_string(src);
     
     tool::wregexp* pre = new tool::wregexp();
@@ -457,8 +457,8 @@ value CSF_string_split(VM *c)
     CsParseArguments(c,"V*V|i",&obj,&pat,&maxn);
 
     obj = CsToString(c,obj);
-    tool::ustring t;
-    tool::wchars test = value_to_wchars(obj,t);
+    tool::ustring t = value_to_string(obj);
+    tool::wchars test = t;
 
     const wchar * start = test.start;
     const wchar * end = start;
@@ -491,8 +491,8 @@ value CSF_string_split(VM *c)
     }
     else if(CsStringP(pat))
     {
-      tool::ustring t1;
-      tool::wchars spat = value_to_wchars(pat,t1);
+      tool::ustring t1 = value_to_string(pat);
+      tool::wchars spat = t1;
       
       for(int i = 0; *start && i < maxn; ++i )
       {

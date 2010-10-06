@@ -1,0 +1,69 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dybase", "dybase.vcproj", "{9A20E977-5FC4-4122-BF48-0CC7ADEED0F2}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tis", "..\sdk\samples\console\tis.vcproj", "{1F305CB7-8163-41C6-93BC-BA20A6D38FE8}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B9789DDA-A7DC-4C6F-8A2C-805B3EA0A6D9} = {B9789DDA-A7DC-4C6F-8A2C-805B3EA0A6D9}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tiscript_dll", "tiscript_dll.vcproj", "{B9789DDA-A7DC-4C6F-8A2C-805B3EA0A6D9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6DD6D2D0-2FDA-49E8-9593-92D3E53D79A2} = {6DD6D2D0-2FDA-49E8-9593-92D3E53D79A2}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tiscript_exe", "tiscript_exe.vcproj", "{D41A6DC7-9C1C-4EB6-80D3-60FFD057424E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6DD6D2D0-2FDA-49E8-9593-92D3E53D79A2} = {6DD6D2D0-2FDA-49E8-9593-92D3E53D79A2}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tiscript_lib", "tiscript_lib.vcproj", "{6DD6D2D0-2FDA-49E8-9593-92D3E53D79A2}"
+	ProjectSection(ProjectDependencies) = postProject
+		{02F74462-9415-4B1E-BD73-0A0BF74FED9F} = {02F74462-9415-4B1E-BD73-0A0BF74FED9F}
+		{9A20E977-5FC4-4122-BF48-0CC7ADEED0F2} = {9A20E977-5FC4-4122-BF48-0CC7ADEED0F2}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tiscriptsqlite", "..\sdk\sqlite3\tiscriptsqlite.vcproj", "{48AF9906-20E5-4DCB-B46A-E1809E75FD55}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tool", "tool.vcproj", "{02F74462-9415-4B1E-BD73-0A0BF74FED9F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9A20E977-5FC4-4122-BF48-0CC7ADEED0F2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9A20E977-5FC4-4122-BF48-0CC7ADEED0F2}.Debug|Win32.Build.0 = Debug|Win32
+		{9A20E977-5FC4-4122-BF48-0CC7ADEED0F2}.Release|Win32.ActiveCfg = Release|Win32
+		{9A20E977-5FC4-4122-BF48-0CC7ADEED0F2}.Release|Win32.Build.0 = Release|Win32
+		{1F305CB7-8163-41C6-93BC-BA20A6D38FE8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1F305CB7-8163-41C6-93BC-BA20A6D38FE8}.Debug|Win32.Build.0 = Debug|Win32
+		{1F305CB7-8163-41C6-93BC-BA20A6D38FE8}.Release|Win32.ActiveCfg = Release|Win32
+		{1F305CB7-8163-41C6-93BC-BA20A6D38FE8}.Release|Win32.Build.0 = Release|Win32
+		{B9789DDA-A7DC-4C6F-8A2C-805B3EA0A6D9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B9789DDA-A7DC-4C6F-8A2C-805B3EA0A6D9}.Debug|Win32.Build.0 = Debug|Win32
+		{B9789DDA-A7DC-4C6F-8A2C-805B3EA0A6D9}.Release|Win32.ActiveCfg = Release|Win32
+		{B9789DDA-A7DC-4C6F-8A2C-805B3EA0A6D9}.Release|Win32.Build.0 = Release|Win32
+		{D41A6DC7-9C1C-4EB6-80D3-60FFD057424E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D41A6DC7-9C1C-4EB6-80D3-60FFD057424E}.Debug|Win32.Build.0 = Debug|Win32
+		{D41A6DC7-9C1C-4EB6-80D3-60FFD057424E}.Release|Win32.ActiveCfg = Release|Win32
+		{D41A6DC7-9C1C-4EB6-80D3-60FFD057424E}.Release|Win32.Build.0 = Release|Win32
+		{6DD6D2D0-2FDA-49E8-9593-92D3E53D79A2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{6DD6D2D0-2FDA-49E8-9593-92D3E53D79A2}.Debug|Win32.Build.0 = Debug|Win32
+		{6DD6D2D0-2FDA-49E8-9593-92D3E53D79A2}.Release|Win32.ActiveCfg = Release|Win32
+		{6DD6D2D0-2FDA-49E8-9593-92D3E53D79A2}.Release|Win32.Build.0 = Release|Win32
+		{48AF9906-20E5-4DCB-B46A-E1809E75FD55}.Debug|Win32.ActiveCfg = Debug|Win32
+		{48AF9906-20E5-4DCB-B46A-E1809E75FD55}.Debug|Win32.Build.0 = Debug|Win32
+		{48AF9906-20E5-4DCB-B46A-E1809E75FD55}.Release|Win32.ActiveCfg = Release|Win32
+		{48AF9906-20E5-4DCB-B46A-E1809E75FD55}.Release|Win32.Build.0 = Release|Win32
+		{02F74462-9415-4B1E-BD73-0A0BF74FED9F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{02F74462-9415-4B1E-BD73-0A0BF74FED9F}.Debug|Win32.Build.0 = Debug|Win32
+		{02F74462-9415-4B1E-BD73-0A0BF74FED9F}.Release|Win32.ActiveCfg = Release|Win32
+		{02F74462-9415-4B1E-BD73-0A0BF74FED9F}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

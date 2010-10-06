@@ -191,7 +191,7 @@ value IntegerGetItem(VM *c,value obj,value tag)
   if( bit < 0 || bit >= 32 )
     return UNDEFINED_VALUE;
 
-  return tool::getbit((uint)(1 << bit), (uint)CsIntegerValue(obj))? TRUE_VALUE: FALSE_VALUE;
+  return tool::getbit((uint32)(1 << bit), (uint)CsIntegerValue(obj))? TRUE_VALUE: FALSE_VALUE;
 }
 
 

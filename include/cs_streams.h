@@ -21,6 +21,7 @@ namespace tis
       virtual void attach(stream* s) {}
       virtual int  decode(stream* s) = 0;
       virtual bool encode(stream* s, int ch) = 0;
+      virtual const char* name() const = 0;
       };
 
   struct stream: public tool::stream
@@ -31,6 +32,7 @@ namespace tis
 
       stream() { _encoder = null_encoder(); }
       void set_encoder( encoder* pe ) { _encoder = pe? pe : null_encoder(); _encoder->attach(this); }
+      encoder* get_encoder() const { return _encoder; }
 
       virtual int  get() { return _encoder->decode(this); }
       virtual bool put(int ch) { return _encoder->encode(this,ch); }

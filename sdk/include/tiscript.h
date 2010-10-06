@@ -245,7 +245,16 @@ struct tiscript_native_interface
 
    // support of multi-return values from native fucntions, n here is a number 1..64
    bool  (TISAPI *set_nth_retval)(tiscript_VM* pvm, int n, tiscript_value ns );
+   // returns number of props in object, elements in array, or bytes in byte array.
+   int   (TISAPI *get_length)(tiscript_VM* pvm, tiscript_value obj );
+   // for( var val in coll ) {...}
+   bool  (TISAPI *get_next)(tiscript_VM* pvm, tiscript_value* obj, tiscript_value* pos, tiscript_value* val);
+   // for( var (key,val) in coll ) {...}
+   bool  (TISAPI *get_next_key_value)(tiscript_VM* pvm, tiscript_value* obj, tiscript_value* pos, tiscript_value* key, tiscript_value* val);
 
+   // associate extra data pointer with the VM
+   bool  (TISAPI *set_extra_data)(tiscript_VM* pvm, void* data);
+   void* (TISAPI *get_extra_data)(tiscript_VM* pvm);
 
 };
 

@@ -67,8 +67,8 @@ namespace tool
     //
     uint  operator[] ( const c_element &the_key );
     //uint  operator[] ( const c_element &the_key ) const;
-    c_element&  operator() ( uint the_index );
-    const c_element&  operator() ( uint the_index ) const;
+    //c_element&  operator() ( uint the_index );
+    const c_element  operator() ( uint the_index ) const;
 
     inline const c_element& intern( const c_element &elem )
     {
@@ -81,14 +81,15 @@ namespace tool
     //
     void  remove ( const c_element& the_key );
 
-    uint get_index ( const c_element& the_key, bool create = false );
-
     void  clear ();
 
     size_t size () const  { return (size_t)_array.size (); }
     bool   is_empty () const { return _array.size () == 0; }
 
   protected:
+
+    uint get_index ( const c_element& the_key, bool create = false );
+
     struct hash_item
     {
       uint			 _key_hash;
@@ -100,7 +101,7 @@ namespace tool
     array<hash_item> *  _table;
 
     array<c_element>    _array;
-    mutex               _guard;  
+    mutable mutex       _guard;  
     //size_t              _get ( const c_element& the_key, bool create );
 
     /*
@@ -117,10 +118,10 @@ namespace tool
     */
 
   public:
-    array<c_element>& elements ()
+    /*array<c_element>& elements ()
     {
       return _array;
-    }
+    }*/
 
     unsigned int hash() const
     {
@@ -145,6 +146,7 @@ namespace tool
   inline uint
     pool<c_element,c_traits>::operator[] ( const c_element &the_key )
   {
+    critical_section cs(_guard);
     return get_index ( the_key, true );
   }
 
@@ -187,6 +189,7 @@ namespace tool
   inline void
     pool<c_element,c_traits>::remove ( const c_element& the_key )
   {
+    critical_section cs(_guard);
     size_t h = hash ( the_key ) % _hash_size;
     int i;
     array<hash_item> &bucket = _table [ h ];
@@ -215,17 +218,19 @@ namespace tool
   }
 
 
-  template <typename c_element, typename c_traits>
+  /*template <typename c_element, typename c_traits>
   inline c_element&
     pool<c_element,c_traits>::operator() ( uint the_index )
   {
+    critical_section cs(_guard);
     return _array [ the_index ];
-  }
+  }*/
 
   template <typename c_element, typename c_traits>
-  inline const c_element&
+  inline const c_element
     pool<c_element,c_traits>::operator() ( uint the_index ) const
   {
+    critical_section cs(_guard);
     return _array [ the_index ];
   }
 
@@ -233,6 +238,7 @@ namespace tool
   inline bool
     pool<c_element,c_traits>::exists ( const c_element& the_key )
   {
+    critical_section cs(_guard);
     return ( get_index ( the_key, false ) != uint(-1) );
   }
 
@@ -240,6 +246,7 @@ namespace tool
   inline void
     pool<c_element,c_traits>::clear ()
   {
+    critical_section cs(_guard);
     for ( size_t i = 0; i < _hash_size; ++i )
       _table [ i ].clear ();
     _array.clear ();

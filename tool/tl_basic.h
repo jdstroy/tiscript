@@ -45,27 +45,27 @@
 
 inline bool is_space( char c ) { return isspace(c & 0xff) != 0; }
 inline bool is_space( wchar c ) { return iswspace(c) != 0; }
-inline bool is_space( ucode c ) { return iswspace(c) != 0; }
+inline bool is_space( ucode c ) { return iswspace(wint_t(c)) != 0; }
 inline bool is_space( int c ) { return is_space((ucode)c); }
 
 inline bool is_digit( char c ) { return isdigit(c & 0xff) != 0; }
 inline bool is_digit( wchar c ) { return iswdigit(c) != 0; }
-inline bool is_digit( ucode c ) { return iswdigit(c) != 0; }
+inline bool is_digit( ucode c ) { return iswdigit(wint_t(c)) != 0; }
 inline bool is_digit( int c )   { return is_digit((ucode)c); }
 
 inline bool is_xdigit( char c ) { return isxdigit(c & 0xff) != 0; }
 inline bool is_xdigit( wchar c ) { return iswxdigit(c) != 0; }
-inline bool is_xdigit( ucode c ) { return iswxdigit(c) != 0; }
+inline bool is_xdigit( ucode c ) { return iswxdigit(wint_t(c)) != 0; }
 inline bool is_xdigit( int c ) { return is_xdigit((ucode)c); }
 
 inline bool is_alpha( char c ) { return isalpha(c & 0xff) != 0; }
 inline bool is_alpha( wchar c ) { return iswalpha(c) != 0; }
-inline bool is_alpha( ucode c ) { return iswalpha(c) != 0; }
+inline bool is_alpha( ucode c ) { return iswalpha(wint_t(c)) != 0; }
 inline bool is_alpha( int c ) { return is_alpha((ucode)c); }
 
 inline bool is_alnum( char c ) { return isalnum(c & 0xff) != 0; }
 inline bool is_alnum( wchar c ) { return iswalnum(c) != 0; }
-inline bool is_alnum( ucode c ) { return iswalnum(c) != 0; }
+inline bool is_alnum( ucode c ) { return iswalnum(wint_t(c)) != 0; }
 inline bool is_alnum( int c ) { return is_alnum((ucode)c); }
 
 inline void str_rev( char* p ) { _strrev(p); }
@@ -177,13 +177,13 @@ template <typename T>
     virtual long release()
     {
         assert(_ref_cntr > 0);
-        long t = locked::dec(_ref_cntr);
+        long t = --_ref_cntr;
         if(t == 0)
           finalize();
           //delete this;
         return t;
     }
-    virtual void add_ref() { locked::inc(_ref_cntr); }
+    virtual void add_ref() { ++_ref_cntr; }
 
     virtual void finalize() 
     {  
@@ -205,6 +205,10 @@ template <typename T>
      static  uint_ptr  class_id() { return (uint_ptr)(resource_x<T>::class_id); }
      virtual uint_ptr  type_id() const { return class_id(); }
    };
+
+#define DEFINE_TYPE_ID( classname ) \
+   static  uint_ptr  class_id() { return (uint_ptr)(classname::class_id); } \
+   virtual uint_ptr  type_id() const { return class_id(); }
 
   // turn_resource_to<RB>(RA* obj) changes class of the object that is a resource
   template <typename TO_T, typename FROM_T>
@@ -232,12 +236,12 @@ template <typename T>
     virtual long ext_release()
     { 
         assert(_ext_ref_cntr > 0); 
-        long t = locked::dec(_ext_ref_cntr);
+        long t = --_ext_ref_cntr;
         if(t == 0)
           ext_finalize();
         return t;
     }
-    virtual void ext_add_ref() { locked::inc(_ext_ref_cntr); }
+    virtual void ext_add_ref() { ++_ext_ref_cntr; }
 
     virtual void ext_finalize() = 0; 
   };
@@ -293,6 +297,12 @@ template <typename T>
     {
       return _ptr;
     }
+
+    template<typename Y>
+      Y* ptr_of() const
+      {
+        return static_cast<Y*>(_ptr);
+      }
 
     operator T* () const
     {
@@ -725,8 +735,8 @@ template<typename T>
 
         l2elem<T>* _next;
         l2elem<T>* _prev;
-        void link_after(l2elem* after) { (_next = after->_next)->_prev = this; (_prev = after)->_next = this; }
-        void link_before(l2elem* before) { (_prev = before->_prev)->_next = this; (_next = before)->_prev = this; }
+        void link_after(l2elem* after) { assert( is_empty() ); if(!is_empty()) unlink(); (_next = after->_next)->_prev = this; (_prev = after)->_next = this; }
+        void link_before(l2elem* before) { assert( is_empty() ); if(!is_empty()) unlink(); (_prev = before->_prev)->_next = this; (_next = before)->_prev = this; }
         void unlink() { _prev->_next = _next; _next->_prev = _prev; prune(); }
         void prune() { _next = _prev = this;}
         bool is_empty() const { return _next == this;  };

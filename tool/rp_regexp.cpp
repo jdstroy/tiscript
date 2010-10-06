@@ -172,7 +172,7 @@ static const rechar* ucp_pos_in_rechar_str(const rechar* s, unicode_cp r)
      while(s && *s) { if( w2[0] == *s && w2[1] == *(s+1)) return s; s++; }
    else
      while(s && *s) { if( w2[0] == *s ) return s; s++; }
-   return s;
+   return 0;
 }
 
 /*
@@ -305,6 +305,7 @@ regexec1(Reprog *progp,	/* program to run */
 		}
 	j->relist[0][0].inst = 0;
 	j->relist[1][0].inst = 0;
+        j->eol = bol + wcslen(bol);
 
 	/* Execute machine once for each character, including terminal NUL */
 	s = j->starts;
@@ -314,7 +315,7 @@ regexec1(Reprog *progp,	/* program to run */
 			switch(j->starttype) {
 			case RUNE:
 				p = ucp_pos_in_rechar_str(s, j->startchar);
-				if(p == 0 || s == j->eol)
+				if(p == 0 || s >= j->eol)
 					return match;
 				s = p;
 				break;
@@ -322,7 +323,7 @@ regexec1(Reprog *progp,	/* program to run */
 				if(s == bol)
 					break;
 				p = ucp_pos_in_rechar_str(s, '\n');
-				if(p == 0 || s == j->eol)
+				if(p == 0 || s >= j->eol)
 					return match;
 				s = p+1;
 				break;
@@ -1023,6 +1024,12 @@ static int bldcclass(ReCEnv& cenv)
 		quoted = nextc(cenv,&rune);
 		*ep++ = '\n';
 		*ep++ = '\n';
+	}
+  /* '-' at start */
+	if(!quoted && rune == '-'){
+		quoted = nextc(cenv,&rune);
+		*ep++ = '-';
+		*ep++ = '-';
 	}
 
 	/* parse class into a set of spans */

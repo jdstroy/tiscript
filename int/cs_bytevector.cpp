@@ -20,6 +20,7 @@ static value CSF_toInteger(VM *c);
 static value CSF_toString(VM *c);
 static value CSF_save(VM *c);
 static value CSF_load(VM *c);
+static value CSF_fromBase64(VM *c);
 /* virtual property methods */
 static value CSF_length(VM *c,value obj);
 static value CSF_get_type(VM *c,value obj);
@@ -35,6 +36,7 @@ C_METHOD_ENTRY( "toString",         CSF_toString  ),
 C_METHOD_ENTRY( "toInteger",        CSF_toInteger       ),
 C_METHOD_ENTRY( "save",             CSF_save      ),
 C_METHOD_ENTRY( "load",             CSF_load      ),
+C_METHOD_ENTRY( "fromBase64",       CSF_fromBase64      ),
 C_METHOD_ENTRY( 0,                  0                   )
 };
 
@@ -81,10 +83,17 @@ static value CSF_toInteger(VM *c)
 static value CSF_toString(VM *c)
 {
     value obj;
-    CsParseArguments(c,"V=*",&obj,&CsByteVectorDispatch);
+    wchar* encoding = 0;
+    CsParseArguments(c,"V=*|S",&obj,&CsByteVectorDispatch,&encoding);
+
+    tool::bytes bytes(CsByteVectorAddress(obj),CsByteVectorSize(obj));
+
+    if( encoding == 0 )
+    {
+      // to base 64
     tool::array<char> b64;
     tool::base64_encode(
-      tool::bytes(CsByteVectorAddress(obj),CsByteVectorSize(obj)),
+        bytes,
       b64);
     value s = CsMakeFilledString(c, ' ', b64.size());
     if( s && CsStringP(s) )
@@ -95,8 +104,26 @@ static value CSF_toString(VM *c)
       while( ps < pse ) *pd++ = *ps++;
       return s;
     }
+    }
+    else
+    {
+      tool::ustring str;
+      if(!tool::decode_bytes(bytes, str, tool::string(encoding)))
+         CsThrowKnownError(c,CsErrGenericError,"Unsupported encoding");
+      return string_to_value(c,str);
+    }
     return NULL_VALUE;
 }
+
+static value CSF_fromBase64(VM *c)
+{
+    tool::wchars data;
+    CsParseArguments(c,"**S#",&data.start, &data.length);
+    tool::array<byte> out;
+    tool::base64_decode(data,out);
+    return CsMakeByteVector(c,out.head(),out.size());
+}
+
 
 /* CSF_save - saves bytes to file */
 

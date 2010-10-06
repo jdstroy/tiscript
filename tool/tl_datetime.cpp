@@ -70,6 +70,9 @@ namespace tool
     date_time dt;
 #ifdef WIN32
       SYSTEMTIME st;
+      if(utc)
+        GetSystemTime(&st);
+      else
       GetLocalTime(&st);
     SystemTimeToFileTime( &st, (FILETIME*)&dt._time);
 #else
@@ -82,14 +85,42 @@ namespace tool
     return dt;
   }
 
+  // 
   datetime_t date_time::local_offset()
   {
+#ifdef WIN32
+  TIME_ZONE_INFORMATION tzi;
+  memset(&tzi,0, sizeof(tzi));
+  DWORD ctz = GetTimeZoneInformation( &tzi );
+  //return tzi.Bias
+
+  datetime_t r = -tzi.Bias; // in minutes
+  switch(ctz)
+  {
+    case TIME_ZONE_ID_STANDARD:
+      r -= tzi.StandardBias;
+      break;
+    case TIME_ZONE_ID_DAYLIGHT:
+      r -= tzi.DaylightBias;
+      break;
+  }
+
+  r *= 60; // seconds
+  r *= 1000; // millis;
+  r *= 1000; // micros;
+  r *= 10;   // nanos100
+
+  return r;
+#else
     time_t t = 0;
     struct tm u = *gmtime( &t );
     struct tm l = *localtime ( &t );
     date_time dtu = u;
     date_time dtl = l;
     return dtl.time() - dtu.time();
+#endif
+
+
   }
 
   void date_time::to_local()

@@ -116,9 +116,12 @@ namespace tool
     static bytes_value* allocate(bytes bs) 
     { 
       bytes_value* bv = (bytes_value* ) malloc( sizeof(bytes_value) + bs.length );
+      if( bv )
+      {
       if(bs.start) memcpy(bv->data, bs.start, bs.length);
       bv->length = uint(bs.length);
       bv->ref_count = 0;
+      }
       return bv;
     }
     void add_ref() { ++ref_count; }
@@ -222,6 +225,7 @@ namespace tool
     value(const value& cv): _type(t_undefined), _units(0) { _i(0); set(cv); }
     
     static value make_array(uint sz);
+    static value make_array(slice<value> els);
 
     static value make_color(uint c)
     {
@@ -418,11 +422,11 @@ namespace tool
         case value::em: 
           //if( i % 1000 == 0 ) return ustring::format(L"%dem",i/1000);
           //else return ustring::format(L"%fem",double(i)/1000.0);
-          return fixedtow(i,3,L"em");
+          return fixedtow(i,3,0,L"em");
         case value::ex: 
           //if( i % 1000 == 0 ) return ustring::format(L"%dex",i/1000);
           //else return ustring::format(L"%fex",double(i)/1000.0);
-          return fixedtow(i,3,L"ex");
+          return fixedtow(i,3,0,L"ex");
         case value::pr:
           return ustring::format(L"%d%%",i);
         case value::sp:
@@ -432,27 +436,74 @@ namespace tool
         case value::in:
           //if( i % 1000 == 0 ) return ustring::format(L"%din",i/1000);
           //else return ustring::format(L"%fin",double(i)/1000.0);
-          return fixedtow(i,3,L"in");
+          return fixedtow(i,3,0,L"in");
         case value::pt: //Points (1 point = 1/72 inches). 
           //if( i % 1000 == 0 ) return ustring::format(L"%dpt",i/1000);
           //else return ustring::format(L"%fpt",double(i)/1000.0);
-          return fixedtow(i,3,L"pt");
+          return fixedtow(i,3,0,L"pt");
         case value::dip:
           //if( i % 1000 == 0 ) return ustring::format(L"%ddip",i/1000);
           //else return ustring::format(L"%fdip",double(i)/1000.0);
-          return fixedtow(i,3,L"dip");
+          return fixedtow(i,3,0,L"dip");
         case value::pc: //Picas (1 pica = 12 points). 
           //if( i % 1000 == 0 ) return ustring::format(L"%dpc",i/1000);
           //else return ustring::format(L"%fpc",double(i)/1000.0);
-          return fixedtow(i,3,L"pc");
+          return fixedtow(i,3,0,L"pc");
         case value::cm: // Cm (2.54cm = 1in). 
           //if( i % 1000 == 0 ) return ustring::format(L"%dcm",i/1000);
           //else return ustring::format(L"%fcm",double(i)/1000.0);
-          return fixedtow(i,3,L"cm");
+          return fixedtow(i,3,0,L"cm");
         case value::mm:
           //if( i % 1000 == 0 ) return ustring::format(L"%dmm",i/1000);
           //else return ustring::format(L"%fmm",double(i)/1000.0);
-          return fixedtow(i,3,L"mm");
+          return fixedtow(i,3,0,L"mm");
+        default:
+          return "{not a length unit}";
+      }
+    }
+
+    static ustring   length_to_string_fx(int i, int u)
+    {
+      switch(u)
+      {
+        case value::em: 
+          //if( i % 1000 == 0 ) return ustring::format(L"%dem",i/1000);
+          //else return ustring::format(L"%fem",double(i)/1000.0);
+          return fixedtow(i,3,L"em(",L")");
+        case value::ex: 
+          //if( i % 1000 == 0 ) return ustring::format(L"%dex",i/1000);
+          //else return ustring::format(L"%fex",double(i)/1000.0);
+          return fixedtow(i,3,L"ex(",L")");
+        case value::pr:
+          return ustring::format(L"pr(%d)",i);
+        case value::sp:
+          return ustring::format(L"flex(%d)",i);
+        case value::px:
+          return ustring::format(L"px(%d)",i);
+        case value::in:
+          //if( i % 1000 == 0 ) return ustring::format(L"%din",i/1000);
+          //else return ustring::format(L"%fin",double(i)/1000.0);
+          return fixedtow(i,3,L"in(",L")");
+        case value::pt: //Points (1 point = 1/72 inches). 
+          //if( i % 1000 == 0 ) return ustring::format(L"%dpt",i/1000);
+          //else return ustring::format(L"%fpt",double(i)/1000.0);
+          return fixedtow(i,3,L"pt(",L")");
+        case value::dip:
+          //if( i % 1000 == 0 ) return ustring::format(L"%ddip",i/1000);
+          //else return ustring::format(L"%fdip",double(i)/1000.0);
+          return fixedtow(i,3,L"dip(",L")");
+        case value::pc: //Picas (1 pica = 12 points). 
+          //if( i % 1000 == 0 ) return ustring::format(L"%dpc",i/1000);
+          //else return ustring::format(L"%fpc",double(i)/1000.0);
+          return fixedtow(i,3,L"pc(",L")");
+        case value::cm: // Cm (2.54cm = 1in). 
+          //if( i % 1000 == 0 ) return ustring::format(L"%dcm",i/1000);
+          //else return ustring::format(L"%fcm",double(i)/1000.0);
+          return fixedtow(i,3,L"cm(",L")");
+        case value::mm:
+          //if( i % 1000 == 0 ) return ustring::format(L"%dmm",i/1000);
+          //else return ustring::format(L"%fmm",double(i)/1000.0);
+          return fixedtow(i,3,L"mm(",L")");
         default:
           return "{not a length unit}";
       }
@@ -594,6 +645,16 @@ namespace tool
       }
     }
 
+    uint to_color(uint defv = 0xFF000000) const
+    {
+      switch(_type) 
+      {
+        case t_int:
+          return _i();
+        default:
+          return defv;
+      }
+    }
 
     bool to_bool() const { return get(false); }
     bool get(bool defv) const;
@@ -758,6 +819,8 @@ namespace tool
     void    set_prop(const value& k,const value& v); 
     value   get_prop(const char* k) const { return get_prop(value(k)); }
     void    set_prop(const char* k,const value& v) { set_prop(value(k),v); }
+    value   get_prop(const wchar* k) const { return get_prop(value(k)); }
+    void    set_prop(const wchar* k,const value& v) { set_prop(value(k),v); }
 
     value   key(uint n) const;
 
@@ -1072,6 +1135,19 @@ namespace tool
     t._a(a);
     return t;
   }
+
+  inline value value::make_array(slice<value> values)
+  { 
+    value t;
+    t._type= t_array;
+    t._units = 0;
+    array_value *a = new array_value(); 
+    a->elements = values;
+    a->add_ref();
+    t._a(a);
+    return t;
+  }
+
 
   inline void value::push(const value& v)
   { 

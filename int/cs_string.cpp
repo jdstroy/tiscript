@@ -463,7 +463,7 @@ static value CSF_urlEscape(VM *c)
     /* parse the arguments */
     CsParseArguments(c,"S*",&str);
 
-    tool::string r = tool::url::escape(str);
+    tool::string r = tool::url::escape(str,false,false);
 
     return CsMakeCString(c, r);
 }

@@ -118,6 +118,7 @@ static value CSF_toString(VM *c);
 /* Vector methods */
 static c_method methods[] = {
 C_METHOD_ENTRY( "toString",  CSF_toString  ),
+C_METHOD_ENTRY( "toHtmlString", CSF_toString  ),
 C_METHOD_ENTRY( 0,           0             )
 };
 
@@ -180,7 +181,7 @@ static int_t  SymbolHash(value obj);
 //static value AllocateSymbolSpace(VM *c,long size);
 
 dispatch CsSymbolDispatch = {
-    "Symbol$",
+    "Symbol",
     &CsSymbolDispatch,
     GetSymbolProperty,
     SetSymbolProperty,
@@ -452,6 +453,23 @@ bool CsSetGlobalOrNamespaceValue(VM* c,value tag,value val, bool create)
     }
     /* add it as a property of globals */
     CsSetGlobalValue(CsCurrentScope(c),tag,val,create);
+    return true;
+}
+
+bool CsDelGlobalOrNamespaceValue(VM* c, value sym)
+{
+    value obj = c->getCurrentNS();
+
+    while(CsObjectOrMethodP(obj)) 
+    {
+      if( CsFindProperty(c,obj,sym,NULL,NULL))
+      {
+        CsRemoveObjectProperty(c,obj,sym);
+        return true;
+      }
+      obj = CsObjectClass(obj);
+    }
+    CsRemoveObjectProperty(c,CsCurrentScope(c)->globals,sym);
     return true;
 }
 

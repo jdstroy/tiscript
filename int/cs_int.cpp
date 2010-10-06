@@ -119,7 +119,6 @@ static void BadOpcode(VM *c,int opcode);
 static int CompareStrings(value str1,value str2);
 static value ConcatenateStrings(VM *c,value str1,value str2);
 
-static value GetNextMember(VM *c, value* index, value collection, int nr);
 static value CsGetRange(VM *c, value col, value start, value end);
 
 /* CsSaveInterpreterState - save the current interpreter state */
@@ -521,6 +520,26 @@ value CsSendMessageByName(VM *c,value obj,char *sname,int argc,...)
 }*/
 
 
+struct debug_env
+{
+  VM *c;
+  debug_peer *pdebug;
+  debug_env(VM *c) 
+  { 
+    this->c = c;
+    pdebug = c->pdebug; 
+    if(pdebug) pdebug->enter_execution(c);
+  }
+  ~debug_env() 
+  { 
+    if(pdebug) pdebug->leave_execution(c);
+  }
+  INLINE void check_bytecode_position(byte* pc)
+  {
+    if(pdebug) pdebug->check_bytecode_position(c,c->pc);
+  }
+};
+
 /* Execute - execute code */
 bool Execute(VM *c,value gen)
 {
@@ -528,10 +547,15 @@ bool Execute(VM *c,value gen)
     unsigned int off = 0;
     long n;
     int i;
-
+#ifdef HAS_DEBUGGER
+    debug_env dbg(c);
+#endif
     for (;;) {
 
         /*DecodeInstruction(c,c->code,c->pc - c->cbase,c->standardOutput);*/
+#ifdef HAS_DEBUGGER
+        dbg.check_bytecode_position(c->pc);
+#endif
         switch (*c->pc++) {
         case BC_CALL:
             Call(c,&CsCallCDispatch,*c->pc++);
@@ -873,12 +897,13 @@ bool Execute(VM *c,value gen)
 
         case BC_DELP:
             p1 = CsPop(c);
-            c->val[0] = CsMakeBoolean(CsDetProperty(c,p1,c->val[0]));
+            c->val[0] = CsMakeBoolean(CsDelProperty(c,p1,c->val[0]));
             break;
         case BC_GDEL:
             off = *c->pc++;
             off |= *c->pc++ << 8;
             c->val[0] = CsMakeBoolean(CsDelGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off)));
+            //CsSetGlobalOrNamespaceValue(c,CsCompiledCodeLiteral(c->code,off),UNDEFINED_VALUE,false);
             break;
         case BC_VDEL:
             p1 = CsPop(c);
@@ -1045,7 +1070,7 @@ bool Execute(VM *c,value gen)
         case BC_NEXT:
             n = *c->pc++;
             n |= *c->pc++ << 8;
-            c->val[0] = GetNextMember(c,&c->sp[0],c->sp[1], n);
+            c->val[0] = CsGetNextMember(c,&c->sp[0],c->sp[1], n);
             break;
 
         case BC_THIS_FUNCTION:
@@ -1631,6 +1656,8 @@ static bool Call(VM *c,FrameDispatch *d,int argc)
 
     /* get the code obj */
     code = CsMethodCode(method);
+    assert(code);
+    if( !code ) return false;
     cbase = pc = CsByteVectorAddress(CsCompiledCodeBytecodes(code));
 
     /* parse the argument frame instruction */
@@ -1944,7 +1971,6 @@ void CsAlreadyDefined(VM *c, value tag)
 {
     CsThrowKnownError(c,CsErrAlreadyDefined,CsSymbolName(tag).c_str());
 }
-
 
 /* CsTooFewArguments - signal a 'too few arguments' error */
 void CsTooFewArguments(VM *c)
@@ -2294,6 +2320,8 @@ void CsStreamStackTrace(VM *c,stream *s)
           tool::ustring filename = tool::url::unescape(CsSymbolName(fn).c_str());
           s->printf(L"\tat %S (%s(%d))\n", CsSymbolName(name).c_str(), filename.c_str(),ln);
         }
+        else if( name == UNDEFINED_VALUE && c->script_url.length())
+         s->printf(L"\tat %s\n", c->script_url.c_str());
         else if( CsSymbolP(name) )
           s->printf(L"\tat %S\n", CsSymbolName(name).c_str());
         else if( CsStringP(name) )
@@ -2423,7 +2451,7 @@ inline value FindNextMember(VM *c, value& index, value collection)
 }
 */
 
-value GetNextMember(VM *c, value* index, value collection, int nr)
+value CsGetNextMember(VM *c, value* index, value collection, int nr)
 {
   dispatch *pd = CsGetDispatch(collection);
   if(pd->getNextElement)

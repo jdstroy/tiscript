@@ -806,6 +806,46 @@ tstring  get_standard_dir(STANDARD_DIR sd)
 #endif
  }
 
+#include "html_encodings_ph.h"
+
+int get_lang_id(const string& name)
+{
+  string lcasename = name;
+  lcasename.to_lower();
+  int id = 0;
+
+  html_encoding_def *hed = html_encodings::find_def(lcasename,lcasename.length());
+  if(hed != 0)
+    id = hed->value;
+  else
+    assert(false);
+
+  return id;
+}
+
+bool decode_bytes(bytes bs, ustring& str, const string& encoding)
+{
+    int cp = get_lang_id(encoding);
+#ifdef WINDOWS
+    if(cp == 0) return false;
+    if(cp == 65001)
+      str = ustring::utf8(bs);
+    else
+    {
+      int nu = MultiByteToWideChar(cp,0,(LPCSTR)bs.start,bs.length,0,0);
+      ustring r(' ',nu);
+      MultiByteToWideChar(cp,0,(LPCSTR)bs.start,bs.length,r.buffer(),r.length());
+      str = r;
+    }
+    return true;
+#else
+    return ustring::utf8(bs);
+#endif
+}
+
+
+
+
 
 }
 

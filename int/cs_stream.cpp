@@ -23,6 +23,7 @@ namespace tis
       inline virtual void attach(stream* s) { }
       inline virtual int  decode(stream* s) { return s->read(); }
       inline virtual bool encode(stream* s, int ch) { return s->write(ch); }
+      inline virtual const char* name() const { return "raw"; }
     };
     static n_encoder ne;
     return &ne;
@@ -41,6 +42,7 @@ namespace tis
       }
       inline virtual int  decode(stream* s) { return tool::getc_utf8(s); }
       inline virtual bool encode(stream* s, int ch) { return tool::putc_utf8(s,ch); }
+      inline virtual const char* name() const { return "utf-8"; }
     };
     static n_encoder ne;
     return &ne;
@@ -355,17 +357,17 @@ struct socket_stream: public stream
     int       timeout;
     socket_stream(socket_t* s, int tout): sock(s), timeout(tout) {}
     virtual bool finalize() { delete sock; sock = 0; return true; }
-    virtual int  get()
+    virtual int  read()
     {
-      char c;
+      unsigned char c;
       int i = sock->read(&c, 1, 1, timeout);
       if(i != 1)
         return sock->is_timeout()?stream::TIMEOUT: stream::EOS;
       return c;
     }
-    virtual bool put(int ch)
+    virtual bool write(int ch)
     {
-      char c = ch;
+      unsigned char c = ch;
       return sock->write(&c, 1);
     }
 
@@ -374,7 +376,7 @@ struct socket_stream: public stream
 };
 
 /* OpenSocketStream - open a socket stream */
-stream *OpenSocketStream(VM *c, const wchar *domainAndPort, int timeout, bool binstream)
+stream *OpenSocketStream(VM *c, const wchar *domainAndPort, int timeout, int maxattempts, bool binstream)
 {
     stream *s = 0;
     if((c->features & FEATURE_SOCKET_IO) == 0)
@@ -388,7 +390,7 @@ stream *OpenSocketStream(VM *c, const wchar *domainAndPort, int timeout, bool bi
 
     //socket_t *ps = socket_t::connect(address, socket_t::sock_global_domain, DEFAULT_CONNECT_MAX_ATTEMPTS, timeout);
 
-    socket_t *ps = socket_connect(address,DEFAULT_CONNECT_MAX_ATTEMPTS,timeout);
+    socket_t *ps = socket_connect(address,maxattempts,timeout);
 
     if( !ps->is_ok() )
     {

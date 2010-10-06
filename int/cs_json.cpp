@@ -411,8 +411,8 @@ namespace tis
       case tool::value::t_resource:
         {
           tool::handle<tool::resource> pt = v.get_resource();
-          //if( pt->is_of_type<async_stream>() )
-          if( pt->type_id() == async_stream::class_id())
+          if( pt->is_of_type<async_stream>() )
+          //if( pt->type_id() == async_stream::class_id())
           {
             async_stream* s = (async_stream*)pt.ptr();
             s->add_ref();
