@@ -299,7 +299,7 @@ static void ReadEvalPrint(tis::VM *c)
         if (fgets(lineBuffer,sizeof(lineBuffer),stdin))
         {
             tool::ustring line(lineBuffer);
-            val = tis::CsEvalString(tis::CsCurrentScope(c),NULL_VALUE, line, line.length());
+            val = tis::CsEvalString(tis::CsCurrentScope(c),c->currentScope.globals, line, line.length());
             if (val) {
                 printf("Value: ");
                 tis::CsPrint(c,val,c->standardOutput);

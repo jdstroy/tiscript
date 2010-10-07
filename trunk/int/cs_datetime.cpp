@@ -1998,8 +1998,15 @@ static bool ParseDateTime(value s, tool::datetime_t& utc)
   tool::date_time::datetime_s tms; memset(&tms,0,sizeof(tms));
   int tz_minutes;
 
-  if (ParseRfc822Date(str, &tms, &tz_minutes, tz_name, 20) != 0)
+  if (ParseRfc822Date(str, &tms, &tz_minutes, tz_name, 20) == 0)
   {
+    //Rfc 822 Date
+    tool::date_time::cvt(utc,tms);
+    utc -= int64(tz_minutes) * 60 * 1000 * 1000 * 10;
+    return true;
+  }
+
+  // try to parse ISO
     uint dcomponents = 0;
     tool::date_time dt = tool::date_time::parse_iso(CsStringChars(s),dcomponents);
     if(dcomponents == tool::date_time::DT_UNKNOWN)
@@ -2009,14 +2016,7 @@ static bool ParseDateTime(value s, tool::datetime_t& utc)
       utc -= tool::date_time::local_offset();
       
     return true;
-  }
 
-  tool::date_time::cvt(utc,tms);
-
-  //if(!SystemTimeToFileTime(&tms,&utc))
-  //  return false;
-  utc += int64(tz_minutes) * 60 * 1000 * 1000 * 10;
-  return true;
 }
 
 
