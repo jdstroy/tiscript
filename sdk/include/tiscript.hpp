@@ -29,7 +29,7 @@ namespace tiscript
   }
   inline void destroy_vm(HVM vm) { ni()->destroy_vm(vm); }
 
-    // set stdin, stdout and stderr for this VM
+  // set stdin, stdout and stderr for this VM
   inline void  set_std_streams(HVM vm, stream* input, stream* output, stream* error) {  ni()->set_std_streams(vm, input, output, error); }
 
   inline HVM   get_current_vm()         { return ni()->get_current_vm(); }
@@ -221,10 +221,10 @@ namespace tiscript
     pinned(const pinned& p) {}  
     pinned operator = (const pinned& p) {}  
   public:
-    pinned()          { val = 0, vm = 0, d1 = d2 = 0; }
+    pinned()                { val = 0, vm = 0, d1 = d2 = 0; }
     pinned(HVM c)           { val = 0, vm = 0, d1 = d2 = 0;  ni()->pin(c,this); }
     pinned(HVM c, value v)  { val = 0, vm = 0, d1 = d2 = 0;  ni()->pin(c,this); val = v; }
-    virtual ~pinned() { detach(); }
+    virtual ~pinned()       { detach(); }
 
     void attach(HVM c){ detach(); ni()->pin(c,this); }
     void detach()     { if(vm) ni()->unpin(this); }
@@ -273,8 +273,8 @@ namespace tiscript
     value get(const char* key)              { assert(is_set()); return ni()->get_prop(vm,val,v_symbol(key)); }
 
     // var v = obj["key"; obj["key"] = v;
-    bool  set(const wchar_t* key, value value) { assert(is_set()); return ni()->set_prop(vm,val,v_string(get_vm(),key),value); }
-    value get(const wchar_t* key)              { assert(is_set()); return ni()->get_prop(vm,val,v_string(get_vm(),key)); }
+    bool  set(const wchar_t* key, value v)  { assert(is_set()); pinned pv(get_vm(),v); value k = v_string(get_vm(),key); return ni()->set_prop(vm,val,k,pv); }
+    value get(const wchar_t* key)           { assert(is_set()); value k = v_string(get_vm(),key); return ni()->get_prop(vm,val,k); }
    
     //void* native_data()        { assert(is_set()); return get_native_data(val); }
     //bool  native_data(void* p) { assert(is_set()); return set_native_data(val,p); }
@@ -317,10 +317,11 @@ namespace tiscript
     // arr.push(v);
     bool  push(value value)
     {
+      pinned pv(get_vm(),value);
       assert(is_set()); 
       unsigned l = length();
       val = ni()->set_array_size(vm,val,l + 1);
-      return ni()->set_elem(vm,val,l,value);
+      return ni()->set_elem(vm,val,l,pv);
     }
   };
 
@@ -359,7 +360,7 @@ namespace tiscript
     //    arg[0] -> 'this' - object or namespace object for 'static' functions.
     //    arg[1] -> 'super' - usually you will just args::skip it.
     //    arg[2..argc] -> params defined in script
-
+   
     args(HVM c):vm(c),n(0),opt(false) { argc = ni()->get_arg_count(vm); }
     
     int   length() const { return argc; }
