@@ -39,7 +39,7 @@ namespace tiscript
   {
     const wchar* _pos;  const wchar* _end;
   public:
-    string_istream(const wchar* str, unsigned length = 0): _pos(str),_end(str) { if(length == 0) length = wcslen(str); }
+    string_istream(const wchar* str, unsigned length = 0): _pos(str),_end(str) { if(length == 0) length = (unsigned int)wcslen(str); _end = _pos + length; }
     virtual int get() { return (*_pos && _pos < _end)? *_pos++ : -1; }
   };
   

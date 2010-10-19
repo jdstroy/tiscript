@@ -552,6 +552,7 @@ static value CSF_putc(VM *c)
         case '\b': { if(!s->put_str("\\b")) return false; ++p; }  break;
         case '\f': { if(!s->put_str("\\f")) return false; ++p; }  break;
         case '\v': { if(!s->put_str("\\v")) return false; ++p; }  break;
+        case '\\': { if(!s->put_str("\\\\")) return false; ++p; }  break;
         default:  if (!s->put(*p++)) return false; break;
       }
     s->put_str("\"");

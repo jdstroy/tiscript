@@ -232,8 +232,9 @@ struct CsCompiler {
     {
       int  finallyAddr;                 /* current finally block addr */
       bool inTry;                       /* is in try block parsing */  
+      int  blockLevel;                  /* block level at try location */   
       TryCatchDef* prev;
-      TryCatchDef(): finallyAddr(0), inTry(true), prev(0) {}
+      TryCatchDef(): finallyAddr(0), inTry(true), blockLevel(0), prev(0) {}
     };
 
     TryCatchDef *tcStack;               /* current try/catch stack */    

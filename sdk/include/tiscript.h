@@ -11,6 +11,8 @@
 #define EXTAPI __stdcall
 #endif
 
+#pragma pack(push,8)
+
 struct tiscript_VM; // TIScript virtual machine
 
 // tiscript_value
@@ -267,5 +269,6 @@ struct tiscript_native_interface
 // signature of TIScriptLibraryInit function - entry point of TIScript Extnension Library
 typedef void EXTAPI  TIScriptLibraryInitFunc(tiscript_VM* vm, tiscript_native_interface* piface );
 
+#pragma pack(pop)
 
 #endif
