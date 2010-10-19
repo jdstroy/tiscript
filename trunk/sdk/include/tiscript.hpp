@@ -160,7 +160,7 @@ namespace tiscript
   inline value     eval(HVM vm, value ns, const wchar_t* text)
   {
     value rv = 0;
-    if(ni()->eval_string(vm, ns, text, wcslen(text), &rv))
+    if(ni()->eval_string(vm, ns, text, (unsigned int)wcslen(text), &rv))
       return rv;
     else
       return v_undefined();
@@ -239,11 +239,6 @@ namespace tiscript
 
   class object_ref: pinned
   {
-    friend class args; 
-  private:
-    object_ref(const object_ref& p) {}  
-    object_ref operator = (const object_ref& p) {}
-    void assign( value v ) { val = v; assert( is_object(v) || is_native_object(v) ); }
   public:
     object_ref():pinned()                 { }
     object_ref(HVM c):pinned(c)           { }
@@ -288,16 +283,21 @@ namespace tiscript
       NDT  data()        { assert(is_set()); return static_cast<NDT>(get_native_data(val)); }
     template <typename NDT>  
       void data(NDT ptr) { assert(is_set()); return set_native_data(val,static_cast<void*>(ptr)); }
+
+    private:
+      friend class args; 
+      object_ref(const object_ref& p) {}  
+      object_ref operator = (const object_ref& p) {}
+      void assign( value v ) { val = v; assert( is_object(v) || is_native_object(v) ); }
+
+      bool  set(value key, int value);       // to prevent upcasting from int to tiscript_value
+      bool  set(const char* key, int value);
+      bool  set(const wchar_t* key, int v);
   };
 
   // array reference wrapper + array related accessor functions
   class array_ref: pinned
   {
-    friend class args; 
-  private:
-    array_ref(const array_ref& p) {}  
-    array_ref operator = (const array_ref& p) {}
-    void assign( value v ) { val = v; assert( is_array(v)); }
   public:
     array_ref():pinned(get_current_vm())     { }
     array_ref(HVM c):pinned(c)     { }
@@ -323,6 +323,15 @@ namespace tiscript
       val = ni()->set_array_size(vm,val,l + 1);
       return ni()->set_elem(vm,val,l,pv);
     }
+
+  private:
+    friend class args; 
+    array_ref(const array_ref& p) {}  
+    array_ref operator = (const array_ref& p) {}
+    void assign( value v ) { val = v; assert( is_array(v)); }
+    bool  set(unsigned i, int v); // to prevent upcasting from int to tiscript_value
+    bool  push(int value);
+
   };
 
   // enumerator, allows to enumerate key/value pairs in object or elements of array. 

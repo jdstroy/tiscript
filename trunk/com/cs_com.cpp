@@ -171,6 +171,7 @@ static void UnwindStack(CsCompiler *c,int levels);
 static void UnwindTryStack(CsCompiler *c,int& endaddr);
 static void do_block(CsCompiler *c,char *parameter);
 static void do_property_block(CsCompiler *c, const char* valName);
+
 static void do_get_set(CsCompiler *c, bool get, const char* valName);
 static void do_return(CsCompiler *c);
 static void do_delete(CsCompiler *c);
@@ -1499,8 +1500,14 @@ static void UnwindStack(CsCompiler *c,int levels)
 
 static void UnwindTryStack(CsCompiler *c, int& retaddr)
 {
+    int levels = c->blockLevel;
+
     if(!c->tcStack)
+    {
+      for(;levels > 0;--levels)
+        putcbyte(c,BC_UNFRAME);
       return;
+    }
 
     CsCompiler::TryCatchDef* ptcsi = c->tcStack;
     // order: innermost finally first
@@ -1508,10 +1515,16 @@ static void UnwindTryStack(CsCompiler *c, int& retaddr)
     {
       if(ptcsi->inTry)
         putcbyte ( c, BC_EH_POP );
+
+      for(;ptcsi->blockLevel > levels;--levels)
+        putcbyte(c,BC_UNFRAME);
+
       putcbyte ( c, BC_S_CALL );
       ptcsi->finallyAddr = putcword(c,ptcsi->finallyAddr);
       ptcsi = ptcsi->prev;
     }
+    for (;levels > 0;--levels)
+      putcbyte(c,BC_UNFRAME);
     putcbyte ( c, BC_BR);
     retaddr = putcword(c,retaddr);
 }
@@ -1820,6 +1833,7 @@ static void do_try(CsCompiler *c)
     frequire(c,'{');
 
     CsCompiler::TryCatchDef tcdef;
+    tcdef.blockLevel = c->blockLevel;
     tcdef.prev = c->tcStack;
     c->tcStack = &tcdef;
 
@@ -2519,7 +2533,6 @@ static void do_block(CsCompiler *c, char *parameter)
         CloseArgFrame(c,atable,ptr);
         --c->blockLevel;
     }
-
 }
 
 
@@ -2621,8 +2634,9 @@ static void do_return(CsCompiler *c)
     if ((tkn = CsToken(c)) != ';')
       CsSaveToken(c,tkn);
   }
-  UnwindStack(c,c->blockLevel);
+  //UnwindStack(c,c->blockLevel); - functionality moved to UnwindTryStack
   UnwindTryStack(c,end);
+
   fixup(c,end,codeaddr(c));
   putcbyte(c,BC_RETURN);
 }
