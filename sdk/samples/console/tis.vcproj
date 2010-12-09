@@ -4,6 +4,7 @@
 	Version="8.00"
 	Name="tis"
 	ProjectGUID="{1F305CB7-8163-41C6-93BC-BA20A6D38FE8}"
+	RootNamespace="tis"
 	>
 	<Platforms>
 		<Platform
@@ -66,7 +67,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="odbc32.lib odbccp32.lib ../../lib/tiscript.lib"
+				AdditionalDependencies="../../lib/tiscript.lib"
 				OutputFile="../../bin/tis.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
@@ -245,6 +246,10 @@
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl"
 			>
+			<File
+				RelativePath="..\..\include\aux-cvt.h"
+				>
+			</File>
 			<File
 				RelativePath="..\..\include\tiscript-streams.hpp"
 				>

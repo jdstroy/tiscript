@@ -2,6 +2,7 @@
 #define __tiscript_streams_hpp__
 
 #include "tiscript.h"
+#include "aux-cvt.h"
 #include <string>
 
 namespace tiscript 
@@ -82,6 +83,53 @@ namespace tiscript
     }
     bool is_valid() const { return _file != 0; }
   };
+
+  // file input UTF-8 stream. 
+  class file_utf8_istream: public stream
+  {
+    FILE*        _file;  
+    std::wstring _name;
+    pod::byte_buffer  _utf8;
+    pod::wchar_buffer _wchars;
+    int               _pos;
+
+    virtual bool fetch_string() 
+    { 
+      if(!_file || feof(_file)) return false;
+      _utf8.clear();
+      while(!feof(_file))
+      {
+        int c = fgetc(_file);
+        _utf8.push(byte(c & 0xff)); 
+        if( c == '\n' )
+        {
+          _wchars.clear();
+          utf8::towcs(_utf8.data(),_utf8.length(),_wchars);
+          _pos = 0;
+          break;
+        }
+      }
+      return true;
+    }
+
+  public:
+    file_utf8_istream(const wchar_t* filename) {  _file = _wfopen(filename,L"rb"); _name = filename; }
+    virtual void close() { if(_file) {fclose(_file);_file = 0;} }
+
+    virtual const wchar_t* stream_name() { return _name.c_str(); }
+
+    virtual int get() 
+    { 
+      if( _pos >= _wchars.length() )
+      {
+        if(!fetch_string())
+          return -1;
+      }
+      return _wchars.data()[_pos++];
+    }
+    bool is_valid() const { return _file != 0; }
+  };
+
 
   inline wchar oem2wchar(char c)
   {

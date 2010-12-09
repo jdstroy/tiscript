@@ -1,3 +1,5 @@
+LIBRARY tiscript
+
 EXPORTS
   TIScriptAPI
 
