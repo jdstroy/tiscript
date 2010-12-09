@@ -41,4 +41,17 @@ var old_caption = mb.caption;
       stdout.printf( "got:%V\n",what );
     }
     
-    
+  
+    var months = [ 
+        "января", "февраля", "марта", "апреля", "мая", "июня", 
+        "июля", "августа", "сентября", "октября", "ноября", "декабря" 
+    ];
+
+    // m in [1..12]
+    function get_date_string( y, m, d )
+    {
+        return String.printf( "%d %s %d г.", d, months[ m - 1 ], y );
+    }   
+
+
+ 

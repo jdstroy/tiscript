@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
   file_in = argv[n];
 
   //ok, we've got here file name to execute
-  tiscript::file_istream* input = new tiscript::file_istream( aux::a2w(file_in) );
+  tiscript::file_utf8_istream *input = new tiscript::file_utf8_istream( aux::a2w(file_in) );
   if(!input->is_valid())
   {
     printf("cannot open %s\n", file_in);
@@ -85,12 +85,17 @@ int main(int argc, char* argv[])
     tiscript::value arg = tiscript::v_string(vm,L"{ok:true}");
     retval = tiscript::call(vm, "generateForm", &arg, 1);
   }
-  //function generateForm(data, lang=null){
-	//var obj = JSON.parse(data);
-	//if(typeof obj=="object"){
-	//	return createForm(obj, lang, false, false);
-	//}
 
+  tiscript::value argv2[] = 
+        { 
+            tiscript::v_int( 2010 ),
+            tiscript::v_int( 12 ),
+            tiscript::v_int( 9 )
+        };
+
+  tiscript::value rt = tiscript::call( vm, tiscript::get_global_ns( vm ), "get_date_string", argv2, 3 );
+
+  std::wstring const date = tiscript::c_string( rt );
 
   return 0;
   
