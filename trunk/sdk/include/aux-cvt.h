@@ -140,13 +140,17 @@
 #define w2u( S ) aux::w2utf(S)
 #define u2w( S ) aux::utf2w(S)
 
-#define i2a( I ) aux::atoi(I)
-#define i2w( I ) aux::atow(I)
+#define i2a( I ) aux::itoa(I)
+#define i2w( I ) aux::itow(I)
+
+#define a2i( S ) aux::atoi(S,0)
+#define w2i( S ) aux::wtoi(S,0)
+
 
 inline void* zalloc ( size_t sz)
 {
     void* p = malloc(sz);
-    memset(p,0,sz);
+    if(p) memset(p,0,sz);
     return p;
 }
 
@@ -273,12 +277,14 @@ namespace utf8
           ++num_errors;
           continue;
         }
-        if( sizeof(wchar_t) == 16 ) // Seems like Windows, wchar_t is utf16 code units sequence there.
+//#pragma warning( suppress:4127 ) //  warning C4127: conditional expression is constant
+        if( sizeof(wchar_t) == 2 ) // Seems like Windows, wchar_t is utf16 code units sequence there.
         {
           outbuf.push( wchar_t(0xd7c0 + (b >> 10)) );
           outbuf.push( wchar_t(0xdc00 | (b & 0x3ff)) );
         }
-        else if( sizeof(wchar_t) >= 21 ) // wchar_t is full ucs-4 
+//#pragma warning( suppress:4127 ) //  warning C4127: conditional expression is constant
+        else if( sizeof(wchar_t) >= 4 ) // wchar_t is full ucs-4 (21-bit)
         {
           outbuf.push( wchar_t(b) );
         }
@@ -475,9 +481,9 @@ namespace aux
 
     void init(const wchar_t* wstr, unsigned int nu)
     { 
-      n = ::WideCharToMultiByte(CP_ACP,0,wstr,nu,0,0,0,0);
+      n = WideCharToMultiByte(CP_ACP,0,wstr,nu,0,0,0,0);
       buffer = (n < (16-1))? local:new char[n+1];
-      ::WideCharToMultiByte(CP_ACP,0,wstr,nu,buffer,n,0,0);
+      WideCharToMultiByte(CP_ACP,0,wstr,nu,buffer,n,0,0);
       buffer[n] = 0;
     }
   public:
@@ -488,7 +494,7 @@ namespace aux
     }
     explicit w2a(const std::wstring& wstr):buffer(0),n(0)
     { 
-      init(wstr.c_str(),wstr.length());
+      init(wstr.c_str(),(unsigned int)wstr.length());
     }
     explicit w2a(slice<wchar_t> s);
 
@@ -504,16 +510,24 @@ namespace aux
     unsigned int nu;
     void init(const char* str, unsigned int n)
     { 
-      nu = ::MultiByteToWideChar(CP_THREAD_ACP,0,str,n,0,0);
+#ifdef _WIN32_WCE
+      nu = MultiByteToWideChar(CP_ACP,0,str,n,0,0);
+#else
+      nu = MultiByteToWideChar(CP_THREAD_ACP,0,str,n,0,0);
+#endif
       buffer = ( nu < (16-1) )? local: new wchar_t[nu+1];
-      ::MultiByteToWideChar(CP_ACP,0,str,n,buffer,nu);
+#ifdef _WIN32_WCE
+      MultiByteToWideChar(CP_ACP,0,str,n,buffer,nu);
+#else
+      MultiByteToWideChar(CP_THREAD_ACP,0,str,n,buffer,nu);
+#endif
       buffer[nu] = 0;
     }
   public:
     explicit a2w(const char* str):buffer(0), nu(0)
     { 
       if(str)
-        init(str, strlen(str));
+        init(str, (unsigned int)strlen(str) );
     }
     explicit a2w(slice<char> s);
     ~a2w() {  if(buffer != local) delete[] buffer;  }
@@ -545,7 +559,7 @@ namespace aux
     ~utf2w() {}
 
     operator const wchar_t*() { return buffer.data(); }
-    unsigned int length() const { return buffer.length(); }
+    unsigned int length() const { return (unsigned int)buffer.length(); }
 
     pod::wchar_buffer& get_buffer() { return buffer; }
 
@@ -570,7 +584,7 @@ namespace aux
     ~w2utf() {}
     operator const byte*() { return buffer.data(); }
     operator const char*() { return (const char*)buffer.data(); }
-    unsigned int length() const { return buffer.length(); }
+    unsigned int length() const { return (unsigned int)buffer.length(); }
   };
 
 
